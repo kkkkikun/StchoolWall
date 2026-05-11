@@ -8,6 +8,7 @@ from app.models.user import User
 from app.utils.security import decode_access_token
 
 bearer_scheme = HTTPBearer()
+bearer_scheme_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -29,6 +30,29 @@ async def get_current_user(
 
     if user.status == 0:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被冻结")
+
+    return user
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme_optional),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    if credentials is None:
+        return None
+
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or user.status == 0:
+        return None
 
     return user
 

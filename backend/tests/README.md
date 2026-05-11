@@ -95,6 +95,58 @@ async def test_something(client, student_user, test_redis):
 | `test_verify_missing_fields` | 缺少 password 字段返回 422 | 参数校验完整 |
 | `test_verify_rate_limit_by_ip` | 11 次请求后返回 429 | IP 限流防护生效 |
 
+### test_posts.py — 帖子模块集成测试
+
+#### 发帖 POST /api/v1/posts
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_student_create_post` | student 发帖成功，初始状态 0（待审核） | 学生发帖基础链路 |
+| `test_admin_create_post_auto_approved` | admin 发帖状态直接为 1 | 管理员免审核机制 |
+| `test_admin_create_advertisement` | admin 可发 advertisement 类型 | 广告发布权限正确 |
+| `test_student_cannot_create_advertisement` | student 发广告返回 403 | 广告权限隔离有效 |
+| `test_create_post_with_all_fields` | 带 images、price 的帖子正常创建 | 扩展字段写入正常 |
+| `test_guest_cannot_create_post` | guest 发帖返回 403 | 未认证用户无法发帖 |
+| `test_no_token_cannot_create` | 无 Token 发帖返回 403 | 接口受鉴权保护 |
+
+#### 帖子列表 GET /api/v1/posts
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_empty_list` | 无帖子时返回空列表和 has_more=false | 空状态不报错 |
+| `test_list_returns_visible_posts` | 只返回 status=1 的非广告帖 | 可见性过滤正确 |
+| `test_advertisements_pinned` | 广告帖排在普通帖前面 | 置顶逻辑有效 |
+| `test_list_public_no_token` | 无 Token 可访问列表 | 公开接口无需登录 |
+| `test_list_does_not_expose_real_name` | 列表中不暴露 real_name | 隐私保护生效 |
+
+#### 帖子详情 GET /api/v1/posts/{post_id}（隐私隔离）
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_admin_sees_everything` | admin 可看 real_name、student_id、contact_wechat | 管理员全量权限 |
+| `test_author_sees_own_real_name` | 作者看自己的帖子能看到 real_name | 自有内容权限正确 |
+| `test_student_sees_wechat_but_not_real_name` | 其他 student 能看 wechat_id，看不到 real_name | C2C 联系方式暴露合理 |
+| `test_guest_sees_nothing_sensitive` | guest 无 contact_wechat、无 real_name | 游客隐私隔离 |
+| `test_nonexistent_post` | 不存在的帖子返回 404 | 资源不存在处理正确 |
+
+#### 状态变更 PUT /api/v1/posts/{post_id}/status
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_author_archive_post` | 作者标记已解决 → status=2 | 状态流转 1→2 正常 |
+| `test_author_soft_delete` | 作者软删除 → status=-2 | 状态流转 1→-2 正常 |
+| `test_admin_block_post` | admin 封禁帖子 → status=-1 | 管理员封禁权限 |
+| `test_cannot_archive_others_post` | 不能归档别人的帖子 → 400 | 权限隔离 |
+| `test_invalid_transition` | 从 0 直接到 2 被拒绝 → 400 | 状态机校验有效 |
+
+#### 举报 POST /api/v1/posts/{post_id}/report
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_report_success` | 举报成功且帖子状态不变 | 举报不影响帖子可见性 |
+| `test_report_nonexistent_post` | 举报不存在的帖子 → 404 | 资源不存在处理正确 |
+| `test_guest_cannot_report` | guest 举报返回 403 | 未认证用户无法举报 |
+
 ### test_user.py — 用户资料接口集成测试
 
 #### 获取资料 GET /api/v1/user/profile

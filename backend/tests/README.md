@@ -238,6 +238,18 @@ async def test_something(client, student_user, test_redis):
 | `test_nonexistent_user` | 不存在的用户返回 404 | 资源不存在处理正确 |
 | `test_student_cannot_freeze` | student 返回 403 | Admin 接口权限隔离 |
 
+### test_moderation.py — 异步审核任务测试
+
+#### 后台审核任务
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_student_post_triggers_moderation` | student 发帖触发后台任务，status 0→1 | BackgroundTasks 调用正确，状态流转正常 |
+| `test_post_without_images_passes_directly` | 无图片帖子直接通过 | 空 images 跳过审核 |
+| `test_admin_post_skips_moderation` | admin 发帖不触发后台任务（已 status=1） | Admin 免审核机制生效 |
+| `test_moderation_failure_blocks_post` | Mock 审核失败，status 0→-1 | 违规内容封禁链路正常 |
+| `test_text_moderation` | Mock 文本审核失败，status 0→-1 | 文本审核（可选）机制可用 |
+
 ### test_user.py — 用户资料接口集成测试
 
 #### 获取资料 GET /api/v1/user/profile

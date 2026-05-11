@@ -5,6 +5,7 @@ from app.database import get_db
 from app.dependencies import get_optional_user, require_role
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
+from app.services.moderation import check_post_images
 from app.services.post import (
     create_post,
     get_post_detail,
@@ -30,6 +31,7 @@ async def get_posts(
 @router.post("")
 async def new_post(
     body: PostCreate,
+    bg_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
@@ -43,6 +45,11 @@ async def new_post(
         db, user, body.post_type, body.content,
         body.images, body.price, body.tag_ids,
     )
+
+    # Student 发帖需后台审核，admin 直接通过
+    if post.status == 0:
+        bg_tasks.add_task(check_post_images, post.id)
+
     return {
         "code": 0,
         "message": "发布成功" if post.status == 1 else "发布成功，图片审核中",

@@ -173,6 +173,71 @@ async def test_something(client, student_user, test_redis):
 | `test_upload_no_token_rejected` | 无 Token 返回 403 | 接口受鉴权保护 |
 | `test_upload_missing_path_rejected` | 缺少 path 参数返回 422 | 参数校验生效 |
 
+### test_tags.py — 标签管理集成测试
+
+#### 标签列表 GET /api/v1/tags
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_empty_list` | 无标签时返回空列表 | 空状态不报错 |
+| `test_list_returns_all_tags` | 返回所有已创建标签 | 列表查询正确 |
+| `test_list_public_no_token` | 无 Token 可访问 | 公开接口无需登录 |
+
+#### 创建标签 POST /api/v1/tags
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_admin_create_tag` | admin 创建标签成功 | 标签创建链路正常 |
+| `test_duplicate_name_rejected` | 重复标签名返回 409 | 唯一性约束生效 |
+| `test_student_cannot_create` | student 返回 403 | 权限隔离正确 |
+| `test_no_token_cannot_create` | 无 Token 返回 403 | 接口受鉴权保护 |
+| `test_empty_name_rejected` | 空标签名返回 422 | 参数校验生效 |
+
+#### 删除标签 DELETE /api/v1/tags/{tag_id}
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_admin_delete_tag` | admin 删除成功，列表确认已删除 | 级联删除正常 |
+| `test_delete_nonexistent_tag` | 不存在的标签返回 404 | 资源不存在处理正确 |
+| `test_student_cannot_delete` | student 返回 403 | 权限隔离正确 |
+
+### test_admin.py — Admin 管理后台集成测试
+
+#### 举报列表 GET /api/v1/admin/reports
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_admin_list_reports` | admin 查看举报列表含帖子信息 | 举报列表查询正确 |
+| `test_filter_by_status` | 按状态过滤举报 | 状态过滤生效 |
+| `test_student_cannot_list_reports` | student 返回 403 | Admin 接口权限隔离 |
+| `test_no_token_rejected` | 无 Token 返回 403 | 接口受鉴权保护 |
+
+#### 处理举报 PUT /api/v1/admin/reports/{id}
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_dismiss_report` | 驳回举报，状态变为 dismissed | 举报驳回链路正常 |
+| `test_ban_post` | 封禁帖子，post.status=-1 | 封禁帖子链路正常 |
+| `test_ban_user` | 封禁用户，帖子-1 + 用户冻结 | 最重处罚完整链路 |
+| `test_handle_nonexistent_report` | 不存在的举报返回 404 | 资源不存在处理正确 |
+| `test_cannot_handle_twice` | 已处理的举报不能重复操作 | 幂等性保护 |
+
+#### 用户列表 GET /api/v1/admin/users
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_admin_list_users` | admin 查看用户列表 | 用户列表查询正确 |
+| `test_student_cannot_list_users` | student 返回 403 | Admin 接口权限隔离 |
+
+#### 冻结/解冻用户 PUT /api/v1/admin/users/{id}/status
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_freeze_user` | 冻结用户 status=0 | 用户冻结链路正常 |
+| `test_unfreeze_user` | 解冻用户 status=1 | 用户解冻链路正常 |
+| `test_nonexistent_user` | 不存在的用户返回 404 | 资源不存在处理正确 |
+| `test_student_cannot_freeze` | student 返回 403 | Admin 接口权限隔离 |
+
 ### test_user.py — 用户资料接口集成测试
 
 #### 获取资料 GET /api/v1/user/profile

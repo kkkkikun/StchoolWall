@@ -147,6 +147,32 @@ async def test_something(client, student_user, test_redis):
 | `test_report_nonexistent_post` | 举报不存在的帖子 → 404 | 资源不存在处理正确 |
 | `test_guest_cannot_report` | guest 举报返回 403 | 未认证用户无法举报 |
 
+### test_upload.py — 文件上传模块集成测试
+
+#### 获取上传配置 GET /api/v1/upload/config
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_local_config` | local 模式返回 POST 策略和 direct 接口地址 | 本地存储配置下发正确 |
+| `test_r2_config` | R2 模式返回 PUT 策略和预签名 URL（mock boto3） | Cloudflare R2 集成链路正确 |
+| `test_admin_can_get_config` | admin 能获取上传配置 | 管理员权限正确 |
+| `test_guest_cannot_get_config` | guest 返回 403 | 未认证用户无法获取配置 |
+| `test_no_token_rejected` | 无 Token 返回 403 | 接口受鉴权保护 |
+| `test_invalid_file_type_rejected` | .exe 文件被拒绝 → 400 | 文件类型白名单生效 |
+| `test_invalid_content_type_rejected` | video/mp4 被拒绝 → 400 | content_type 校验生效 |
+| `test_missing_filename_rejected` | 缺少 filename 返回 422 | 参数校验生效 |
+
+#### 本地直接上传 POST /api/v1/upload/direct
+
+| 测试 | 验证内容 | 通过意味着 |
+|------|----------|------------|
+| `test_upload_success` | 上传图片成功，返回 public_url | 本地存储写入正常 |
+| `test_upload_png` | PNG 格式上传成功 | 多图片格式支持 |
+| `test_upload_rejects_non_image` | PDF 上传被拒绝 → 400 | 非图片拦截 |
+| `test_upload_guest_forbidden` | guest 返回 403 | 未认证用户无法上传 |
+| `test_upload_no_token_rejected` | 无 Token 返回 403 | 接口受鉴权保护 |
+| `test_upload_missing_path_rejected` | 缺少 path 参数返回 422 | 参数校验生效 |
+
 ### test_user.py — 用户资料接口集成测试
 
 #### 获取资料 GET /api/v1/user/profile

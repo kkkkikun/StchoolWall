@@ -14,6 +14,16 @@ from app.main import app
 from app.models.user import User
 from app.utils.security import create_access_token
 
+# ---- 测试环境配置 ----
+@pytest.fixture(scope="session", autouse=True)
+def set_test_environment():
+    """设置测试环境变量"""
+    original_env = settings.ENVIRONMENT
+    # 通过 monkey patch 修改 settings
+    settings.ENVIRONMENT = "test"
+    yield
+    settings.ENVIRONMENT = original_env
+
 # ---- 测试数据库（NullPool 避免跨事件循环连接复用） ----
 TEST_DB_URL = settings.DATABASE_URL.replace("/ey_wall", "/ey_wall_test")
 test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)

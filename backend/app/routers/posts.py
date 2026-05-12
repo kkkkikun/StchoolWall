@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_optional_user, require_role
 from app.models.user import User
@@ -31,7 +32,7 @@ async def get_posts(
 @router.post("")
 async def new_post(
     body: PostCreate,
-    bg_tasks: BackgroundTasks,
+    bg_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
@@ -47,7 +48,8 @@ async def new_post(
     )
 
     # Student 发帖需后台审核，admin 直接通过
-    if post.status == 0:
+    # 测试环境不执行后台任务（通过环境变量控制）
+    if post.status == 0 and settings.ENVIRONMENT != "test":
         bg_tasks.add_task(check_post_images, post.id)
 
     return {

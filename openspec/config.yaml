@@ -1,0 +1,46 @@
+schema: spec-driven
+
+context: |
+  项目：SchoolWall（鄂应墙）—— 校园匿名墙 / 信息撮合平台（微信小程序 + API）。
+  架构：前后端分离，全异步。
+
+  Tech stack:
+    - 后端：Python 3.10 + FastAPI 0.115 + Uvicorn（异步）
+    - ORM/DB：SQLAlchemy 2.0 async + asyncpg + Alembic 迁移；PostgreSQL 15
+    - 缓存/队列：Redis 7（hiredis）—— Token 校验、限流、异步审核任务
+    - 认证：python-jose JWT；微信 wx.login 换 openid；正方教务系统爬虫（rsa + beautifulsoup4 + httpx）做学籍实名
+    - 存储：boto3 适配器，支持 local / Cloudflare R2 / aliyun
+    - 前端：uni-app (Vue 3 + Vite 5)，多端编译，首选微信小程序；TypeScript 4.9；vue-i18n
+    - 基础设施：Docker Compose（PostgreSQL + Redis）；生产 Nginx 反向代理 + HTTPS
+
+  语言偏好：
+    - 所有产出物（specs / proposal / design / tasks / SNAPSHOT / tasks.md）必须用简体中文撰写。
+    - 技术术语如 API、JWT、Redis、OpenID 保持英文原样。
+    - 标识符、表名、字段名使用 snake_case（后端）。
+
+  项目约束：
+    - 绝对禁止持久化存储用户教务系统密码（内存中用完即销毁）。
+    - real_name 仅作核验底单，绝不在前端公开。
+    - 发帖内容须经审核（异步后台任务）。
+    - 测试体系：pytest + pytest-asyncio，独立测试库 ey_wall_test，NullPool，每测试 TRUNCATE。
+
+rules:
+  proposal:
+    - 包含回滚方案
+    - 说明为什么做、做什么、不做什么（Non-goals）
+    - 标注影响范围（后端 / 前端 / DB 迁移 / 测试）
+    - 涉及鉴权、密码、隐私字段时必须显式说明安全影响
+  specs:
+    - 使用 Given/When/Then（或 WHEN/THEN）格式描述行为
+    - 每个 spec.md 顶部标注版本号和最后更新日期
+    - 变更时使用 Delta Specs（ADDED/MODIFIED/REMOVED）
+    - 需求必须可验证，避免模糊措辞
+  design:
+    - 复杂流程（鉴权链路、爬虫、审核队列）需包含序列图或步骤编号
+    - 标注关键依赖关系与外部服务
+    - 涉及多方案时包含备选方案对比
+    - 标注异步边界、并发与失败重试策略
+  tasks:
+    - 每个任务可独立验证，标注依赖关系
+    - 包含验收标准（运行哪条 pytest / curl / 手测步骤）
+    - 区分 backend / frontend / db / docs 标签

@@ -14,11 +14,24 @@
 
 /* 颜色变量 */
 
-/* 行为相关颜色 */
-$uni-color-primary: #007aff;
+/* 行为相关颜色 —— 鄂应墙红色品牌主题 */
+$uni-color-primary: #f73b43;
 $uni-color-success: #4cd964;
 $uni-color-warning: #f0ad4e;
-$uni-color-error: #dd524d;
+$uni-color-error: #ff3b30;
+
+/* 鄂应墙设计 token（品牌专用，全站复用） */
+$brand-red: #f73b43;          // 主品牌红：头部/主按钮/tab 高亮
+$brand-red-dark: #ff3b30;     // 强调红：角标/热标
+$brand-red-soft: #fcf1f2;     // 红色浅底：热搜标签背景
+$brand-orange: #ff7e40;       // 渐变橙：热帖侧栏
+$bg-page: #f7f8fa;            // 页面灰底
+$bg-group: #fff9f5;           // 组局页暖米底
+$radius-card: 24rpx;          // 卡片圆角
+$radius-btn: 44rpx;           // 胶囊按钮圆角
+$text-1: #222222;             // 主文本
+$text-2: #555555;             // 次级文本
+$text-3: #999999;             // 辅助/时间
 
 /* 文字基本颜色 */
 $uni-text-color: #333; // 基本色

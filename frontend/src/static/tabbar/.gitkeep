@@ -1,0 +1,12 @@
+# TabBar Icons
+
+请在此目录放置以下图标（尺寸建议 81x81 px）：
+
+- home.png (首页未选中)
+- home-active.png (首页选中)
+- add.png (发布未选中)
+- add-active.png (发布选中)
+- mine.png (我的未选中)
+- mine-active.png (我的选中)
+
+可以使用纯色占位图临时替代，正式发布前替换为实际图标。

@@ -1,0 +1,90 @@
+import type { PostBrief, PostCreate, PostDetail, PostListResponse } from '@/types/api'
+import { get, post, put } from '@/utils/request'
+
+/**
+ * 后端响应 → 前端类型映射（防腐蚀层）。
+ * 后端列表项：{..., user:{nickname}, like_count, comment_count, view_count, is_liked, is_favorited}
+ * 前端 PostBrief：{author:{...}, is_pinned, updated_at, tags?, + 互动字段}
+ */
+type RawPost = Record<string, any>
+
+function mapBrief(raw: RawPost): PostBrief {
+  return {
+    id: raw.id,
+    post_type: raw.post_type,
+    content: raw.content,
+    images: raw.images || [],
+    price: raw.price ?? undefined,
+    status: raw.status,
+    is_pinned: false,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at || raw.created_at,
+    author: {
+      id: raw.author?.id ?? 0,
+      nickname: raw.user?.nickname ?? raw.author?.nickname ?? '匿名',
+      avatar_url: raw.author?.avatar_url,
+    },
+    tags: [],
+    like_count: raw.like_count ?? 0,
+    comment_count: raw.comment_count ?? 0,
+    view_count: raw.view_count ?? 0,
+    is_liked: !!raw.is_liked,
+    is_favorited: !!raw.is_favorited,
+  }
+}
+
+function mapDetail(raw: RawPost): PostDetail {
+  return {
+    ...mapBrief(raw),
+    view_count: raw.view_count ?? 0,
+    contact_info: raw.contact_wechat ?? raw.contact_info,
+    is_reported: raw.is_reported,
+  }
+}
+
+/** 获取帖子列表 */
+export async function getPosts(cursor?: number, postType?: string): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType })
+  return {
+    items: (data.items || []).map(mapBrief),
+    next_cursor: data.next_cursor,
+    has_more: data.has_more,
+  }
+}
+
+/** 获取帖子详情 */
+export async function getPostDetail(postId: number): Promise<PostDetail> {
+  const raw = await get<RawPost>(`/posts/${postId}`)
+  return mapDetail(raw)
+}
+
+/** 十大热帖 */
+export async function getHotPosts(limit = 10): Promise<PostBrief[]> {
+  const data = await get<{ items: RawPost[] }>('/posts/hot', { limit })
+  return (data.items || []).map(mapBrief)
+}
+
+/** 搜索帖子 */
+export async function searchPosts(q: string, cursor?: number): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts/search', { q, cursor })
+  return {
+    items: (data.items || []).map(mapBrief),
+    next_cursor: data.next_cursor,
+    has_more: data.has_more,
+  }
+}
+
+/** 发布帖子 */
+export function createPost(data: PostCreate) {
+  return post<{ post_id: number; status: number }>('/posts', data)
+}
+
+/** 更新帖子状态 */
+export function updatePostStatus(postId: number, status: number) {
+  return put<{ status: number }>(`/posts/${postId}/status`, { status })
+}
+
+/** 举报帖子 */
+export function reportPost(postId: number, reason: string, description?: string) {
+  return post(`/posts/${postId}/report`, { reason, description })
+}

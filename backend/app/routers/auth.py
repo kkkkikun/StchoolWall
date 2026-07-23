@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.auth import LoginResponse, VerifyRequest, WxLoginRequest
-from app.services.auth import student_verify, wx_login
+from app.services.auth import dev_login, student_verify, wx_login
 from app.utils.rate_limit import check_rate_limit
 
 router = APIRouter()
@@ -15,6 +16,14 @@ router = APIRouter()
 async def login(body: WxLoginRequest, db: AsyncSession = Depends(get_db)):
     """微信静默登录"""
     return await wx_login(body.code, db)
+
+
+@router.post("/dev-login")
+async def dev_login_route(db: AsyncSession = Depends(get_db)):
+    """开发环境一键登录（仅 development 暴露，用于 H5 预览联调）。"""
+    if settings.ENVIRONMENT != "development":
+        raise HTTPException(status_code=404, detail="Not Found")
+    return await dev_login(db)
 
 
 @router.post("/verify")

@@ -3,15 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_optional_user, require_role
+from app.dependencies import get_current_user, get_optional_user, require_role
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
 from app.services.moderation import check_post_images
 from app.services.post import (
     create_post,
     get_post_detail,
+    hot_posts,
     list_posts,
     report_post,
+    search_posts,
     update_post_status,
 )
 
@@ -23,9 +25,10 @@ async def get_posts(
     cursor: int | None = Query(None),
     post_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
-    """获取帖子列表（公开，游标分页，广告置顶）"""
-    items, next_cursor, has_more = await list_posts(db, cursor, post_type)
+    """获取帖子列表（公开，游标分页，广告置顶，带互动计数与当前用户视角）"""
+    items, next_cursor, has_more = await list_posts(db, cursor, post_type, viewer=user)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
@@ -57,6 +60,27 @@ async def new_post(
         "message": "发布成功" if post.status == 1 else "发布成功，图片审核中",
         "data": {"post_id": post.id, "status": post.status},
     }
+
+
+@router.get("/hot")
+async def hot_posts_route(
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """十大热帖（公开）"""
+    items = await hot_posts(db, limit)
+    return {"code": 0, "data": {"items": items}}
+
+
+@router.get("/search")
+async def search_posts_route(
+    q: str = Query(..., min_length=1),
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """帖子搜索（公开）"""
+    items, next_cursor, has_more = await search_posts(db, q, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
 @router.get("/{post_id}")

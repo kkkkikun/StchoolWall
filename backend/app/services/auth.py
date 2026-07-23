@@ -62,6 +62,40 @@ async def wx_login(code: str, db: AsyncSession) -> dict:
     }
 
 
+async def dev_login(db: AsyncSession) -> dict:
+    """开发环境一键登录（演示学生），仅 ENVIRONMENT=development 暴露路由。"""
+    openid = "dev_demo_student"
+    result = await db.execute(select(User).where(User.openid == openid))
+    user = result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            openid=openid,
+            nickname="演示同学",
+            role="student",
+            is_verified=True,
+            student_id="2024DEV",
+            real_name="演示同学",
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "access_token": token,
+            "role": user.role,
+            "user_info": {
+                "id": str(user.id),
+                "nickname": user.nickname,
+                "is_verified": user.is_verified,
+            },
+        },
+    }
+
+
 async def student_verify(
     user: User, student_id: str, password: str, db: AsyncSession
 ) -> dict:

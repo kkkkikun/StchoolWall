@@ -45,6 +45,12 @@
 			}
 		},
 		{
+			"path": "pages/party-create/index",
+			"style": {
+				"navigationBarTitleText": "发起攒局"
+			}
+		},
+		{
 			"path": "pages/verify/index",
 			"style": {
 				"navigationBarTitleText": "学籍认证"

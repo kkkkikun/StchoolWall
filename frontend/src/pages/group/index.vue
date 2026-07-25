@@ -1,27 +1,14 @@
 <template>
   <view class="page-group">
-    <!-- 1. 累计攒局统计 -->
-    <view class="header-stats" @tap="onViewStats">
-      <text class="stats-text">已攒 <text class="highlight-num">{{ totalUser }}</text> 人</text>
-      <text class="arrow-right">›</text>
+    <!-- 1. 累计攒局人数 -->
+    <view class="header-stats">
+      <text class="stats-text">已攒 <text class="highlight-num">{{ totalMembers }}</text> 人</text>
+      <text v-if="mode === 'mine'" class="back-all" @tap="setMode('all')">返回全部 ›</text>
     </view>
 
-    <!-- 2. 轮播 Banner -->
-    <swiper class="banner-swiper" indicator-dots indicator-color="rgba(0,0,0,0.1)" indicator-active-color="#ff4d4f" autoplay circular>
-      <swiper-item>
-        <view class="swiper-content" @tap="onManual">
-          <text class="banner-emoji">📌</text>
-          <view class="banner-meta">
-            <text class="banner-title">组局新手手册</text>
-            <text class="banner-desc">3 分钟学会发起你的第一场局</text>
-          </view>
-        </view>
-      </swiper-item>
-    </swiper>
-
-    <!-- 3. 双核动作卡 -->
+    <!-- 2. 双核动作卡 -->
     <view class="action-cards">
-      <view class="action-card card-blue" @tap="goMyGroups">
+      <view class="action-card card-blue" @tap="setMode('mine')">
         <text class="card-title">我加入的局</text>
         <text class="card-icon">👥</text>
       </view>
@@ -31,67 +18,58 @@
       </view>
     </view>
 
-    <!-- 4. 分类筛选 -->
-    <view class="filter-grid">
+    <!-- 3. 分类筛选（mode=all 时显示） -->
+    <view v-if="mode === 'all'" class="filter-grid">
       <view
         v-for="c in categories"
         :key="c.id"
         class="tag-pill"
-        :class="{ active: currentTag === c.id }"
-        @tap="onTag(c.id)"
+        :class="{ active: activeFilter === c.id }"
+        @tap="onFilter(c)"
       >
         <text class="tag-icon">{{ c.icon }}</text>
         <text class="tag-name">{{ c.name }}</text>
-        <text class="tag-count">({{ c.count }})</text>
       </view>
     </view>
 
-    <!-- 5. 组局列表 -->
+    <!-- 4. 组局列表 -->
     <view class="party-list">
-      <view
-        v-for="item in partyList"
-        :key="item.id"
-        class="party-card"
-        @tap="goDetail(item.id)"
-      >
-        <!-- 左侧垂直类型标 -->
-        <view class="type-badge" :class="item.type === '组局' ? 'bg-red' : 'bg-orange'">
-          <text>{{ item.type[0] }}</text>
-          <text>{{ item.type[1] }}</text>
+      <view v-if="loading && parties.length === 0" class="tip"><text>加载中…</text></view>
+      <view v-else-if="parties.length === 0" class="tip"><text>{{ mode === 'mine' ? '还没有加入任何局' : '暂无组局，去发起一个吧' }}</text></view>
+
+      <view v-for="p in parties" :key="p.id" class="party-card">
+        <view class="type-badge" :class="p.type === 'group' ? 'bg-red' : 'bg-orange'">
+          <text>{{ p.type === 'group' ? '组' : '拼' }}</text>
         </view>
-
-        <!-- 右侧内容 -->
         <view class="card-main">
-          <view class="title-wrapper">
-            <text class="party-title">{{ item.title }}</text>
-            <text v-if="item.decorIcon" class="decorative-icon">{{ item.decorIcon }}</text>
-          </view>
-
+          <text class="party-title">{{ p.title }}</text>
           <view class="owner-info">
-            <view class="owner-avatar" :style="{ background: item.avatarColor }">
-              <text>{{ item.avatar }}</text>
+            <view class="owner-avatar" :style="{ background: colorOf(p.user.nickname) }">
+              <text>{{ (p.user.nickname || '?').slice(0, 1) }}</text>
             </view>
-            <text class="owner-name">{{ item.username }}</text>
+            <text class="owner-name">{{ p.user.nickname }}</text>
             <text class="divider">·</text>
-            <text class="post-date">{{ item.date }}</text>
+            <text class="post-date">{{ timeShort(p.created_at) }}</text>
+            <text v-if="p.location" class="divider">·</text>
+            <text v-if="p.location" class="post-date">📍{{ p.location }}</text>
           </view>
-
           <view class="progress-section">
             <view class="progress-bar-bg">
-              <view class="progress-bar-active" :style="{ width: progressOf(item) + '%' }" />
+              <view class="progress-bar-active" :style="{ width: progressOf(p) + '%' }" />
             </view>
             <view class="progress-meta">
-              <text class="count-text"><text class="current-num">{{ item.joined }}</text>/{{ item.total }}人</text>
-              <text class="status-label">已报名</text>
+              <text class="count-text"><text class="current-num">{{ p.joined_count }}</text>/{{ p.total }}人</text>
+              <view
+                class="join-btn"
+                :class="{ joined: p.is_joined, full: !p.is_joined && p.status === 2 }"
+                @tap="onJoin(p)"
+              >
+                <text>{{ p.is_joined ? '退出' : (p.status === 2 ? '已满' : '报名') }}</text>
+              </view>
             </view>
           </view>
         </view>
       </view>
-    </view>
-
-    <!-- 6. 悬浮搜索 -->
-    <view class="floating-search" @tap="onFloatingSearch">
-      <text>🔍</text>
     </view>
 
     <TabBar :current="1" />
@@ -102,316 +80,176 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
-import { GROUP_TOTAL_USER, PARTY_CATEGORIES, PARTY_LIST } from '@/utils/mock'
-import type { PartyItem } from '@/types/mock'
+import { listParties, partiesSummary, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
+import { tokenStorage } from '@/utils/storage'
 
-const totalUser = GROUP_TOTAL_USER
-const categories = PARTY_CATEGORIES
-const partyList = PARTY_LIST
-const currentTag = ref(0)
+// 分类筛选（第 1 项=有空位=only_vacant，其余=分类）
+const categories = [
+  { id: 'vacant', icon: '⭐', name: '有空位' },
+  { id: '自习', icon: '📖', name: '自习' },
+  { id: '电影', icon: '🎬', name: '电影' },
+  { id: '聚餐', icon: '🍴', name: '聚餐' },
+  { id: '拼车', icon: '🚗', name: '拼车' },
+  { id: '拼单', icon: '🛍️', name: '拼单' },
+  { id: '运动', icon: '🏃', name: '运动' },
+  { id: '游戏', icon: '🎮', name: '游戏' },
+  { id: '旅行', icon: '🌴', name: '旅行' },
+  { id: '其他', icon: '⚙️', name: '其他' },
+] as const
 
-onShow(() => {})
+const totalMembers = ref(0)
+const parties = ref<PartyItem[]>([])
+const loading = ref(false)
+const mode = ref<'all' | 'mine'>('all')
+const activeFilter = ref<string | null>(null)
 
-const progressOf = (item: PartyItem) => Math.min(100, Math.round((item.joined / item.total) * 100))
+const COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
+const colorOf = (s: string) => {
+  let h = 0
+  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return COLORS[h % COLORS.length]
+}
+const timeShort = (t: string) => {
+  const ts = new Date(t).getTime()
+  if (!ts) return ''
+  const d = new Date(t)
+  return `${d.getMonth() + 1}-${d.getDate()}`
+}
+const progressOf = (p: PartyItem) => Math.min(100, Math.round(((p.joined_count || 0) / p.total) * 100))
 
-const onTag = (id: number) => {
-  if (currentTag.value === id) return
-  currentTag.value = id
-  uni.showToast({ title: `筛选：${categories[id].name}`, icon: 'none' })
+const loadSummary = async () => {
+  try {
+    const s = await partiesSummary()
+    totalMembers.value = s.total_members
+  } catch { /* 忽略 */ }
 }
 
-const onViewStats = () => uni.showToast({ title: '累计统计开发中', icon: 'none' })
-const onManual = () => uni.showToast({ title: '组局手册开发中', icon: 'none' })
-const goMyGroups = () => uni.showToast({ title: '我加入的局（开发中）', icon: 'none' })
-const goCreate = () => uni.showToast({ title: '发起攒局（开发中）', icon: 'none' })
-const goDetail = (id: number) => uni.showToast({ title: `组局详情 #${id}`, icon: 'none' })
-const onFloatingSearch = () => uni.showToast({ title: '搜索组局（开发中）', icon: 'none' })
+const loadList = async () => {
+  loading.value = true
+  try {
+    if (mode.value === 'mine') {
+      if (!tokenStorage.isLoggedIn()) {
+        parties.value = []
+        uni.showToast({ title: '请先登录', icon: 'none' })
+        return
+      }
+      const res = await myParties()
+      parties.value = res.items
+    } else {
+      const params: { category?: string; only_vacant?: boolean } = {}
+      if (activeFilter.value === 'vacant') params.only_vacant = true
+      else if (activeFilter.value) params.category = activeFilter.value
+      const res = await listParties(params)
+      parties.value = res.items
+    }
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+onShow(() => {
+  loadSummary()
+  loadList()
+})
+
+const setMode = (m: 'all' | 'mine') => {
+  if (mode.value === m) return
+  mode.value = m
+  if (m === 'all') activeFilter.value = null
+  loadList()
+}
+
+const onFilter = (c: { id: string }) => {
+  activeFilter.value = activeFilter.value === c.id ? null : c.id
+  mode.value = 'all'
+  loadList()
+}
+
+const onJoin = async (p: PartyItem) => {
+  if (!tokenStorage.isLoggedIn()) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  if (!p.is_joined && p.status === 2) {
+    uni.showToast({ title: '已满员', icon: 'none' })
+    return
+  }
+  // 乐观更新
+  const wasJoined = p.is_joined
+  p.is_joined = !wasJoined
+  p.joined_count += wasJoined ? -1 : 1
+  try {
+    if (wasJoined) {
+      await leaveParty(p.id)
+    } else {
+      const r = await joinParty(p.id)
+      if (r.full) {
+        p.is_joined = false
+        p.joined_count -= 1
+        uni.showToast({ title: '手慢了，已满员', icon: 'none' })
+      }
+    }
+    await loadSummary()
+  } catch (e) {
+    // 回滚
+    p.is_joined = wasJoined
+    p.joined_count += wasJoined ? 1 : -1
+    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+  }
+}
+
+const goCreate = () => {
+  if (!tokenStorage.isLoggedIn()) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/party-create/index' })
+}
 </script>
 
 <style scoped>
-.page-group {
-  background-color: var(--bg-group);
-  padding: 20rpx 24rpx 40rpx;
-  min-height: 100vh;
-}
+.page-group { background-color: var(--bg-group); padding: 20rpx 24rpx 40rpx; min-height: 100vh; }
 
-.header-stats {
-  display: flex;
-  align-items: center;
-  font-size: 26rpx;
-  color: #666666;
-  padding: 10rpx;
-}
+.header-stats { display: flex; align-items: center; justify-content: space-between; font-size: 26rpx; color: #666; padding: 10rpx; }
+.highlight-num { color: var(--brand-red-dark); font-weight: bold; font-size: 32rpx; margin: 0 4rpx; }
+.back-all { color: var(--brand-red); font-size: 24rpx; }
 
-.highlight-num {
-  color: var(--brand-red-dark);
-  font-weight: bold;
-  font-size: 32rpx;
-  margin: 0 4rpx;
-}
+.action-cards { display: flex; justify-content: space-between; margin-top: 16rpx; }
+.action-card { width: 48%; height: 120rpx; border-radius: 20rpx; padding: 0 24rpx; display: flex; align-items: center; justify-content: space-between; color: #fff; }
+.card-blue { background: linear-gradient(135deg, #69c0ff, #1890ff); }
+.card-orange { background: linear-gradient(135deg, #ff9c6e, #ff4d4f); }
+.card-title { font-size: 30rpx; font-weight: bold; }
+.card-icon { font-size: 44rpx; }
 
-.arrow-right {
-  margin-left: 6rpx;
-  color: #ccc;
-  font-size: 30rpx;
-}
+.filter-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14rpx; margin-top: 24rpx; padding: 10rpx 0; }
+.tag-pill { background-color: #fff; border: 1rpx solid #f0f0f0; border-radius: 12rpx; padding: 12rpx 4rpx; display: flex; align-items: center; justify-content: center; font-size: 20rpx; color: #777; white-space: nowrap; }
+.tag-pill.active { border-color: var(--brand-red-dark); color: var(--brand-red-dark); background-color: #fff1f0; }
+.tag-icon { margin-right: 4rpx; font-size: 22rpx; }
 
-/* 2. 轮播 */
-.banner-swiper {
-  height: 180rpx;
-  margin-top: 16rpx;
-  border-radius: 20rpx;
-  overflow: hidden;
-}
+.tip { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 80rpx 0; }
 
-.swiper-content {
-  height: 100%;
-  background: linear-gradient(135deg, #ffb199, #ff0844);
-  display: flex;
-  align-items: center;
-  padding: 0 32rpx;
-}
-
-.banner-emoji {
-  font-size: 60rpx;
-  margin-right: 20rpx;
-}
-
-.banner-meta {
-  display: flex;
-  flex-direction: column;
-}
-
-.banner-title {
-  color: #ffffff;
-  font-size: 30rpx;
-  font-weight: bold;
-}
-
-.banner-desc {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 22rpx;
-  margin-top: 6rpx;
-}
-
-/* 3. 动作卡 */
-.action-cards {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 24rpx;
-}
-
-.action-card {
-  width: 48%;
-  height: 120rpx;
-  border-radius: 20rpx;
-  padding: 0 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #ffffff;
-}
-
-.card-blue {
-  background: linear-gradient(135deg, #69c0ff, #1890ff);
-}
-
-.card-orange {
-  background: linear-gradient(135deg, #ff9c6e, #ff4d4f);
-}
-
-.card-title {
-  font-size: 30rpx;
-  font-weight: bold;
-}
-
-.card-icon {
-  font-size: 44rpx;
-}
-
-/* 4. 分类筛选 */
-.filter-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14rpx;
-  margin-top: 30rpx;
-  padding: 10rpx 0;
-}
-
-.tag-pill {
-  background-color: #ffffff;
-  border: 1rpx solid #f0f0f0;
-  border-radius: 12rpx;
-  padding: 12rpx 4rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20rpx;
-  color: #777777;
-  white-space: nowrap;
-}
-
-.tag-pill.active {
-  border-color: var(--brand-red-dark);
-  color: var(--brand-red-dark);
-  background-color: #fff1f0;
-}
-
-.tag-icon {
-  margin-right: 4rpx;
-  font-size: 22rpx;
-}
-
-.tag-count {
-  color: #aaaaaa;
-  font-size: 18rpx;
-  margin-left: 2rpx;
-}
-
-/* 5. 组局卡片 */
-.party-list {
-  margin-top: 24rpx;
-}
-
-.party-card {
-  background-color: #ffffff;
-  border-radius: var(--radius-card);
-  margin-bottom: 24rpx;
-  display: flex;
-  overflow: hidden;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.03);
-}
-
-.type-badge {
-  width: 50rpx;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: #ffffff;
-  font-size: 22rpx;
-  font-weight: bold;
-  line-height: 1.2;
-}
-
+.party-list { margin-top: 16rpx; }
+.party-card { background-color: #fff; border-radius: var(--radius-card); margin-bottom: 24rpx; display: flex; overflow: hidden; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); }
+.type-badge { width: 50rpx; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24rpx; font-weight: bold; }
 .bg-red { background-color: #ff5e52; }
 .bg-orange { background-color: #ff9f43; }
+.card-main { flex: 1; padding: 24rpx; }
+.party-title { font-size: 28rpx; color: var(--text-1); font-weight: 500; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.owner-info { display: flex; align-items: center; margin-top: 16rpx; font-size: 24rpx; color: #888; flex-wrap: wrap; }
+.owner-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; margin-right: 12rpx; display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: #fff; font-weight: bold; }
+.owner-name { color: #555; }
+.divider { margin: 0 8rpx; }
+.post-date { color: #aaa; }
 
-.card-main {
-  flex: 1;
-  padding: 24rpx;
-}
-
-.title-wrapper {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.party-title {
-  flex: 1;
-  font-size: 28rpx;
-  color: var(--text-1);
-  font-weight: 500;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-.decorative-icon {
-  font-size: 56rpx;
-  margin-left: 16rpx;
-}
-
-.owner-info {
-  display: flex;
-  align-items: center;
-  margin-top: 16rpx;
-  font-size: 24rpx;
-  color: #888888;
-}
-
-.owner-avatar {
-  width: 36rpx;
-  height: 36rpx;
-  border-radius: 50%;
-  margin-right: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-}
-
-.owner-name {
-  color: #555555;
-}
-
-.divider {
-  margin: 0 8rpx;
-}
-
-.progress-section {
-  display: flex;
-  align-items: center;
-  margin-top: 24rpx;
-}
-
-.progress-bar-bg {
-  flex: 1;
-  height: 12rpx;
-  background-color: #f5f5f5;
-  border-radius: 6rpx;
-  overflow: hidden;
-  margin-right: 30rpx;
-}
-
-.progress-bar-active {
-  height: 100%;
-  background: linear-gradient(90deg, #ff7875, #ff4d4f);
-  border-radius: 6rpx;
-}
-
-.progress-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: 110rpx;
-}
-
-.count-text {
-  font-size: 24rpx;
-  color: var(--text-3);
-  line-height: 1;
-}
-
-.current-num {
-  color: var(--brand-red-dark);
-  font-weight: bold;
-  font-size: 26rpx;
-}
-
-.status-label {
-  font-size: 18rpx;
-  color: #bbbbbb;
-  margin-top: 4rpx;
-}
-
-/* 6. 悬浮搜索 */
-.floating-search {
-  position: fixed;
-  bottom: 200rpx;
-  right: 40rpx;
-  width: 90rpx;
-  height: 90rpx;
-  background-color: var(--brand-red-dark);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4rpx 16rpx rgba(255, 77, 79, 0.35);
-  z-index: 99;
-  font-size: 32rpx;
-}
+.progress-section { margin-top: 20rpx; }
+.progress-bar-bg { height: 12rpx; background-color: #f5f5f5; border-radius: 6rpx; overflow: hidden; }
+.progress-bar-active { height: 100%; background: linear-gradient(90deg, #ff7875, #ff4d4f); border-radius: 6rpx; }
+.progress-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12rpx; }
+.count-text { font-size: 24rpx; color: var(--text-3); }
+.current-num { color: var(--brand-red-dark); font-weight: bold; font-size: 26rpx; }
+.join-btn { padding: 8rpx 28rpx; border-radius: 28rpx; background: var(--brand-red); color: #fff; font-size: 24rpx; }
+.join-btn.joined { background: #f0f0f0; color: #888; }
+.join-btn.full { background: #f0f0f0; color: #aaa; }
 </style>

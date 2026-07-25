@@ -7,22 +7,19 @@
 
 ## 进行中 (In Progress)
 
-### 后端社交互动层 → openspec/changes/backend-social-layer/
+> 暂无活跃变更（见已完成）。下一个大方向候选见下方 Backlog。
 
-- **状态**：✅ 全部 4 模块（A/B/C/D）前后端完成，后端 160 pytest 绿；可 archive
-- **已完成**：A 互动 + B 发现 + C 通知 + D 组局（组局/拼单+报名进度+分类+我的局+发起攒局页）
-- **预览**：后端 :8000 + H5 :5173 运行中；登录后可发组局/报名/看进度/我的局
-- **下一步**：archive 本变更；之后可做分类(金刚区)对齐、真实微信登录、发布页 post_type 对齐等收尾
+## 已完成（已归档）
 
-### 前端 UI/UX 大改造（对齐 ref/ 设计稿）→ openspec/changes/frontend-redesign/
-
-- **状态**：✅ 首期完成 + 已按反馈微调（去签到、首页沉浸式、广告位轮播）；待 archive
-- **范围**：5 主 tab 红色品牌主题 + emoji/SVG 图标 + 全 mock 数据
-- **待用户决定**：archive 时机；二级页是否统一红色化；其余 tab 是否也改沉浸式
+### 后端社交互动层（A/B/C/D）+ 前端重做 → 已归档
+- ✅ `frontend-redesign`、`backend-social-layer` 两个 OpenSpec 变更已 archive
+- ✅ 主 spec 新增 `backend-social`（9 需求）、`frontend-ui`（8 需求）；7 spec 全绿
+- ✅ 4 模块：A 互动 / B 发现 / C 通知 / D 组局，前后端全闭合，后端 160 pytest 绿
+- ✅ 收尾对齐：发布页接真实 createPost（版块→post_type）、首页金刚区分类过滤
+- 全程提交落库（git log：docs → backend → frontend → D → 归档 → 收尾）
 
 ### OpenSpec 规范体系初始化
-
-- **状态**：✅ 完成（5 spec 校验通过）
+- ✅ 完成（5 spec 校验通过）
 
 ---
 

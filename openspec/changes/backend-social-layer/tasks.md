@@ -45,11 +45,15 @@
 - [x] C5. 前端：消息页 4 角标接 unreadSummary、帖子动态接 listNotifications、全部已读、点通知跳详情+标已读、私信 tab "暂未开放"
 - [x] C6. 验收：后端 150 passed、curl 通知列表/全部已读/summary 全通、type-check 0
 
-## 模块 D · 组局·攒局
+## 模块 D · 组局·攒局 — ✅ 前后端完成
 
-- [ ] D1. 迁移 `add_party_tables` + models Party/PartyMember
-- [ ] D2. services/party：创建/列表/详情/报名/退出/我的局/累计人数
-- [ ] D3. routers/party + tests（报名满额、重复报名、退出、权限）
-- [ ] D4. 报名触发通知（接 C）
-- [ ] D5. 前端：组局页全量接真实 API
-- [ ] D6. 验收
+- [x] D1. 迁移 `d5c7e9f1a203_add_party_tables` + models Party/PartyMember
+- [x] D2. services/party：创建/列表(分类+有空位+进度)/报名(幂等+满额 status=2)/退出/我的局/累计人数
+- [x] D3. routers/party + tests/test_party（10 用例）
+- [x] D4. 报名触发 group 通知（接 C，不通知自己）
+- [x] D5. 前端：组局页全量接真实 + 发起攒局页（pages/party-create）
+- [x] D6. 验收：后端 160 passed、curl create/list/join/summary 全通、type-check 0、build:h5 DONE
+
+---
+
+## ✅ 全部 4 模块完成（A 互动 / B 发现 / C 通知 / D 组局）。可 archive。

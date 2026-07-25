@@ -29,11 +29,11 @@ export const HOT_POSTS: HotPost[] = [
   { id: 104, rank: 4, title: '四六级冲刺打卡第 N 天，组队互相监督', isHot: false, reads: '1.9万阅读' },
 ]
 
-/** 金刚区 10 宫格 */
+/** 金刚区 10 宫格（type 映射到后端 post_type；无 type 的点击跳搜索） */
 export const MENU_ITEMS: MenuItem[] = [
   { name: '校园广场', icon: '🏫' },
-  { name: '二手市场', icon: '🛒', badge: '新' },
-  { name: '失物招领', icon: '🔎' },
+  { name: '二手市场', icon: '🛒', badge: '新', type: 'second_hand' },
+  { name: '失物招领', icon: '🔎', type: 'lost_found' },
   { name: '兼职实习', icon: '💼' },
   { name: '表白墙', icon: '💌' },
   { name: '一起自习', icon: '📖' },

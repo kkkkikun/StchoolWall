@@ -82,6 +82,19 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { PUBLISH_HOT_TAGS } from '@/utils/mock'
+import { createPost } from '@/api/posts'
+import type { PostType } from '@/types/api'
+import { tokenStorage } from '@/utils/storage'
+
+// 版块 → 后端 post_type 映射
+const SECTIONS: { label: string; type: PostType }[] = [
+  { label: '校园生活', type: 'general' },
+  { label: '学习考研', type: 'general' },
+  { label: '二手交易', type: 'second_hand' },
+  { label: '失物招领', type: 'lost_found' },
+  { label: '拼车出行', type: 'carpool' },
+  { label: '情感树洞', type: 'general' },
+]
 
 const hotTags = PUBLISH_HOT_TAGS
 const tools = [
@@ -108,11 +121,10 @@ const onTagTap = (tag: string) => {
 }
 
 const onSelectSection = () => {
-  const sections = ['校园生活', '学习考研', '二手交易', '情感树洞', '拼车出行']
   uni.showActionSheet({
-    itemList: sections,
+    itemList: SECTIONS.map((s) => s.label),
     success: (res) => {
-      section.value = sections[res.tapIndex]
+      section.value = SECTIONS[res.tapIndex].label
     },
   })
 }
@@ -135,22 +147,39 @@ const onAiChange = (e: { detail: { value: boolean } } | Event) => {
   if (val) uni.showToast({ title: 'AI 协助已开启（mock）', icon: 'none' })
 }
 
-const onSubmit = () => {
+const submitting = ref(false)
+
+const onSubmit = async () => {
+  if (submitting.value) return
+  if (!tokenStorage.isLoggedIn()) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
   if (!section.value) {
     uni.showToast({ title: '请选择发布的版块', icon: 'none' })
     return
   }
-  if (!content.value.trim()) {
+  const text = content.value.trim()
+  if (!text) {
     uni.showToast({ title: '请填写一点内容吧', icon: 'none' })
     return
   }
-  uni.showToast({ title: '发布成功（mock）', icon: 'success' })
-  setTimeout(() => {
-    content.value = ''
-    section.value = ''
-    aiEnabled.value = false
-    uni.switchTab({ url: '/pages/index/index' })
-  }, 1200)
+  const postType = SECTIONS.find((s) => s.label === section.value)?.type || 'general'
+  submitting.value = true
+  try {
+    await createPost({ post_type: postType, content: text })
+    uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
+    setTimeout(() => {
+      content.value = ''
+      section.value = ''
+      aiEnabled.value = false
+      uni.switchTab({ url: '/pages/index/index' })
+    }, 1200)
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || '发布失败', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

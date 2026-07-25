@@ -105,6 +105,9 @@
 
     <!-- 7. 信息流 -->
     <view class="feed-list">
+      <view v-if="feedTypeName" class="filter-chip" @tap="clearFilter">
+        <text>分类：{{ feedTypeName }} ✕</text>
+      </view>
       <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"><text>加载中…</text></view>
       <view v-else-if="posts.length === 0" class="feed-tip"><text>暂无内容，下拉刷新或去发布</text></view>
       <FeedCard
@@ -144,6 +147,8 @@ const adBanners = AD_BANNERS
 const posts = ref<PostBrief[]>([])
 const loadingFeeds = ref(false)
 const searchKeyword = ref('')
+const feedType = ref<string>('') // 金刚区分类筛选
+const feedTypeName = ref<string>('') // 当前筛选的中文名（展示用）
 
 // 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -151,7 +156,7 @@ const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const loadFeeds = async () => {
   loadingFeeds.value = true
   try {
-    const res = await getPosts()
+    const res = await getPosts(undefined, feedType.value || undefined)
     posts.value = res.items
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
@@ -188,15 +193,47 @@ const onSearch = () => {
 }
 const onNotice = () => uni.showToast({ title: '搭乘UFO～', icon: 'none' })
 const onAd = (ad: AdBanner) => uni.showToast({ title: `${ad.title}（开发中）`, icon: 'none' })
-const onMenu = (item: MenuItem) => uni.showToast({ title: `${item.name}（开发中）`, icon: 'none' })
+const onMenu = (item: MenuItem) => {
+  if (item.type) {
+    // 映射到 post_type：过滤信息流并滚动到信息流
+    feedType.value = item.type
+    feedTypeName.value = item.name
+    currentTab.value = 0
+    loadFeeds()
+    uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
+  } else if (item.name === '更多分类') {
+    uni.navigateTo({ url: '/pages/search/index' })
+  } else {
+    // 无 post_type 映射：按分类名搜索
+    uni.navigateTo({ url: `/pages/search/index?q=${encodeURIComponent(item.name)}` })
+  }
+}
 
 const goPost = (id: number) => {
   uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` })
 }
 
 const switchTab = (idx: number) => {
+  if (currentTab.value === idx && idx === 0 && feedType.value) {
+    // 再点「推荐」清除分类筛选
+    feedType.value = ''
+    feedTypeName.value = ''
+    loadFeeds()
+    return
+  }
   if (currentTab.value === idx) return
   currentTab.value = idx
+  if (idx === 0 && feedType.value) {
+    feedType.value = ''
+    feedTypeName.value = ''
+    loadFeeds()
+  }
+}
+
+const clearFilter = () => {
+  feedType.value = ''
+  feedTypeName.value = ''
+  loadFeeds()
 }
 
 const scrollToTop = () => {
@@ -508,6 +545,16 @@ const scrollToTop = () => {
 /* 7. 信息流 */
 .feed-list {
   padding: 0 24rpx;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--brand-red-soft);
+  color: var(--brand-red);
+  font-size: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  margin: 8rpx 0 16rpx;
 }
 .feed-tip {
   text-align: center;

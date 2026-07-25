@@ -18,6 +18,7 @@ export interface MenuItem {
   icon: string // emoji
   badge?: string
   path?: string
+  type?: string // 映射到后端 post_type（有的话点击过滤信息流，无则跳搜索）
 }
 
 /** 首页广告位（可滑动轮播） */

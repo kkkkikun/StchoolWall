@@ -50,6 +50,11 @@
 - **WHEN** 本机起 uvicorn（127.0.0.1:8000）后 curl 返回 503 空响应，但 `ss` 显示端口在听、日志正常
 - **THEN** 根因：环境有 `HTTP_PROXY/HTTPS_PROXY=http://127.0.0.1:10808`，curl 默认走代理，代理返回 503（no_proxy 里的 `127.*` 在某些 curl 版本不生效）；解法：curl 加 `--noproxy '*'`（注意必须引号，否则 bash 通配符展开会挂起）；预防：后端本地联调脚本统一带 `--noproxy '*' --max-time N`
 
+#### Scenario: OpenSpec proposal 必须用英文标准标题
+
+- **WHEN** `openspec archive` 报非阻塞警告 "Change must have a Why section. Missing required headers. Expected: ## Why and ## What Changes"
+- **THEN** proposal.md 必须用英文标题 `## Why` / `## What Changes`（中文「## 为什么做」「## 做什么」不被识别）；解法：写 proposal 时用标准英文标题，正文可中文；archive 仍会成功（非阻塞），但用了标准标题更干净
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

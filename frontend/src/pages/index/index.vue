@@ -116,6 +116,11 @@
         :post="p"
         @detail="goPost(p.id)"
       />
+      <view v-if="posts.length > 0" class="feed-foot">
+        <text v-if="loadingFeeds">加载中…</text>
+        <text v-else-if="hasMore">上拉加载更多</text>
+        <text v-else>没有更多了</text>
+      </view>
     </view>
 
     <!-- 8. 悬浮搜索 -->
@@ -130,7 +135,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import FeedCard from '@/components/feed-card.vue'
 import TabBar from '@/components/tab-bar.vue'
 import { HOME_TABS, MENU_ITEMS, AD_BANNERS } from '@/utils/mock'
@@ -146,6 +151,8 @@ const menuItems = MENU_ITEMS
 const adBanners = AD_BANNERS
 const posts = ref<PostBrief[]>([])
 const loadingFeeds = ref(false)
+const nextCursor = ref<number | null>(null)
+const hasMore = ref(false)
 const searchKeyword = ref('')
 const feedType = ref<string>('') // 金刚区分类筛选
 const feedTypeName = ref<string>('') // 当前筛选的中文名（展示用）
@@ -153,17 +160,31 @@ const feedTypeName = ref<string>('') // 当前筛选的中文名（展示用）
 // 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
-const loadFeeds = async () => {
+const loadFeeds = async (refresh = false) => {
+  if (loadingFeeds.value) return
   loadingFeeds.value = true
   try {
-    const res = await getPosts(undefined, feedType.value || undefined)
-    posts.value = res.items
+    const cursor = refresh ? undefined : nextCursor.value
+    const res = await getPosts(cursor ?? undefined, feedType.value || undefined)
+    if (refresh) posts.value = res.items
+    else posts.value.push(...res.items)
+    nextCursor.value = res.next_cursor
+    hasMore.value = res.has_more
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
   } finally {
     loadingFeeds.value = false
   }
 }
+
+onPullDownRefresh(async () => {
+  await loadFeeds(true)
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => {
+  if (hasMore.value && !loadingFeeds.value) loadFeeds(false)
+})
 
 const loadHot = async () => {
   try {
@@ -181,7 +202,7 @@ const loadHot = async () => {
 }
 
 onShow(() => {
-  loadFeeds()
+  loadFeeds(true)
   loadHot()
 })
 
@@ -199,7 +220,7 @@ const onMenu = (item: MenuItem) => {
     feedType.value = item.type
     feedTypeName.value = item.name
     currentTab.value = 0
-    loadFeeds()
+    loadFeeds(true)
     uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
   } else if (item.name === '更多分类') {
     uni.navigateTo({ url: '/pages/search/index' })
@@ -218,7 +239,7 @@ const switchTab = (idx: number) => {
     // 再点「推荐」清除分类筛选
     feedType.value = ''
     feedTypeName.value = ''
-    loadFeeds()
+    loadFeeds(true)
     return
   }
   if (currentTab.value === idx) return
@@ -226,14 +247,14 @@ const switchTab = (idx: number) => {
   if (idx === 0 && feedType.value) {
     feedType.value = ''
     feedTypeName.value = ''
-    loadFeeds()
+    loadFeeds(true)
   }
 }
 
 const clearFilter = () => {
   feedType.value = ''
   feedTypeName.value = ''
-  loadFeeds()
+  loadFeeds(true)
 }
 
 const scrollToTop = () => {
@@ -561,6 +582,12 @@ const scrollToTop = () => {
   padding: 60rpx 0;
   color: var(--text-3);
   font-size: 26rpx;
+}
+.feed-foot {
+  text-align: center;
+  padding: 32rpx 0;
+  color: var(--text-3);
+  font-size: 24rpx;
 }
 
 /* 8. 悬浮搜索 */

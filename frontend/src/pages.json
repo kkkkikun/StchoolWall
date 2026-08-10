@@ -4,7 +4,9 @@
 			"path": "pages/index/index",
 			"style": {
 				"navigationStyle": "custom",
-				"enablePullDownRefresh": false
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"backgroundColor": "#f7f8fa"
 			}
 		},
 		{

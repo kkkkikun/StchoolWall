@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class PostCreate(BaseModel):
     post_type: str = Field(..., pattern=r"^(lost_found|second_hand|carpool|general|advertisement)$")
     content: str = Field(..., min_length=1, max_length=2000)
+    category: str | None = Field(None, max_length=20)
     images: list[str] = Field(default_factory=list, max_length=6)
     price: float | None = Field(None, ge=0)
     tag_ids: list[int] = Field(default_factory=list)

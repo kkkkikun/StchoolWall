@@ -12,6 +12,7 @@ from app.models.user import User
 async def create_post(
     db: AsyncSession, user: User, post_type: str, content: str,
     images: list[str], price: float | None, tag_ids: list[int],
+    category: str | None = None,
 ) -> Post:
     is_admin = user.role == "admin"
     status = 1 if is_admin else 0  # admin 直接通过审核
@@ -19,6 +20,7 @@ async def create_post(
     post = Post(
         user_id=user.id,
         post_type=post_type,
+        category=category,
         content=content,
         images=images,
         price=price,
@@ -41,16 +43,18 @@ async def list_posts(
     post_type: str | None = None,
     limit: int = 20,
     viewer: User | None = None,
+    category: str | None = None,
 ) -> tuple[list[dict], int | None, bool]:
-    # 广告始终置顶
-    ad_stmt = (
-        select(Post, User.nickname)
-        .join(User, Post.user_id == User.id)
-        .where(Post.post_type == "advertisement", Post.status == 1)
-        .order_by(Post.created_at.desc())
-    )
-    ad_result = await db.execute(ad_stmt)
-    ad_rows = ad_result.all()
+    # 分类筛选时不置顶广告（按分类看时广告无关）
+    ad_rows = []
+    if not category:
+        ad_stmt = (
+            select(Post, User.nickname)
+            .join(User, Post.user_id == User.id)
+            .where(Post.post_type == "advertisement", Post.status == 1)
+            .order_by(Post.created_at.desc())
+        )
+        ad_rows = (await db.execute(ad_stmt)).all()
 
     # 普通帖子：游标分页
     conditions = [Post.post_type != "advertisement", Post.status == 1]
@@ -58,6 +62,8 @@ async def list_posts(
         conditions.append(Post.id < cursor)
     if post_type:
         conditions.append(Post.post_type == post_type)
+    if category:
+        conditions.append(Post.category == category)
 
     stmt = (
         select(Post, User.nickname)
@@ -126,6 +132,7 @@ async def get_post_detail(
     data = {
         "id": post.id,
         "post_type": post.post_type,
+        "category": post.category,
         "content": post.content,
         "images": post.images,
         "price": float(post.price) if post.price else None,
@@ -219,6 +226,7 @@ def _post_to_dict(post: Post, nickname: str) -> dict:
     return {
         "id": post.id,
         "post_type": post.post_type,
+        "category": post.category,
         "content": post.content,
         "images": post.images,
         "price": float(post.price) if post.price else None,

@@ -25,6 +25,7 @@ function mapBrief(raw: RawPost): PostBrief {
       avatar_url: raw.author?.avatar_url,
     },
     tags: [],
+    category: raw.category ?? null,
     like_count: raw.like_count ?? 0,
     comment_count: raw.comment_count ?? 0,
     view_count: raw.view_count ?? 0,
@@ -42,9 +43,11 @@ function mapDetail(raw: RawPost): PostDetail {
   }
 }
 
-/** 获取帖子列表 */
-export async function getPosts(cursor?: number, postType?: string): Promise<PostListResponse> {
-  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType })
+/** 获取帖子列表（可按 post_type 或 category 过滤） */
+export async function getPosts(
+  cursor?: number, postType?: string, category?: string,
+): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType, category })
   return {
     items: (data.items || []).map(mapBrief),
     next_cursor: data.next_cursor,

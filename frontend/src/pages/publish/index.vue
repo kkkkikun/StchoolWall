@@ -18,13 +18,13 @@
       </scroll-view>
     </view>
 
-    <!-- 2. 版块选择 -->
+    <!-- 2. 分类选择 -->
     <view class="section-selector" @tap="onSelectSection">
       <view class="selector-left">
         <text class="icon-layers">▤</text>
         <view class="selector-meta">
-          <text class="selector-title">{{ section || '选择版块' }}</text>
-          <text class="selector-desc">选择合适的版块，能让更多同学看到哦~</text>
+          <text class="selector-title">{{ section || '选择分类' }}</text>
+          <text class="selector-desc">选择合适的分类，能让更多同学看到哦~</text>
         </view>
       </view>
       <text class="arrow-right">›</text>
@@ -81,20 +81,9 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
-import { PUBLISH_HOT_TAGS } from '@/utils/mock'
+import { PUBLISH_HOT_TAGS, POST_CATEGORIES } from '@/utils/mock'
 import { createPost } from '@/api/posts'
-import type { PostType } from '@/types/api'
 import { tokenStorage } from '@/utils/storage'
-
-// 版块 → 后端 post_type 映射
-const SECTIONS: { label: string; type: PostType }[] = [
-  { label: '校园生活', type: 'general' },
-  { label: '学习考研', type: 'general' },
-  { label: '二手交易', type: 'second_hand' },
-  { label: '失物招领', type: 'lost_found' },
-  { label: '拼车出行', type: 'carpool' },
-  { label: '情感树洞', type: 'general' },
-]
 
 const hotTags = PUBLISH_HOT_TAGS
 const tools = [
@@ -122,9 +111,9 @@ const onTagTap = (tag: string) => {
 
 const onSelectSection = () => {
   uni.showActionSheet({
-    itemList: SECTIONS.map((s) => s.label),
+    itemList: [...POST_CATEGORIES],
     success: (res) => {
-      section.value = SECTIONS[res.tapIndex].label
+      section.value = POST_CATEGORIES[res.tapIndex]
     },
   })
 }
@@ -156,7 +145,7 @@ const onSubmit = async () => {
     return
   }
   if (!section.value) {
-    uni.showToast({ title: '请选择发布的版块', icon: 'none' })
+    uni.showToast({ title: '请选择分类', icon: 'none' })
     return
   }
   const text = content.value.trim()
@@ -164,10 +153,9 @@ const onSubmit = async () => {
     uni.showToast({ title: '请填写一点内容吧', icon: 'none' })
     return
   }
-  const postType = SECTIONS.find((s) => s.label === section.value)?.type || 'general'
   submitting.value = true
   try {
-    await createPost({ post_type: postType, content: text })
+    await createPost({ post_type: 'general', content: text, category: section.value })
     uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
     setTimeout(() => {
       content.value = ''

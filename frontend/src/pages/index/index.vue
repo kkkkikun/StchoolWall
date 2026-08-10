@@ -105,8 +105,8 @@
 
     <!-- 7. 信息流 -->
     <view class="feed-list">
-      <view v-if="feedTypeName" class="filter-chip" @tap="clearFilter">
-        <text>分类：{{ feedTypeName }} ✕</text>
+      <view v-if="feedCategoryName" class="filter-chip" @tap="clearFilter">
+        <text>分类：{{ feedCategoryName }} ✕</text>
       </view>
       <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"><text>加载中…</text></view>
       <view v-else-if="posts.length === 0" class="feed-tip"><text>暂无内容，下拉刷新或去发布</text></view>
@@ -154,8 +154,8 @@ const loadingFeeds = ref(false)
 const nextCursor = ref<number | null>(null)
 const hasMore = ref(false)
 const searchKeyword = ref('')
-const feedType = ref<string>('') // 金刚区分类筛选
-const feedTypeName = ref<string>('') // 当前筛选的中文名（展示用）
+const feedCategory = ref<string>('') // 金刚区分类筛选（按 category 字段）
+const feedCategoryName = ref<string>('') // 当前筛选的中文名（展示用）
 
 // 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -165,7 +165,7 @@ const loadFeeds = async (refresh = false) => {
   loadingFeeds.value = true
   try {
     const cursor = refresh ? undefined : nextCursor.value
-    const res = await getPosts(cursor ?? undefined, feedType.value || undefined)
+    const res = await getPosts(cursor ?? undefined, undefined, feedCategory.value || undefined)
     if (refresh) posts.value = res.items
     else posts.value.push(...res.items)
     nextCursor.value = res.next_cursor
@@ -215,19 +215,21 @@ const onSearch = () => {
 const onNotice = () => uni.showToast({ title: '搭乘UFO～', icon: 'none' })
 const onAd = (ad: AdBanner) => uni.showToast({ title: `${ad.title}（开发中）`, icon: 'none' })
 const onMenu = (item: MenuItem) => {
-  if (item.type) {
-    // 映射到 post_type：过滤信息流并滚动到信息流
-    feedType.value = item.type
-    feedTypeName.value = item.name
-    currentTab.value = 0
-    loadFeeds(true)
-    uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
-  } else if (item.name === '更多分类') {
+  if (item.name === '更多分类') {
     uni.navigateTo({ url: '/pages/search/index' })
-  } else {
-    // 无 post_type 映射：按分类名搜索
-    uni.navigateTo({ url: `/pages/search/index?q=${encodeURIComponent(item.name)}` })
+    return
   }
+  // 其余 9 项：按 category 过滤信息流（再次点击同一项 = 清除）
+  if (feedCategory.value === item.name) {
+    feedCategory.value = ''
+    feedCategoryName.value = ''
+  } else {
+    feedCategory.value = item.name
+    feedCategoryName.value = item.name
+  }
+  currentTab.value = 0
+  loadFeeds(true)
+  uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
 }
 
 const goPost = (id: number) => {
@@ -235,25 +237,25 @@ const goPost = (id: number) => {
 }
 
 const switchTab = (idx: number) => {
-  if (currentTab.value === idx && idx === 0 && feedType.value) {
+  if (currentTab.value === idx && idx === 0 && feedCategory.value) {
     // 再点「推荐」清除分类筛选
-    feedType.value = ''
-    feedTypeName.value = ''
+    feedCategory.value = ''
+    feedCategoryName.value = ''
     loadFeeds(true)
     return
   }
   if (currentTab.value === idx) return
   currentTab.value = idx
-  if (idx === 0 && feedType.value) {
-    feedType.value = ''
-    feedTypeName.value = ''
+  if (idx === 0 && feedCategory.value) {
+    feedCategory.value = ''
+    feedCategoryName.value = ''
     loadFeeds(true)
   }
 }
 
 const clearFilter = () => {
-  feedType.value = ''
-  feedTypeName.value = ''
+  feedCategory.value = ''
+  feedCategoryName.value = ''
   loadFeeds(true)
 }
 

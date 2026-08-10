@@ -45,6 +45,7 @@ export interface PostBrief {
     avatar_url?: string
   }
   tags?: Tag[]
+  category?: string | null
   // 互动字段（后端 backend-social-layer 模块 A）
   like_count?: number
   comment_count?: number
@@ -73,6 +74,7 @@ export interface PostListResponse {
 export interface PostCreate {
   post_type: PostType
   content: string
+  category?: string
   images?: string[]
   price?: number
   tag_ids?: number[]

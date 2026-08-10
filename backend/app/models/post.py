@@ -14,6 +14,7 @@ class Post(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     post_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    category: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     images = mapped_column(JSONB, default=[])
     price = mapped_column(Numeric(10, 2), nullable=True)

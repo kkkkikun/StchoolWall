@@ -14,6 +14,9 @@
           <view v-if="!loggedIn" class="dev-login-capsule" @tap="doDevLogin">
             <text>一键登录（演示）</text>
           </view>
+          <view v-if="loggedIn && !isVerified" class="verify-capsule" @tap="goVerify">
+            <text>🎓 学籍认证（发帖/互动需认证）</text>
+          </view>
         </view>
       </view>
 
@@ -92,12 +95,14 @@ const menu2 = MINE_MENU_2
 const user = ref(MINE_USER)
 const stats = ref(MINE_STATS)
 const loggedIn = ref(tokenStorage.isLoggedIn())
+const isVerified = ref(!!userStorage.getUserInfo()?.is_verified)
 
 const loadProfile = async () => {
   if (!tokenStorage.isLoggedIn()) return
   const info = userStorage.getUserInfo()
   if (info) {
     user.value = { avatarUrl: '🦅', nickName: info.nickname || MINE_USER.nickName, schoolName: MINE_USER.schoolName }
+    isVerified.value = !!info.is_verified
   }
   try {
     const s = await myStats()
@@ -141,6 +146,8 @@ const goStats = (type: string) => {
   }
   uni.showToast({ title: `${type} 列表（开发中）`, icon: 'none' })
 }
+
+const goVerify = () => uni.navigateTo({ url: '/pages/verify/index' })
 
 const onMenu = (action: string) => {
   uni.showToast({ title: `${action}（开发中）`, icon: 'none' })
@@ -223,6 +230,18 @@ const onMenu = (action: string) => {
 }
 .dev-login-capsule text {
   color: var(--brand-red);
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.verify-capsule {
+  align-self: flex-start;
+  background-color: rgba(255, 255, 255, 0.22);
+  padding: 8rpx 24rpx;
+  border-radius: 24rpx;
+  margin-top: 14rpx;
+}
+.verify-capsule text {
+  color: #ffffff;
   font-size: 22rpx;
   font-weight: 600;
 }

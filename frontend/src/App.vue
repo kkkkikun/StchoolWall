@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
+
 onLaunch(() => {
   console.log("App Launch");
+  // 微信小程序：静默登录（H5 预览走我的页 dev-login，不在此处理）
+  // #ifdef MP-WEIXIN
+  import("@/api/auth").then(({ wxLoginAndStore }) => wxLoginAndStore());
+  // #endif
 });
 onShow(() => {
   console.log("App Show");

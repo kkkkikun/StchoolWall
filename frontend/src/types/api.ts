@@ -93,10 +93,11 @@ export interface UserInfo {
   created_at: string
 }
 
-/** 微信登录响应 */
+/** 微信登录响应（对齐后端 wx_login / dev_login 返回） */
 export interface LoginResponse {
   access_token: string
-  user_info: UserInfo
+  role: UserRole
+  user_info: { id: string; nickname: string; is_verified: boolean }
 }
 
 /** 举报请求 */

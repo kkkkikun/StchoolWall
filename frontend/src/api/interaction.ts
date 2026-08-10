@@ -85,3 +85,13 @@ export function myFootprints(cursor?: number) {
 export function myStats() {
   return get<UserStats>(`/me/stats`)
 }
+
+/** 关注某用户（幂等） */
+export function followUser(userId: string) {
+  return post<{ followed: boolean }>(`/users/${userId}/follow`)
+}
+
+/** 取消关注 */
+export function unfollowUser(userId: string) {
+  return del<{ followed: boolean }>(`/users/${userId}/follow`)
+}

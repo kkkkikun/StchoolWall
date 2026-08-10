@@ -9,6 +9,7 @@ from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequ
 from app.services.moderation import check_post_images
 from app.services.post import (
     create_post,
+    following_feed,
     get_post_detail,
     hot_posts,
     list_posts,
@@ -61,6 +62,17 @@ async def new_post(
         "message": "发布成功" if post.status == 1 else "发布成功，图片审核中",
         "data": {"post_id": post.id, "status": post.status},
     }
+
+
+@router.get("/following")
+async def following_feed_route(
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    """关注流：已关注用户的帖子"""
+    items, next_cursor, has_more = await following_feed(db, user, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
 @router.get("/hot")

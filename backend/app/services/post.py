@@ -138,12 +138,19 @@ async def get_post_detail(
         "price": float(post.price) if post.price else None,
         "status": post.status,
         "created_at": post.created_at.isoformat() if post.created_at else None,
+        "user_id": str(author.id),
         "user": {"nickname": author.nickname},
         "contact_wechat": None,
+        "is_following": False,
         "like_count": post.like_count or 0,
         "comment_count": post.comment_count or 0,
         "view_count": post.view_count or 0,
     }
+
+    # 当前用户是否关注了作者
+    if viewer and str(author.id) != str(viewer.id):
+        from app.services.follow import is_following
+        data["is_following"] = await is_following(db, viewer.id, author.id)
 
     if viewer:
         if viewer.role == "admin":
@@ -277,5 +284,43 @@ async def search_posts(
     has_more = len(rows) > limit
     rows = rows[:limit]
     items = [_post_to_dict(p, nick) for p, nick in rows]
+    next_cursor = rows[-1].id if has_more and rows else None
+    return items, next_cursor, has_more
+
+
+async def following_feed(
+    db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
+) -> tuple[list[dict], int | None, bool]:
+    """关注流：已关注用户的正常非广告帖，按时间倒序。"""
+    from app.models.follow import UserFollow
+
+    followed = select(UserFollow.followee_id).where(UserFollow.follower_id == user.id)
+    conds = [Post.status == 1, Post.post_type != "advertisement", Post.user_id.in_(followed)]
+    if cursor:
+        conds.append(Post.id < cursor)
+    stmt = (
+        select(Post, User.nickname)
+        .join(User, Post.user_id == User.id)
+        .where(*conds)
+        .order_by(Post.created_at.desc())
+        .limit(limit + 1)
+    )
+    rows = (await db.execute(stmt)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    items = [_post_to_dict(p, nick) for p, nick in rows]
+    if items:
+        ids = [it["id"] for it in items]
+        liked_ids = set((await db.execute(
+            select(Like.post_id).where(Like.user_id == user.id, Like.post_id.in_(ids))
+        )).scalars())
+        fav_ids = set((await db.execute(
+            select(Favorite.post_id).where(Favorite.user_id == user.id, Favorite.post_id.in_(ids))
+        )).scalars())
+        for it in items:
+            it["is_liked"] = it["id"] in liked_ids
+            it["is_favorited"] = it["id"] in fav_ids
+
     next_cursor = rows[-1].id if has_more and rows else None
     return items, next_cursor, has_more

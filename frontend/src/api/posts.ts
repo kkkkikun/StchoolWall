@@ -40,6 +40,8 @@ function mapDetail(raw: RawPost): PostDetail {
     view_count: raw.view_count ?? 0,
     contact_info: raw.contact_wechat ?? raw.contact_info,
     is_reported: raw.is_reported,
+    user_id: raw.user_id,
+    is_following: !!raw.is_following,
   }
 }
 
@@ -65,6 +67,16 @@ export async function getPostDetail(postId: number): Promise<PostDetail> {
 export async function getHotPosts(limit = 10): Promise<PostBrief[]> {
   const data = await get<{ items: RawPost[] }>('/posts/hot', { limit })
   return (data.items || []).map(mapBrief)
+}
+
+/** 关注流（已关注用户的帖子） */
+export async function getFollowingFeed(cursor?: number): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts/following', { cursor })
+  return {
+    items: (data.items || []).map(mapBrief),
+    next_cursor: data.next_cursor,
+    has_more: data.has_more,
+  }
 }
 
 /** 搜索帖子 */

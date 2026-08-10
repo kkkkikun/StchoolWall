@@ -12,6 +12,9 @@
           <text class="nickname">{{ post.author.nickname }}</text>
           <text class="sub">{{ timeText }} · {{ typeLabel }}</text>
         </view>
+        <view v-if="canFollow" class="follow-btn" :class="{ on: isFollowing }" @tap="onFollow">
+          <text>{{ isFollowing ? '已关注' : '+ 关注' }}</text>
+        </view>
         <text v-if="canReport" class="report-btn" @tap="onReport">举报</text>
       </view>
 
@@ -110,6 +113,8 @@ import {
   unlikePost,
   favoritePost,
   unfavoritePost,
+  followUser,
+  unfollowUser,
   type CommentItem,
 } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
@@ -125,9 +130,14 @@ const currentUserId = ref<string>(userStorage.getUserInfo()?.id || '')
 const isLiked = ref(false)
 const likeCount = ref(0)
 const isFav = ref(false)
+const isFollowing = ref(false)
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[post.value?.post_type || ''] || '动态')
 const canReport = computed(() => tokenStorage.isLoggedIn())
+const canFollow = computed(() => {
+  if (!tokenStorage.isLoggedIn() || !post.value?.user_id) return false
+  return post.value.user_id !== currentUserId.value
+})
 
 const timeText = computed(() => {
   const t = new Date(post.value?.created_at || '').getTime()
@@ -158,6 +168,20 @@ const applyInteractions = () => {
   isLiked.value = !!post.value.is_liked
   likeCount.value = post.value.like_count || 0
   isFav.value = !!post.value.is_favorited
+  isFollowing.value = !!post.value.is_following
+}
+
+const onFollow = async () => {
+  if (!post.value?.user_id || !requireLogin()) return
+  const prev = isFollowing.value
+  isFollowing.value = !prev
+  try {
+    await (prev ? unfollowUser(post.value.user_id) : followUser(post.value.user_id))
+    uni.showToast({ title: prev ? '已取消关注' : '关注成功', icon: 'none' })
+  } catch (e) {
+    isFollowing.value = prev
+    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+  }
 }
 
 const loadComments = async () => {
@@ -312,6 +336,8 @@ const copyContact = () => {
 .nickname { font-size: 30rpx; font-weight: bold; color: #333; }
 .sub { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
 .report-btn { font-size: 24rpx; color: var(--text-3); border: 1rpx solid #eee; padding: 8rpx 20rpx; border-radius: 24rpx; }
+.follow-btn { font-size: 24rpx; color: #fff; background: var(--brand-red); padding: 8rpx 24rpx; border-radius: 24rpx; margin-right: 16rpx; }
+.follow-btn.on { background: #f0f0f0; color: #888; }
 
 .content { padding: 24rpx; }
 .content-text { font-size: 30rpx; color: var(--text-1); line-height: 1.7; white-space: pre-wrap; }

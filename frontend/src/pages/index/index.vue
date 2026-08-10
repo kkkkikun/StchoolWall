@@ -105,8 +105,8 @@
 
     <!-- 7. 信息流 -->
     <view class="feed-list">
-      <view v-if="feedCategoryName" class="filter-chip" @tap="clearFilter">
-        <text>分类：{{ feedCategoryName }} ✕</text>
+      <view v-if="feedModeName" class="filter-chip" @tap="clearFilter">
+        <text>{{ feedModeName === '关注的人' ? '关注的人' : '分类：' + feedModeName }} ✕</text>
       </view>
       <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"><text>加载中…</text></view>
       <view v-else-if="posts.length === 0" class="feed-tip"><text>暂无内容，下拉刷新或去发布</text></view>
@@ -138,13 +138,18 @@ import { ref } from 'vue'
 import { onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import FeedCard from '@/components/feed-card.vue'
 import TabBar from '@/components/tab-bar.vue'
-import { HOME_TABS, MENU_ITEMS, AD_BANNERS } from '@/utils/mock'
+import { MENU_ITEMS, AD_BANNERS, POST_CATEGORIES } from '@/utils/mock'
 import type { AdBanner, MenuItem } from '@/types/mock'
 import type { PostBrief } from '@/types/api'
-import { getPosts, getHotPosts } from '@/api/posts'
+import { getPosts, getHotPosts, getFollowingFeed } from '@/api/posts'
+import { tokenStorage } from '@/utils/storage'
 
-const tabs = HOME_TABS
+// 顶部 tab：推荐 / 关注 / 9 个分类（与金刚区同源）
+const tabs = ['推荐', '关注', ...POST_CATEGORIES]
 const currentTab = ref(0)
+// feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
+const feedMode = ref<string>('all')
+const feedModeName = ref('') // chip 展示文本
 interface HotItem { id: number; rank: number; title: string; isHot: boolean; reads: string }
 const hotPosts = ref<HotItem[]>([])
 const menuItems = MENU_ITEMS
@@ -154,8 +159,6 @@ const loadingFeeds = ref(false)
 const nextCursor = ref<number | null>(null)
 const hasMore = ref(false)
 const searchKeyword = ref('')
-const feedCategory = ref<string>('') // 金刚区分类筛选（按 category 字段）
-const feedCategoryName = ref<string>('') // 当前筛选的中文名（展示用）
 
 // 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -165,7 +168,10 @@ const loadFeeds = async (refresh = false) => {
   loadingFeeds.value = true
   try {
     const cursor = refresh ? undefined : nextCursor.value
-    const res = await getPosts(cursor ?? undefined, undefined, feedCategory.value || undefined)
+    let res
+    if (feedMode.value === 'following') res = await getFollowingFeed(cursor ?? undefined)
+    else if (feedMode.value !== 'all') res = await getPosts(cursor ?? undefined, undefined, feedMode.value)
+    else res = await getPosts(cursor ?? undefined)
     if (refresh) posts.value = res.items
     else posts.value.push(...res.items)
     nextCursor.value = res.next_cursor
@@ -219,15 +225,10 @@ const onMenu = (item: MenuItem) => {
     uni.navigateTo({ url: '/pages/search/index' })
     return
   }
-  // 其余 9 项：按 category 过滤信息流（再次点击同一项 = 清除）
-  if (feedCategory.value === item.name) {
-    feedCategory.value = ''
-    feedCategoryName.value = ''
-  } else {
-    feedCategory.value = item.name
-    feedCategoryName.value = item.name
-  }
-  currentTab.value = 0
+  // 按 category 过滤，同步高亮对应 tab
+  feedMode.value = item.name
+  feedModeName.value = item.name
+  currentTab.value = tabs.indexOf(item.name)
   loadFeeds(true)
   uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
 }
@@ -237,25 +238,29 @@ const goPost = (id: number) => {
 }
 
 const switchTab = (idx: number) => {
-  if (currentTab.value === idx && idx === 0 && feedCategory.value) {
-    // 再点「推荐」清除分类筛选
-    feedCategory.value = ''
-    feedCategoryName.value = ''
-    loadFeeds(true)
-    return
+  const t = tabs[idx]
+  if (t === '推荐') {
+    feedMode.value = 'all'
+    feedModeName.value = ''
+  } else if (t === '关注') {
+    if (!tokenStorage.isLoggedIn()) {
+      uni.showToast({ title: '请先登录后查看关注', icon: 'none' })
+      return
+    }
+    feedMode.value = 'following'
+    feedModeName.value = '关注的人'
+  } else {
+    feedMode.value = t
+    feedModeName.value = t
   }
-  if (currentTab.value === idx) return
   currentTab.value = idx
-  if (idx === 0 && feedCategory.value) {
-    feedCategory.value = ''
-    feedCategoryName.value = ''
-    loadFeeds(true)
-  }
+  loadFeeds(true)
 }
 
 const clearFilter = () => {
-  feedCategory.value = ''
-  feedCategoryName.value = ''
+  feedMode.value = 'all'
+  feedModeName.value = ''
+  currentTab.value = 0
   loadFeeds(true)
 }
 

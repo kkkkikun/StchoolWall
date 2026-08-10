@@ -61,6 +61,8 @@ export interface PostDetail extends PostBrief {
   view_count: number
   contact_info?: string
   is_reported?: boolean
+  user_id?: string
+  is_following?: boolean
 }
 
 /** 帖子列表响应 */

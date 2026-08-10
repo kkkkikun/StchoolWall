@@ -10,6 +10,7 @@ from app.dependencies import require_role
 from app.models.user import User
 from app.schemas.interaction import CommentCreate
 from app.services import interaction as svc
+from app.services import follow as follow_svc
 
 router = APIRouter()
 
@@ -137,4 +138,29 @@ async def my_stats(
     user: User = Depends(require_role("student", "admin")),
 ):
     data = await svc.get_stats(db, user)
+    return {"code": 0, "data": data}
+
+
+# ---- 关注 ----
+
+
+@router.post("/users/{user_id}/follow")
+async def follow_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    import uuid as _uuid
+    data = await follow_svc.follow(db, user, _uuid.UUID(user_id))
+    return {"code": 0, "data": data}
+
+
+@router.delete("/users/{user_id}/follow")
+async def unfollow_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    import uuid as _uuid
+    data = await follow_svc.unfollow(db, user, _uuid.UUID(user_id))
     return {"code": 0, "data": data}

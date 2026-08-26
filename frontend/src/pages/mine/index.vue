@@ -20,16 +20,21 @@
         </view>
       </view>
 
-      <!-- 4 列统计 -->
+      <!-- 5 列统计（含关注/粉丝） -->
       <view class="stats-panel-row">
         <view class="stats-item" @tap="goStats('posts')">
           <text class="stats-label">帖子</text>
-          <text class="stats-count">{{ stats.postsCount }}</text>
+          <text class="stats-count">{{ profileStats.posts_count }}</text>
         </view>
         <view class="stats-divider" />
-        <view class="stats-item" @tap="goStats('comments')">
-          <text class="stats-label">评论</text>
-          <text class="stats-count">{{ stats.commentsCount }}</text>
+        <view class="stats-item" @tap="goMyProfile('following')">
+          <text class="stats-label">关注</text>
+          <text class="stats-count">{{ profileStats.following_count }}</text>
+        </view>
+        <view class="stats-divider" />
+        <view class="stats-item" @tap="goMyProfile('followers')">
+          <text class="stats-label">粉丝</text>
+          <text class="stats-count">{{ profileStats.followers_count }}</text>
         </view>
         <view class="stats-divider" />
         <view class="stats-item" @tap="goStats('favorites')">
@@ -88,12 +93,14 @@ import TabBar from '@/components/tab-bar.vue'
 import { MINE_USER, MINE_STATS, MINE_MENU_1, MINE_MENU_2 } from '@/utils/mock'
 import { myStats } from '@/api/interaction'
 import { devLogin } from '@/api/auth'
+import { getProfile, type UserProfile } from '@/api/profile'
 import { tokenStorage, userStorage } from '@/utils/storage'
 
 const menu1 = MINE_MENU_1
 const menu2 = MINE_MENU_2
 const user = ref(MINE_USER)
 const stats = ref(MINE_STATS)
+const profileStats = ref({ posts_count: 0, following_count: 0, followers_count: 0 })
 const loggedIn = ref(tokenStorage.isLoggedIn())
 const isVerified = ref(!!userStorage.getUserInfo()?.is_verified)
 
@@ -114,6 +121,17 @@ const loadProfile = async () => {
     }
   } catch {
     /* 未登录或失败时保留 mock 数据 */
+  }
+  // 关注/粉丝计数走公开资料接口（自己也是一份资料）
+  if (info?.id) {
+    try {
+      const p: UserProfile = await getProfile(info.id)
+      profileStats.value = {
+        posts_count: p.posts_count,
+        following_count: p.following_count,
+        followers_count: p.followers_count,
+      }
+    } catch { /* 忽略 */ }
   }
 }
 
@@ -148,6 +166,15 @@ const goStats = (type: string) => {
 }
 
 const goVerify = () => uni.navigateTo({ url: '/pages/verify/index' })
+
+const goMyProfile = (section: string) => {
+  const id = userStorage.getUserInfo()?.id
+  if (!id) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/profile/index?id=${id}&section=${section}` })
+}
 
 const onMenu = (action: string) => {
   uni.showToast({ title: `${action}（开发中）`, icon: 'none' })

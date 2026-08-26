@@ -1,4 +1,5 @@
 from sqlalchemy import select, func, and_, update, text
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -317,6 +318,42 @@ async def following_feed(
         )).scalars())
         fav_ids = set((await db.execute(
             select(Favorite.post_id).where(Favorite.user_id == user.id, Favorite.post_id.in_(ids))
+        )).scalars())
+        for it in items:
+            it["is_liked"] = it["id"] in liked_ids
+            it["is_favorited"] = it["id"] in fav_ids
+
+    next_cursor = rows[-1].id if has_more and rows else None
+    return items, next_cursor, has_more
+
+
+async def user_posts(
+    db: AsyncSession, user_id: uuid.UUID, viewer: User | None = None,
+    cursor: int | None = None, limit: int = 20,
+) -> tuple[list[dict], int | None, bool]:
+    """某用户公开主页的帖子（status=1、非广告），带查看者互动视角。"""
+    conds = [Post.user_id == user_id, Post.status == 1, Post.post_type != "advertisement"]
+    if cursor:
+        conds.append(Post.id < cursor)
+    stmt = (
+        select(Post, User.nickname)
+        .join(User, Post.user_id == User.id)
+        .where(*conds)
+        .order_by(Post.created_at.desc())
+        .limit(limit + 1)
+    )
+    rows = (await db.execute(stmt)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    items = [_post_to_dict(p, nick) for p, nick in rows]
+    if viewer and items:
+        ids = [it["id"] for it in items]
+        liked_ids = set((await db.execute(
+            select(Like.post_id).where(Like.user_id == viewer.id, Like.post_id.in_(ids))
+        )).scalars())
+        fav_ids = set((await db.execute(
+            select(Favorite.post_id).where(Favorite.user_id == viewer.id, Favorite.post_id.in_(ids))
         )).scalars())
         for it in items:
             it["is_liked"] = it["id"] in liked_ids

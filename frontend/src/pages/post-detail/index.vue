@@ -8,9 +8,9 @@
         <view class="avatar" :style="{ background: avatarColor }">
           <text class="avatar-letter">{{ avatarLetter }}</text>
         </view>
-        <view class="author-meta">
+        <view class="author-meta" @tap="goAuthor">
           <text class="nickname">{{ post.author.nickname }}</text>
-          <text class="sub">{{ timeText }} · {{ typeLabel }}</text>
+          <text class="sub">{{ timeText }} · {{ typeLabel }} ›</text>
         </view>
         <view v-if="canFollow" class="follow-btn" :class="{ on: isFollowing }" @tap="onFollow">
           <text>{{ isFollowing ? '已关注' : '+ 关注' }}</text>
@@ -280,6 +280,10 @@ const onDeleteComment = (id: number) => {
       }
     },
   })
+}
+
+const goAuthor = () => {
+  if (post.value?.user_id) uni.navigateTo({ url: `/pages/profile/index?id=${post.value.user_id}` })
 }
 
 const onReport = () => {

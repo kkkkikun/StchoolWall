@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_role
+from app.dependencies import get_optional_user, require_role
 from app.models.user import User
 from app.schemas.interaction import CommentCreate
 from app.services import interaction as svc
 from app.services import follow as follow_svc
+from app.services import profile as profile_svc
+from app.services.post import user_posts
 
 router = APIRouter()
 
@@ -164,3 +166,54 @@ async def unfollow_user(
     import uuid as _uuid
     data = await follow_svc.unfollow(db, user, _uuid.UUID(user_id))
     return {"code": 0, "data": data}
+
+
+# ---- 个人主页 ----
+
+
+def _to_uuid(user_id: str):
+    import uuid as _uuid
+    return _uuid.UUID(user_id)
+
+
+@router.get("/users/{user_id}/profile")
+async def get_user_profile(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
+):
+    data = await profile_svc.get_profile(db, _to_uuid(user_id), viewer)
+    if data is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return {"code": 0, "data": data}
+
+
+@router.get("/users/{user_id}/following")
+async def get_user_following(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
+):
+    items = await profile_svc.list_following(db, _to_uuid(user_id), viewer)
+    return {"code": 0, "data": {"items": items}}
+
+
+@router.get("/users/{user_id}/followers")
+async def get_user_followers(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
+):
+    items = await profile_svc.list_followers(db, _to_uuid(user_id), viewer)
+    return {"code": 0, "data": {"items": items}}
+
+
+@router.get("/users/{user_id}/posts")
+async def get_user_posts(
+    user_id: str,
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
+):
+    items, next_cursor, has_more = await user_posts(db, _to_uuid(user_id), viewer, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}

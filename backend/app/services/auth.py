@@ -62,20 +62,23 @@ async def wx_login(code: str, db: AsyncSession) -> dict:
     }
 
 
-async def dev_login(db: AsyncSession) -> dict:
-    """开发环境一键登录（演示学生），仅 ENVIRONMENT=development 暴露路由。"""
-    openid = "dev_demo_student"
+async def dev_login(db: AsyncSession, as_admin: bool = False) -> dict:
+    """开发环境一键登录（演示身份），仅 ENVIRONMENT=development 暴露路由。
+
+    as_admin=True 登演示管理员（管理后台联调用）；默认演示学生。
+    用户不存在时自动创建（管理员同样落 student_id/real_name，仅演示库使用）。
+    """
+    if as_admin:
+        openid = "dev_demo_admin"
+        defaults = dict(nickname="演示管理员", role="admin", student_id="2024ADMIN", real_name="演示管理员")
+    else:
+        openid = "dev_demo_student"
+        defaults = dict(nickname="演示同学", role="student", student_id="2024DEV", real_name="演示同学")
+
     result = await db.execute(select(User).where(User.openid == openid))
     user = result.scalar_one_or_none()
     if user is None:
-        user = User(
-            openid=openid,
-            nickname="演示同学",
-            role="student",
-            is_verified=True,
-            student_id="2024DEV",
-            real_name="演示同学",
-        )
+        user = User(openid=openid, is_verified=True, **defaults)
         db.add(user)
         await db.commit()
         await db.refresh(user)

@@ -16,11 +16,12 @@ export function verifyStudent(studentId: string, password: string) {
 }
 
 /**
- * 开发环境一键登录（演示学生）。
+ * 开发环境一键登录（演示身份）。
  * 仅后端 ENVIRONMENT=development 暴露；用于 H5 预览联调，绕过 wx.login。
+ * asAdmin=true 登演示管理员（管理后台联调用）。
  */
-export function devLogin() {
-  return post<LoginResponse>('/auth/dev-login', {})
+export function devLogin(asAdmin = false) {
+  return post<LoginResponse>(`/auth/dev-login?as_admin=${asAdmin}`, {})
 }
 
 /**

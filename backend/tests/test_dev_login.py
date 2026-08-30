@@ -38,3 +38,25 @@ async def test_dev_login_is_idempotent(client: AsyncClient):
         assert r1.json()["data"]["user_info"]["id"] == r2.json()["data"]["user_info"]["id"]
     finally:
         settings.ENVIRONMENT = "test"
+
+
+@pytest.mark.asyncio
+async def test_dev_login_admin_role(client: AsyncClient):
+    """?as_admin=true 登演示管理员（管理后台联调）"""
+    settings.ENVIRONMENT = "development"
+    try:
+        r = await client.post("/api/v1/auth/dev-login?as_admin=true")
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["role"] == "admin"
+
+        # admin token 能访问管理接口
+        headers = {"Authorization": f"Bearer {data['access_token']}"}
+        stats = await client.get("/api/v1/admin/stats", headers=headers)
+        assert stats.status_code == 200
+
+        # 学生/管理员是两个不同账号
+        student = await client.post("/api/v1/auth/dev-login")
+        assert student.json()["data"]["user_info"]["id"] != data["user_info"]["id"]
+    finally:
+        settings.ENVIRONMENT = "test"

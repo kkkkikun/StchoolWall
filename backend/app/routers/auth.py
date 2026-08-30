@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -19,11 +19,14 @@ async def login(body: WxLoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/dev-login")
-async def dev_login_route(db: AsyncSession = Depends(get_db)):
-    """开发环境一键登录（仅 development 暴露，用于 H5 预览联调）。"""
+async def dev_login_route(as_admin: bool = Query(False), db: AsyncSession = Depends(get_db)):
+    """开发环境一键登录（仅 development 暴露，用于 H5 预览联调）。
+
+    ?as_admin=true 登演示管理员（管理后台联调）。
+    """
     if settings.ENVIRONMENT != "development":
         raise HTTPException(status_code=404, detail="Not Found")
-    return await dev_login(db)
+    return await dev_login(db, as_admin=as_admin)
 
 
 @router.post("/verify")

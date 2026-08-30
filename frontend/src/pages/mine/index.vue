@@ -11,8 +11,13 @@
           <view v-if="user.schoolName" class="school-tag-capsule">
             <text>{{ user.schoolName }}</text>
           </view>
-          <view v-if="!loggedIn" class="dev-login-capsule" @tap="doDevLogin">
-            <text>一键登录（演示）</text>
+          <view v-if="!loggedIn" class="dev-login-row">
+            <view class="dev-login-capsule" @tap="doDevLogin(false)">
+              <text>一键登录（演示学生）</text>
+            </view>
+            <view class="dev-login-capsule admin" @tap="doDevLogin(true)">
+              <text>🛡️ 演示管理员</text>
+            </view>
           </view>
           <view v-if="loggedIn && !isVerified" class="verify-capsule" @tap="goVerify">
             <text>🎓 学籍认证（发帖/互动需认证）</text>
@@ -145,18 +150,20 @@ const loadProfile = async () => {
   }
 }
 
-const doDevLogin = async () => {
+const doDevLogin = async (asAdmin: boolean) => {
   try {
-    const res = await devLogin()
+    const res = await devLogin(asAdmin)
     tokenStorage.setToken(res.access_token)
     userStorage.setUserInfo({
       id: res.user_info.id,
       nickname: res.user_info.nickname,
-      role: 'student',
-      is_verified: true,
+      // role 用后端下发（演示管理员/学生），不再写死
+      role: res.role,
+      is_verified: res.user_info.is_verified,
     })
     loggedIn.value = true
-    uni.showToast({ title: '已登录（演示）', icon: 'success' })
+    isVerified.value = !!res.user_info.is_verified
+    uni.showToast({ title: asAdmin ? '已登录（管理员）' : '已登录（演示）', icon: 'success' })
     await loadProfile()
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '登录失败', icon: 'none' })
@@ -260,12 +267,26 @@ const onMenu = (action: string) => {
   font-weight: 500;
 }
 
+.dev-login-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
 .dev-login-capsule {
   align-self: flex-start;
   background-color: #ffffff;
   padding: 8rpx 24rpx;
   border-radius: 24rpx;
   margin-top: 14rpx;
+}
+.dev-login-row .dev-login-capsule {
+  margin-top: 0;
+}
+.dev-login-capsule.admin {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+.dev-login-capsule.admin text {
+  color: #ffffff;
 }
 .dev-login-capsule text {
   color: var(--brand-red);

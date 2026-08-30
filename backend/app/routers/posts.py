@@ -6,13 +6,14 @@ from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user, require_role
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
-from app.services.moderation import check_post_images
+from app.services.moderation import check_post_moderation
 from app.services.post import (
     create_post,
     following_feed,
     get_post_detail,
     hot_posts,
     list_posts,
+    my_posts,
     report_post,
     search_posts,
     update_post_status,
@@ -55,13 +56,24 @@ async def new_post(
     # Student 发帖需后台审核，admin 直接通过
     # 测试环境不执行后台任务（通过环境变量控制）
     if post.status == 0 and settings.ENVIRONMENT != "test":
-        bg_tasks.add_task(check_post_images, post.id)
+        bg_tasks.add_task(check_post_moderation, post.id)
 
     return {
         "code": 0,
         "message": "发布成功" if post.status == 1 else "发布成功，图片审核中",
         "data": {"post_id": post.id, "status": post.status},
     }
+
+
+@router.get("/my")
+async def get_my_posts(
+    status: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    """我的帖子（含待审/封禁等全部状态，软删除除外）"""
+    items = await my_posts(db, user, status)
+    return {"code": 0, "data": {"items": items}}
 
 
 @router.get("/following")

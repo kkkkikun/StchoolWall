@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # WeChat Mini Program
     WECHAT_APP_ID: str = ""
     WECHAT_APP_SECRET: str = ""
+    # 内容审核降级策略：True=微信故障时放行（可用性优先），False=保持待审等人工（合规优先）
+    MODERATION_FAIL_OPEN: bool = True
 
     # Storage
     STORAGE_PROVIDER: str = "local"  # local, r2, aliyun

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -19,6 +19,9 @@ class Post(Base):
     images = mapped_column(JSONB, default=[])
     price = mapped_column(Numeric(10, 2), nullable=True)
     status: Mapped[int] = mapped_column(SmallInteger, default=0, index=True)
+    # 管理员置顶：仅首页"推荐"位第一页前置展示
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    pinned_at = mapped_column(DateTime(timezone=True), nullable=True)
     # 互动计数（冗余字段，写操作时同步维护，列表页避免聚合查询）
     like_count: Mapped[int] = mapped_column(Integer, default=0)
     comment_count: Mapped[int] = mapped_column(Integer, default=0)

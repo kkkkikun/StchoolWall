@@ -134,14 +134,13 @@ class TestListPosts:
         assert items[0]["content"] == "可见帖子"
 
     @pytest.mark.asyncio
-    async def test_advertisements_pinned(self, client: AsyncClient, admin_user: User, student_user: User):
-        """广告置顶显示"""
+    async def test_advertisements_not_in_feed(self, client: AsyncClient, admin_user: User, student_user: User):
+        """广告帖不再混入 feed（轮播位由独立 Banner 表承接）"""
         await _seed_post(student_user.id, content="普通帖", status=1)
         await _seed_post(admin_user.id, post_type="advertisement", content="广告帖", status=1)
         r = await client.get("/api/v1/posts")
         items = r.json()["data"]["items"]
-        assert items[0]["content"] == "广告帖"
-        assert items[1]["content"] == "普通帖"
+        assert [it["content"] for it in items] == ["普通帖"]
 
     @pytest.mark.asyncio
     async def test_list_public_no_token(self, client: AsyncClient, student_user: User):

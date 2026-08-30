@@ -73,7 +73,7 @@ import { unreadSummary, listNotifications, readAllNotifications, readNotificatio
 import type { NotificationItem, NotificationType } from '@/api/notification'
 import { tokenStorage } from '@/utils/storage'
 
-const summary = ref({ comment: 0, like: 0, group: 0, im: 0 })
+const summary = ref({ comment: 0, like: 0, group: 0, moderation: 0, im: 0 })
 const messages = ref<Array<{ id: number; nickname: string; time: string; brief: string; post_id: number | null; is_read: boolean }>>([])
 const filter = ref<NotificationType | ''>('')
 
@@ -85,7 +85,7 @@ const categories = computed(() => [
 ])
 
 const filterLabel = computed(() => {
-  const m = { comment: '评论', like: '赞和收藏', group: '组局', '': '帖子动态' }
+  const m: Record<string, string> = { comment: '评论', like: '赞和收藏', group: '组局', moderation: '系统通知', '': '帖子动态' }
   return m[filter.value] || '帖子动态'
 })
 const emptyText = computed(() => (filter.value ? `暂无${filterLabel.value}通知` : '暂无消息'))
@@ -114,6 +114,7 @@ const briefOf = (n: NotificationItem) => {
   if (n.type === 'like') return '赞了你的帖子'
   if (n.type === 'comment') return '评论了你的帖子'
   if (n.type === 'group') return '邀请你加入组局'
+  if (n.type === 'moderation') return '你发布的帖子未通过审核'
   return '有了新动态'
 }
 
@@ -130,7 +131,7 @@ const loadMessages = async () => {
     const res = await listNotifications(filter.value || undefined)
     messages.value = res.items.map((n) => ({
       id: n.id,
-      nickname: n.actor.nickname,
+      nickname: n.type === 'moderation' ? '系统' : n.actor.nickname,
       time: timeAgo(n.created_at),
       brief: briefOf(n),
       post_id: n.post_id,

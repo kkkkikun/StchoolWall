@@ -16,7 +16,7 @@ function mapBrief(raw: RawPost): PostBrief {
     images: raw.images || [],
     price: raw.price ?? undefined,
     status: raw.status,
-    is_pinned: false,
+    is_pinned: !!raw.is_pinned,
     created_at: raw.created_at,
     updated_at: raw.updated_at || raw.created_at,
     author: {

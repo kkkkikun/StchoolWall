@@ -46,19 +46,29 @@ async def list_posts(
     viewer: User | None = None,
     category: str | None = None,
 ) -> tuple[list[dict], int | None, bool]:
-    # 分类筛选时不置顶广告（按分类看时广告无关）
-    ad_rows = []
-    if not category:
-        ad_stmt = (
+    # 广告轮播由独立 Banner 表承接（GET /banners），广告帖不再混入 feed
+    # 置顶：仅"推荐位"（无 category/post_type 筛选）第一页前置置顶块
+    is_recommend = not category and not post_type
+
+    pinned_rows: list = []
+    if is_recommend and not cursor:
+        pinned_stmt = (
             select(Post, User.nickname)
             .join(User, Post.user_id == User.id)
-            .where(Post.post_type == "advertisement", Post.status == 1)
-            .order_by(Post.created_at.desc())
+            .where(
+                Post.post_type != "advertisement",
+                Post.status == 1,
+                Post.is_pinned.is_(True),
+            )
+            .order_by(Post.pinned_at.desc(), Post.id.desc())
         )
-        ad_rows = (await db.execute(ad_stmt)).all()
+        pinned_rows = (await db.execute(pinned_stmt)).all()
 
     # 普通帖子：游标分页
     conditions = [Post.post_type != "advertisement", Post.status == 1]
+    # 推荐位置顶帖从主流排除（只在置顶块出现，防止翻页重复）
+    if is_recommend:
+        conditions.append(Post.is_pinned.is_(False))
     if cursor:
         conditions.append(Post.id < cursor)
     if post_type:
@@ -70,7 +80,7 @@ async def list_posts(
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conditions)
-        .order_by(Post.created_at.desc())
+        .order_by(Post.id.desc())
         .limit(limit + 1)
     )
     result = await db.execute(stmt)
@@ -79,7 +89,9 @@ async def list_posts(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [_post_to_dict(p, nick) for p, nick in ad_rows + rows]
+    items = [_post_to_dict(p, nick) for p, nick in pinned_rows + rows]
+    # 行是 (Post, nickname) 元组，游标取 Post.id
+    next_cursor = rows[-1][0].id if has_more and rows else None
 
     # 当前用户的点赞/收藏视角（批量查询）
     if viewer and items:
@@ -94,9 +106,25 @@ async def list_posts(
             it["is_liked"] = it["id"] in liked_ids
             it["is_favorited"] = it["id"] in fav_ids
 
-    next_cursor = rows[-1].id if has_more and rows else None
-
     return items, next_cursor, has_more
+
+
+async def my_posts(
+    db: AsyncSession, user: User, status: int | None = None,
+) -> list[dict]:
+    """我的帖子：含全部状态（待审/正常/封禁/归档），软删除不显示。"""
+    conditions = [Post.user_id == user.id, Post.status != -2]
+    if status is not None:
+        conditions.append(Post.status == status)
+    stmt = (
+        select(Post, User.nickname)
+        .join(User, Post.user_id == User.id)
+        .where(*conditions)
+        .order_by(Post.id.desc())
+        .limit(100)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [_post_to_dict(p, nick) for p, nick in rows]
 
 
 async def get_post_detail(
@@ -138,6 +166,7 @@ async def get_post_detail(
         "images": post.images,
         "price": float(post.price) if post.price else None,
         "status": post.status,
+        "is_pinned": bool(post.is_pinned),
         "created_at": post.created_at.isoformat() if post.created_at else None,
         "user_id": str(author.id),
         "user": {"nickname": author.nickname},
@@ -177,6 +206,20 @@ async def get_post_detail(
     # guest: contact_wechat stays None, no real_name
 
     return data
+
+
+async def set_post_pinned(db: AsyncSession, post_id: int, pinned: bool) -> Post | None:
+    """管理员置顶/取消置顶；仅对正常展示的帖子有效。"""
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post or post.status != 1:
+        return None
+
+    post.is_pinned = pinned
+    post.pinned_at = func.now() if pinned else None
+    await db.commit()
+    await db.refresh(post)
+    return post
 
 
 async def update_post_status(
@@ -239,6 +282,7 @@ def _post_to_dict(post: Post, nickname: str) -> dict:
         "images": post.images,
         "price": float(post.price) if post.price else None,
         "status": post.status,
+        "is_pinned": bool(post.is_pinned),
         "user": {"nickname": nickname},
         "like_count": post.like_count or 0,
         "comment_count": post.comment_count or 0,
@@ -278,7 +322,7 @@ async def search_posts(
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Post.created_at.desc())
+        .order_by(Post.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
@@ -303,7 +347,7 @@ async def following_feed(
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Post.created_at.desc())
+        .order_by(Post.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
@@ -339,7 +383,7 @@ async def user_posts(
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Post.created_at.desc())
+        .order_by(Post.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()

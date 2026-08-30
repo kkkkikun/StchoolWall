@@ -59,6 +59,12 @@
 			}
 		},
 		{
+			"path": "pages/webview/index",
+			"style": {
+				"navigationBarTitleText": "外部链接"
+			}
+		},
+		{
 			"path": "pages/verify/index",
 			"style": {
 				"navigationBarTitleText": "学籍认证"

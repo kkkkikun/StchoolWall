@@ -77,8 +77,20 @@
       :duration="500"
     >
       <swiper-item v-for="ad in adBanners" :key="ad.id" @tap="onAd(ad)">
-        <view class="ad-slide" :style="{ background: ad.bg }">
-          <text class="ad-emoji">{{ ad.emoji }}</text>
+        <!-- 有图 banner：图片铺满 + 底部渐变标题 -->
+        <view v-if="ad.image_url" class="ad-slide ad-slide-img">
+          <image class="ad-img" :src="ad.image_url" mode="aspectFill" />
+          <view class="ad-img-mask">
+            <view class="ad-text">
+              <text class="ad-title">{{ ad.title }}</text>
+              <text v-if="ad.desc" class="ad-desc">{{ ad.desc }}</text>
+            </view>
+          </view>
+          <text v-if="ad.tag" class="ad-tag">{{ ad.tag }}</text>
+        </view>
+        <!-- 无图 banner：emoji + 渐变背景（mock fallback 同款样式） -->
+        <view v-else class="ad-slide" :style="{ background: ad.bg || 'linear-gradient(135deg, #ff5e62, #ff9966)' }">
+          <text class="ad-emoji">{{ ad.emoji || '📢' }}</text>
           <view class="ad-text">
             <text class="ad-title">{{ ad.title }}</text>
             <text class="ad-desc">{{ ad.desc }}</text>
@@ -139,9 +151,10 @@ import { onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import FeedCard from '@/components/feed-card.vue'
 import TabBar from '@/components/tab-bar.vue'
 import { MENU_ITEMS, AD_BANNERS, POST_CATEGORIES } from '@/utils/mock'
-import type { AdBanner, MenuItem } from '@/types/mock'
+import type { MenuItem } from '@/types/mock'
 import type { PostBrief } from '@/types/api'
 import { getPosts, getHotPosts, getFollowingFeed } from '@/api/posts'
+import { getBanners, type BannerItem } from '@/api/banner'
 import { tokenStorage } from '@/utils/storage'
 
 // 顶部 tab：推荐 / 关注 / 9 个分类（与金刚区同源）
@@ -153,7 +166,17 @@ const feedModeName = ref('') // chip 展示文本
 interface HotItem { id: number; rank: number; title: string; isHot: boolean; reads: string }
 const hotPosts = ref<HotItem[]>([])
 const menuItems = MENU_ITEMS
-const adBanners = AD_BANNERS
+// 广告轮播：后端下发优先，失败/未配置时 fallback 到 mock（运营未配不白屏）
+const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([...AD_BANNERS])
+
+const loadBanners = async () => {
+  try {
+    const items = await getBanners()
+    if (items.length) adBanners.value = items
+  } catch {
+    /* 后端不可用时保留 fallback */
+  }
+}
 const posts = ref<PostBrief[]>([])
 const loadingFeeds = ref(false)
 const nextCursor = ref<number | null>(null)
@@ -210,6 +233,7 @@ const loadHot = async () => {
 onShow(() => {
   loadFeeds(true)
   loadHot()
+  loadBanners()
 })
 
 const rankClass = (rank: number) => `rank-${rank}`
@@ -219,7 +243,13 @@ const onSearch = () => {
   uni.navigateTo({ url: q ? `/pages/search/index?q=${encodeURIComponent(q)}` : '/pages/search/index' })
 }
 const onNotice = () => uni.showToast({ title: '搭乘UFO～', icon: 'none' })
-const onAd = (ad: AdBanner) => uni.showToast({ title: `${ad.title}（开发中）`, icon: 'none' })
+const onAd = (ad: BannerItem) => {
+  if (ad.post_id) {
+    uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` })
+  } else if (ad.link_url) {
+    uni.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(ad.link_url)}` })
+  }
+}
 const onMenu = (item: MenuItem) => {
   if (item.name === '更多分类') {
     uni.navigateTo({ url: '/pages/search/index' })
@@ -507,6 +537,32 @@ const scrollToTop = () => {
   display: flex;
   align-items: center;
   position: relative;
+  overflow: hidden;
+}
+
+/* 有图 banner：图片铺满 */
+.ad-slide-img {
+  padding: 0;
+}
+.ad-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+.ad-img-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 28rpx 16rpx;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+  display: flex;
+  align-items: flex-end;
+}
+.ad-slide-img .ad-text {
+  flex: 1;
 }
 
 .ad-emoji {

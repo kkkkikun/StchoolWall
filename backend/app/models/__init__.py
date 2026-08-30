@@ -6,3 +6,4 @@ from app.models.interaction import Comment, Like, Favorite, Footprint
 from app.models.notification import Notification
 from app.models.party import Party, PartyMember
 from app.models.follow import UserFollow
+from app.models.banner import Banner

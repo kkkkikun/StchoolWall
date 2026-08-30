@@ -29,6 +29,22 @@ async def create_notification(
     return n
 
 
+async def create_system_notification(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    type: str,
+    post_id: int | None = None,
+) -> Notification:
+    """系统通知（审核结果等）：actor_id 自指以落库，前端按 type 渲染系统文案、不显示 actor。"""
+    n = Notification(
+        user_id=user_id, actor_id=user_id, type=type, post_id=post_id,
+    )
+    db.add(n)
+    await db.commit()
+    await db.refresh(n)
+    return n
+
+
 def _notif_dict(n: Notification, actor_nick: str) -> dict:
     return {
         "id": n.id,
@@ -79,6 +95,7 @@ async def unread_summary(db: AsyncSession, user: User) -> dict:
         "comment": counts.get("comment", 0),
         "like": counts.get("like", 0),
         "group": counts.get("group", 0),
+        "moderation": counts.get("moderation", 0),
         "im": 0,
     }
 

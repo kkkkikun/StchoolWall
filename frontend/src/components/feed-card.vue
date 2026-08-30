@@ -9,6 +9,7 @@
         <view class="user-meta">
           <view class="name-box">
             <text class="username">{{ post.author.nickname }}</text>
+            <text v-if="post.is_pinned" class="pinned-badge">置顶</text>
           </view>
           <text class="time-ago">{{ timeAgo }} · {{ typeLabel }}</text>
         </view>
@@ -159,6 +160,14 @@ const onShare = () => uni.showToast({ title: '转发（开发中）', icon: 'non
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
 .username { font-size: 28rpx; color: #333; font-weight: bold; }
+.pinned-badge {
+  margin-left: 10rpx;
+  font-size: 18rpx;
+  color: #fff;
+  background: var(--brand-red);
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
 .time-ago { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
 .more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
 .feed-body { margin-top: 20rpx; }

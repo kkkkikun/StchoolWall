@@ -182,19 +182,20 @@ async def list_favorites(
     """收藏列表（按收藏时间倒序，游标用 Favorite.created_at 不可靠，改用 post.id）。"""
     conds = [Favorite.user_id == user.id, Post.status == 1]
     if cursor:
-        conds.append(Post.id < cursor)
+        conds.append(Favorite.post_id < cursor)
     stmt = (
-        select(Post, User.nickname, Favorite.created_at)
-        .join(Post, Favorite.post_id == Post.id)
+        select(Post, User.nickname)
+        .join(Favorite, Favorite.post_id == Post.id)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Favorite.created_at.desc())
+        # 复合主键无自增 id；post_id 对 (user, post) 唯一，作稳定排序键与游标
+        .order_by(Favorite.post_id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-    items = [_post_brief(p, nick) for p, nick, _fa in rows]
+    items = [_post_brief(p, nick) for p, nick in rows]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
@@ -224,17 +225,17 @@ async def list_footprints(
     if cursor:
         conds.append(Footprint.id < cursor)
     stmt = (
-        select(Post, User.nickname, Footprint.id.label("fp_id"), Footprint.viewed_at)
+        select(Post, User.nickname, Footprint.id.label("fp_id"))
         .join(Post, Footprint.post_id == Post.id)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Footprint.viewed_at.desc())
+        .order_by(Footprint.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-    items = [_post_brief(p, nick) for p, nick, _fp_id, _v in rows]
+    items = [_post_brief(p, nick) for p, nick, _fp_id in rows]
     next_cursor = rows[-1][2] if has_more and rows else None
     return items, next_cursor, has_more
 

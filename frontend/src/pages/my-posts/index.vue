@@ -52,10 +52,10 @@ const loading = ref(false)
 const loadPosts = async () => {
   loading.value = true
   try {
-    const res = await get<PostBrief[]>('/posts/my', {
+    const res = await get<{ items: PostBrief[] }>('/posts/my', {
       status: currentStatus.value || undefined,
     })
-    posts.value = res
+    posts.value = res.items
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' })
   } finally {

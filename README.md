@@ -84,7 +84,7 @@ alembic upgrade head           # 建表
 
 # 测试（需先建测试库）
 docker exec schoolwall-db-1 psql -U eywall -d postgres -c "CREATE DATABASE ey_wall_test;"
-pytest                         # 150 passed
+pytest                         # 222 passed
 
 # 运行
 uvicorn app.main:app --reload --port 8000
@@ -101,6 +101,37 @@ npm run dev:h5                 # http://localhost:5173 （/api 自动代理到 :
 ```
 
 > H5 预览无微信环境，提供 **dev-login**（仅 `ENVIRONMENT=development`）：我的页「一键登录（演示）」可直接以演示学生身份体验。
+
+---
+
+## 管理员与管理后台
+
+**首个管理员**没有提权接口（安全考虑），用 SQL 手动提升（role 是 DB 实时校验，改完即生效，无需重启）：
+
+```bash
+# 先用该账号在小程序/H5 登录一次，然后按 openid 提权
+docker exec schoolwall-db-1 psql -U eywall -d ey_wall -c \
+  "UPDATE users SET role='admin' WHERE openid='<你的openid>';"
+```
+
+提权后「我的」页顶部出现**管理后台**入口，功能：
+
+| Tab | 能力 |
+|-----|------|
+| 待审核 | 学生帖机器审核后转人工的队列（通过 / 拒绝） |
+| 举报 | 驳回 / 封帖 / 封号（处理人留痕） |
+| 帖子 | 全量搜索、封禁/恢复、**置顶**（首页推荐位第一页前置） |
+| 轮播广告 | 首页轮播位投放：标题/图片/跳转（站内帖 or 外链）、投放窗口、上下架 |
+| 用户 | 冻结 / 解冻 |
+
+**内容审核**（`app/utils/moderation.py` + `app/services/moderation.py`）：学生发帖后后台任务调微信 `msg_sec_check` v2 / `img_sec_check`，verdict 分流：
+
+- `pass` → 自动过审；`reject` → 封禁 + 系统通知作者
+- `review`（机器不确定）→ 保持待审，进管理后台人工队列
+- `error`（微信故障）→ 重试 3 次后按 `MODERATION_FAIL_OPEN` 降级（默认放行，可用性优先）
+- 未配置 `WECHAT_APP_ID/SECRET` 或测试环境 → 直接放行（开发不阻塞）
+
+---
 
 ---
 

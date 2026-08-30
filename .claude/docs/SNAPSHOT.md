@@ -114,8 +114,15 @@ SchoolWall/
 - [x] 异步内容审核后台任务（帖子图片）
 - [x] 认证链路（微信 + 正方学籍绑定，含安全红线）
 - [x] 限流（Redis）
+- [x] 社交闭环：互动（评论/点赞/收藏/足迹）+ 发现（热帖/搜索/分类）+ 通知 + 组局 + 关注/个人主页
+- [x] 管理后台前端（5 tab：待审/举报/帖子/轮播广告/用户，真实契约对齐）
+- [x] Banner 独立轮播表（投放窗口/上下架/排序；旧广告帖不再混 feed）
+- [x] 管理员置顶（推荐位第一页前置置顶块，主流排除防重复）
+- [x] 真实内容审核（微信 msg_sec_check v2 + img_sec_check；pass/reject/review/error 四分流，fail-open 降级，审核通知）
+- [x] GET /posts/my（我的帖子，含待审/封禁状态筛选）
 
 ## 当前工作 / 下一步
 
-- 前端多页面体系正在搭建中（发帖/详情/我的发布/标签/管理/认证），尚未提交 —— 详见 `.claude/docs/tasks.md`。
-- OpenSpec 规范体系刚初始化完成（5 个 spec 全部校验通过）。
+- 2026-08-30：运营能力四件套（审核/后台/广告/置顶）全部落地，222 tests passed。
+- 待办：生产部署（Nginx/HTTPS/密钥管理）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后审核链路才真实生效）、发布页图片上传（后端 /upload/direct 已就绪，前端 uni.uploadFile 未接）。
+- 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -11,6 +12,12 @@ from app.services.admin import (
     list_users,
     update_user_status,
 )
+from app.services.post import set_post_pinned
+from app.services.admin import admin_stats, admin_update_post_status, list_posts_admin
+
+
+class PinRequest(BaseModel):
+    pinned: bool
 
 router = APIRouter()
 
@@ -35,7 +42,7 @@ async def resolve_report(
     user: User = Depends(require_role("admin")),
 ):
     """处理举报（仅 admin）：dismiss / ban_post / ban_user"""
-    result = await handle_report(db, report_id, body.action)
+    result = await handle_report(db, report_id, body.action, admin_id=user.id)
     if not result:
         raise HTTPException(status_code=404, detail="举报不存在")
     if "error" in result:
@@ -66,3 +73,56 @@ async def change_user_status(
     if not target:
         raise HTTPException(status_code=404, detail="用户不存在")
     return {"code": 0, "message": "success", "data": {"status": target.status}}
+
+
+@router.get("/posts")
+async def get_admin_posts(
+    status: int | None = Query(None),
+    q: str | None = Query(None, max_length=100),
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """帖子管理列表（仅 admin）：全量含待审/封禁/广告，支持状态过滤与内容搜索。"""
+    items, next_cursor, has_more = await list_posts_admin(db, status, q, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+
+
+@router.put("/posts/{post_id}/status")
+async def change_post_status(
+    post_id: int,
+    status: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """帖子状态流转（仅 admin）：0→1 过审 / 0→-1 拒审 / 1→-1 封禁 / -1→1 恢复。"""
+    result = await admin_update_post_status(db, post_id, status)
+    if result is None:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+    if result == "invalid":
+        raise HTTPException(status_code=400, detail="非法的状态流转")
+    return {"code": 0, "message": "操作成功", "data": {"status": result.status}}
+
+
+@router.get("/stats")
+async def get_admin_stats(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """管理看板（仅 admin）。"""
+    data = await admin_stats(db)
+    return {"code": 0, "data": data}
+
+
+@router.put("/posts/{post_id}/pin")
+async def pin_post(
+    post_id: int,
+    body: PinRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """置顶/取消置顶帖子（仅 admin），仅首页推荐位第一页生效"""
+    post = await set_post_pinned(db, post_id, body.pinned)
+    if not post:
+        raise HTTPException(status_code=404, detail="帖子不存在或不可置顶")
+    return {"code": 0, "message": "置顶成功" if body.pinned else "已取消置顶", "data": {"is_pinned": post.is_pinned}}

@@ -21,24 +21,24 @@ class TestModerationUtils:
 
     @pytest.mark.asyncio
     async def test_check_images_passes(self):
-        """图片审核通过（占位实现）"""
+        """图片审核：未配置微信（测试门禁）直接通过"""
         from app.utils.moderation import check_images
         result = await check_images(["https://img.test.com/1.jpg"])
-        assert result is True
+        assert result.verdict == "pass"
 
     @pytest.mark.asyncio
     async def test_check_empty_images(self):
         """空图片列表通过"""
         from app.utils.moderation import check_images
         result = await check_images([])
-        assert result is True
+        assert result.verdict == "pass"
 
     @pytest.mark.asyncio
     async def test_check_text_passes(self):
-        """文本审核通过（占位实现）"""
+        """文本审核：未配置微信（测试门禁）直接通过"""
         from app.utils.moderation import check_text
-        result = await check_text("正常内容")
-        assert result is True
+        result = await check_text("正常内容", "openid_x")
+        assert result.verdict == "pass"
 
 
 # ============================================================

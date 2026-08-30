@@ -56,11 +56,10 @@ class TestCategory:
         assert all(i["post_type"] != "advertisement" for i in items)
 
     @pytest.mark.asyncio
-    async def test_no_category_returns_all_with_ads(self, client: AsyncClient, admin_user: User):
-        """无分类时返回全部，广告置顶"""
+    async def test_no_category_excludes_advertisement(self, client: AsyncClient, admin_user: User):
+        """无分类时返回全部普通帖，广告帖不混入（轮播位由 Banner 表承接）"""
         await _seed_cat(admin_user.id, content="普通", category="校园广场", status=1)
         await _seed_cat(admin_user.id, content="广告", category=None, post_type="advertisement", status=1)
         r = await client.get("/api/v1/posts")
         items = r.json()["data"]["items"]
-        assert items[0]["content"] == "广告"  # 广告置顶
-        assert len(items) == 2
+        assert [it["content"] for it in items] == ["普通"]

@@ -51,6 +51,15 @@
 
     <!-- 2. 菜单区（上浮覆盖红头） -->
     <view class="menu-container">
+      <!-- 管理后台入口（仅 admin 可见） -->
+      <view v-if="isAdmin" class="admin-entry-card" @tap="goAdmin">
+        <view class="menu-item-left">
+          <text class="menu-icon">🛡️</text>
+          <text class="menu-title admin-title">管理后台</text>
+        </view>
+        <text class="arrow-icon">›</text>
+      </view>
+
       <view class="menu-card-group">
         <view
           v-for="item in menu1"
@@ -87,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { MINE_USER, MINE_STATS, MINE_MENU_1, MINE_MENU_2 } from '@/utils/mock'
@@ -103,6 +112,7 @@ const stats = ref(MINE_STATS)
 const profileStats = ref({ posts_count: 0, following_count: 0, followers_count: 0 })
 const loggedIn = ref(tokenStorage.isLoggedIn())
 const isVerified = ref(!!userStorage.getUserInfo()?.is_verified)
+const isAdmin = computed(() => userStorage.getUserInfo()?.role === 'admin')
 
 const loadProfile = async () => {
   if (!tokenStorage.isLoggedIn()) return
@@ -166,6 +176,8 @@ const goStats = (type: string) => {
 }
 
 const goVerify = () => uni.navigateTo({ url: '/pages/verify/index' })
+
+const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
 
 const goMyProfile = (section: string) => {
   const id = userStorage.getUserInfo()?.id
@@ -320,6 +332,21 @@ const onMenu = (action: string) => {
   border-radius: var(--radius-card);
   padding: 0 32rpx;
   margin-bottom: 24rpx;
+}
+
+.admin-entry-card {
+  background-color: #ffffff;
+  border-radius: var(--radius-card);
+  padding: 0 32rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 8rpx solid var(--brand-red);
+}
+.admin-title {
+  color: var(--brand-red);
+  font-weight: 600;
 }
 
 .menu-item {

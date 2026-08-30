@@ -196,6 +196,28 @@ const goMyProfile = (section: string) => {
 }
 
 const onMenu = (action: string) => {
+  if (action === 'settings') {
+    uni.navigateTo({ url: '/pages/settings/index' })
+    return
+  }
+  if (action === 'guidelines') {
+    uni.showModal({
+      title: '社区规范',
+      content: '1. 禁止发布违法违规内容\n2. 禁止人身攻击与泄露他人隐私\n3. 交易信息请当面验货\n4. 发现违规内容请举报',
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+    return
+  }
+  if (action === 'about') {
+    uni.showModal({
+      title: '关于鄂应墙',
+      content: '鄂尔多斯应用技术学院校园匿名墙 / 信息撮合平台。',
+      showCancel: false,
+      confirmText: '好的',
+    })
+    return
+  }
   uni.showToast({ title: `${action}（开发中）`, icon: 'none' })
 }
 </script>

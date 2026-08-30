@@ -65,6 +65,12 @@
 			}
 		},
 		{
+			"path": "pages/settings/index",
+			"style": {
+				"navigationBarTitleText": "设置"
+			}
+		},
+		{
 			"path": "pages/verify/index",
 			"style": {
 				"navigationBarTitleText": "学籍认证"

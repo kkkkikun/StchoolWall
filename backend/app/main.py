@@ -1,5 +1,10 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.config import settings
 
 app = FastAPI(
     title="鄂应墙 API",
@@ -15,6 +20,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 本地静态资源（上传的图片等）：目录不存在时创建，否则 StaticFiles 启动即报错
+_static_dir = Path(settings.STATIC_BASE_DIR).resolve()
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 from app.routers import admin, admin_auth, auth, banner, interaction, notification, party, posts, tags, upload, user  # noqa: E402
 

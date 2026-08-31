@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Literal
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -489,3 +490,48 @@ async def export_users(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=users.csv"},
     )
+
+
+# ---- 图片上传（Banner 等） ----
+
+
+@router.post("/upload/image")
+async def admin_upload_image(
+    request: Request,
+    file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """管理端图片上传：存 banners/{年}/{uuid}.ext，返回可访问的 public_url。"""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="缺少文件名")
+
+    from app.utils.storage import MAX_FILE_SIZE, get_storage_backend, validate_file
+
+    err = validate_file(file.filename, file.content_type or "")
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="文件大小超过 10MB 限制")
+
+    # 强制 banners/ 前缀 + 随机文件名（不接受客户端 path，防穿越）
+    from pathlib import Path as _Path
+    ext = _Path(file.filename).suffix.lower()
+    path = f"banners/{datetime.now().year}/{uuid.uuid4().hex}{ext}"
+
+    backend = get_storage_backend()
+    if not hasattr(backend, "save_upload"):
+        raise HTTPException(status_code=400, detail="当前存储模式不支持直接上传")
+
+    await file.seek(0)
+    try:
+        public_url = await backend.save_upload(file, path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await log_admin_action(db, actor, admin_log.IMAGE_UPLOAD, target_type="banner",
+                           detail={"path": path, "filename": file.filename},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "上传成功", "data": {"public_url": public_url, "path": path}}

@@ -48,5 +48,8 @@ async def direct_upload(
         raise HTTPException(status_code=400, detail="当前存储模式不支持直接上传")
 
     await file.seek(0)
-    public_url = await backend.save_upload(file, path)
+    try:
+        public_url = await backend.save_upload(file, path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"code": 0, "data": {"public_url": public_url}}

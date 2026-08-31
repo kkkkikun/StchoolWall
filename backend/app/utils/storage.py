@@ -23,8 +23,16 @@ class StorageBackend(ABC):
 
 class LocalStorage(StorageBackend):
     def __init__(self):
-        self.base_dir = Path("static")
+        self.base_dir = Path(settings.STATIC_BASE_DIR)
         self.base_url = "/static"
+
+    def _safe_path(self, path: str) -> Path:
+        """拼接并校验路径，防 ../ 穿越。"""
+        full = (self.base_dir / path).resolve()
+        base = self.base_dir.resolve()
+        if not str(full).startswith(str(base)):
+            raise ValueError("非法路径")
+        return full
 
     def _generate_path(self, filename: str) -> str:
         ext = Path(filename).suffix.lower()
@@ -43,7 +51,7 @@ class LocalStorage(StorageBackend):
         }
 
     async def save_upload(self, file: UploadFile, path: str) -> str:
-        full_path = self.base_dir / path
+        full_path = self._safe_path(path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
         content = await file.read()
         full_path.write_bytes(content)

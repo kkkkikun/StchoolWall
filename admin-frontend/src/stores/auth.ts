@@ -1,7 +1,7 @@
 /** 登录态 store。 */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getToken, clearToken } from '@/utils/request'
+import { getToken, setToken, clearToken } from '@/utils/request'
 import * as authApi from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(username: string, password: string) {
     const data = await authApi.login(username, password)
+    setToken(data.access_token) // 不落 token 守卫会弹回登录页
     loggedIn.value = true
     adminName.value = data.admin.nickname
     localStorage.setItem('sw_admin_name', data.admin.nickname)

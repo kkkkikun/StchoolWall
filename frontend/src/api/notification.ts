@@ -1,7 +1,7 @@
 /** 消息通知 API（模块 C）。无私信，im 恒 0。 */
 import { get, post } from '@/utils/request'
 
-export type NotificationType = 'comment' | 'like' | 'group' | 'moderation'
+export type NotificationType = 'comment' | 'like' | 'group' | 'moderation' | 'announcement'
 
 export interface NotificationItem {
   id: number
@@ -11,6 +11,8 @@ export interface NotificationItem {
   comment_id: number | null
   is_read: boolean
   created_at: string
+  /** 公告（type=announcement）时的标题/正文 */
+  payload?: { title?: string; content?: string }
 }
 
 export interface UnreadSummary {

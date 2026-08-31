@@ -31,8 +31,8 @@
 - ✅ **发现**：十大热帖（加权排序）+ 全文搜索
 - ✅ **消息通知**：评论/赞通知、未读汇总、全部已读（无私信）
 - ✅ **上传**：图片/视频，异步内容审核
-- ✅ **管理后台**：举报 / 用户管理
-- ⏳ **组局·攒局**：组局/拼单 + 报名进度（开发中）
+- ✅ **组局·攒局**：组局/拼单 + 报名进度
+- ✅ **管理后台**：独立 Web 管理端（精细化管理 + 审计日志）
 
 ---
 
@@ -53,12 +53,15 @@ SchoolWall/
 │   └── tests/               # pytest（conftest + 独立测试库）
 ├── frontend/                # uni-app 前端
 │   └── src/
-│       ├── pages/           # index / group / publish / message / mine / post-detail / search / verify / admin ...
+│       ├── pages/           # index / group / publish / message / mine / post-detail / search / verify ...
 │       ├── components/      # feed-card / tab-bar / ui-icon
 │       ├── api/             # 请求封装（按模块）
 │       └── utils/           # request / storage / mock
+├── admin-frontend/          # 独立 Web 管理后台（Vue3 + Element Plus，端口 5174）
+│   └── src/                 # views（看板/帖子/用户/举报/广告/评论/组局/公告/日志）+ stores + api
 ├── openspec/                # 需求规范（唯一事实来源）—— 见下
 ├── ref/                     # 前端设计参考稿
+├── 原型导出/                 # 页面截图/HTML 导出（给设计工具）
 ├── docker-compose.yml       # PostgreSQL + Redis
 └── SchoolWall.md            # 原始 MVP 技术实现文档
 ```
@@ -104,25 +107,51 @@ npm run dev:h5                 # http://localhost:5173 （/api 自动代理到 :
 
 ---
 
-## 管理员与管理后台
+## 管理后台（独立 Web 端）
 
-**首个管理员**没有提权接口（安全考虑），用 SQL 手动提升（role 是 DB 实时校验，改完即生效，无需重启）：
+精细化管理已迁移到**独立 Web 管理后台**（`admin-frontend/`，Vue3 + Element Plus + Pinia + ECharts），不再走小程序内嵌管理页。
+
+### 启动
 
 ```bash
-# 先用该账号在小程序/H5 登录一次，然后按 openid 提权
-docker exec schoolwall-db-1 psql -U eywall -d ey_wall -c \
-  "UPDATE users SET role='admin' WHERE openid='<你的openid>';"
+cd admin-frontend
+npm install
+npm run dev                  # http://localhost:5174 （/api、/static 自动代理到 :8000）
 ```
 
-提权后「我的」页顶部出现**管理后台**入口，功能：
+### 管理员账号（账号密码登录，独立于微信体系）
 
-| Tab | 能力 |
-|-----|------|
-| 待审核 | 学生帖机器审核后转人工的队列（通过 / 拒绝） |
-| 举报 | 驳回 / 封帖 / 封号（处理人留痕） |
-| 帖子 | 全量搜索、封禁/恢复、**置顶**（首页推荐位第一页前置） |
-| 轮播广告 | 首页轮播位投放：标题/图片/跳转（站内帖 or 外链）、投放窗口、上下架 |
-| 用户 | 冻结 / 解冻 |
+```bash
+cd backend
+python -m app.create_admin <用户名>            # 交互式输密码，创建管理员
+python -m app.create_admin <用户名> --reset    # 重置密码
+```
+
+- 独立 `admin_users` 表（bcrypt 哈希），与微信用户体系完全隔离
+- Console JWT（scope=admin_console，12h）：**改密码后旧 token 全端失效**（pwd_version）
+- 兼容双 token：旧 `users.role=admin` 的小程序 token 仍可访问 admin API（过渡期）
+
+### 功能总览
+
+| 页面 | 能力 |
+|------|------|
+| 看板 | 6 项核心统计 + 14 天趋势折线（发帖/评论/点赞/新增/活跃） |
+| 帖子 | 多条件筛选、编辑、封禁/恢复、**批量状态**（≤100）、置顶 |
+| 用户 | 搜索（昵称/学号/姓名）、角色/认证/冻结筛选、改角色（防自降）、详情聚合 |
+| 举报 | 待处理队列、驳回 / 封帖 / 封号 |
+| 轮播广告 | 首页轮播位投放：标题/图片上传（/static）/跳转（站内帖 or 外链）、上下架 |
+| 评论 | 全量筛选、软删（计数联动） |
+| 组局 | 状态流转（招募中/已满 ↔ 已取消） |
+| 公告 | 群发系统通知（全部用户 / 仅认证学生），复用 notifications 基础设施 |
+| 操作日志 | 全量审计（操作者/动作/目标/IP/时间），导出等敏感动作强制留痕 |
+| 导出 | 帖子 / 用户 CSV 流式导出（UTF-8 BOM，含 real_name 的用户导出强制审计） |
+
+**内容审核**（`app/utils/moderation.py` + `app/services/moderation.py`）：学生发帖后后台任务调微信 `msg_sec_check` v2 / `img_sec_check`，verdict 分流：
+
+- `pass` → 自动过审；`reject` → 封禁 + 系统通知作者
+- `review`（机器不确定）→ 保持待审，进管理后台人工队列
+- `error`（微信故障）→ 重试 3 次后按 `MODERATION_FAIL_OPEN` 降级（默认放行，可用性优先）
+- 未配置 `WECHAT_APP_ID/SECRET` 或测试环境 → 直接放行（开发不阻塞）
 
 **内容审核**（`app/utils/moderation.py` + `app/services/moderation.py`）：学生发帖后后台任务调微信 `msg_sec_check` v2 / `img_sec_check`，verdict 分流：
 

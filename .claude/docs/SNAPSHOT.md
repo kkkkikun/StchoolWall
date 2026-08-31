@@ -1,6 +1,6 @@
 # SNAPSHOT — SchoolWall 项目状态快照
 
-> 最后更新：2026-07-06 ｜ 分支：main ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-08-31 ｜ 分支：main ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：新会话进入项目时的第一份"现在在哪"快照。规则全文见 `openspec/specs/`，本文件只记状态。
 
 ---
@@ -50,14 +50,22 @@ SchoolWall/
 │   └── .env
 ├── frontend/
 │   ├── src/
-│   │   ├── api/               # admin / auth / posts / tags
+│   │   ├── api/               # auth / posts / notification / banner ...
 │   │   ├── components/
-│   │   ├── pages/             # admin / index / mine / my-posts / post-detail / publish / tags / verify
+│   │   ├── pages/             # index / group / publish / message / mine / post-detail / search / verify / settings ...
+│   │   ├── static/ref/        # 自定义图标（search-copy.svg 等，ASCII 文件名）
 │   │   ├── types/
 │   │   ├── utils/             # request / storage
 │   │   ├── App.vue / main.ts / pages.json / manifest.json
 │   ├── package.json
 │   └── vite.config.ts
+├── admin-frontend/            # 独立 Web 管理后台（Vue3 + Element Plus + Pinia + ECharts）
+│   └── src/
+│       ├── views/             # Login / Dashboard / Posts / Users / Reports / Banners / Comments / Parties / Announcements / Logs
+│       ├── api/               # auth / stats / posts / users / reports / banners / operations
+│       ├── stores/            # Pinia auth
+│       ├── layouts/ router/ utils/
+│       └── vite.config.ts     # 端口 5174，代理 /api /static → :8000
 ├── openspec/                  # 规范体系（本初始化产物）
 │   ├── config.yaml
 │   ├── specs/                 # architecture / rules / learned / references / optimization
@@ -66,6 +74,8 @@ SchoolWall/
 │   ├── docs/                  # SNAPSHOT.md / tasks.md（本目录）
 │   ├── skills/                # openspec-*-change / explore / propose / sync-specs
 │   └── commands/opsx/         # /opsx:propose|explore|apply|archive|sync
+├── ref/                       # 前端设计参考稿（页面 md + svg 图标）
+├── 原型导出/                   # 页面截图 PNG + 自包含 HTML（给设计工具导入）
 ├── SchoolWall.md              # MVP 技术实现文档（原始需求）
 ├── docker-compose.yml         # PostgreSQL + Redis
 └── .env.example
@@ -115,14 +125,25 @@ SchoolWall/
 - [x] 认证链路（微信 + 正方学籍绑定，含安全红线）
 - [x] 限流（Redis）
 - [x] 社交闭环：互动（评论/点赞/收藏/足迹）+ 发现（热帖/搜索/分类）+ 通知 + 组局 + 关注/个人主页
-- [x] 管理后台前端（5 tab：待审/举报/帖子/轮播广告/用户，真实契约对齐）
 - [x] Banner 独立轮播表（投放窗口/上下架/排序；旧广告帖不再混 feed）
 - [x] 管理员置顶（推荐位第一页前置置顶块，主流排除防重复）
 - [x] 真实内容审核（微信 msg_sec_check v2 + img_sec_check；pass/reject/review/error 四分流，fail-open 降级，审核通知）
 - [x] GET /posts/my（我的帖子，含待审/封禁状态筛选）
+- [x] 设置页 + 退出登录（frontend/pages/settings）
+- [x] **独立 Web 管理后台**（2026-08-31 完成，8 批次）：
+  - 管理员账号密码体系：独立 `admin_users` 表（bcrypt rounds=12）+ Console JWT（scope=admin_console，12h，pwd_version 改密全端失效）+ CLI `python -m app.create_admin`
+  - 双 token 兼容：`require_admin_console` 同时接受 console JWT 与旧 users.role=admin JWT
+  - 审计日志：`admin_logs` 表全量留痕（操作者/动作/目标/detail/IP），写操作显式 `log_admin_action`
+  - 帖子精细管理：多条件筛选 + 编辑 + 批量状态（≤100）+ 置顶
+  - 用户精细管理：搜索/角色/认证/冻结筛选 + 改角色（防自降）+ 详情聚合
+  - 评论软删（计数联动）、组局状态流转、公告群发（复用 notifications +payload/batch_id）、趋势统计（上海时区）、CSV 流式导出（UTF-8 BOM，用户导出强制审计）
+  - `/static` 静态挂载 + 管理端图片上传（路径穿越防护）
+  - admin-frontend 10 页（Vue3 + Element Plus + ECharts 看板）
+  - 小程序内嵌管理页已下线（保留跳转提示页）
 
 ## 当前工作 / 下一步
 
-- 2026-08-30：运营能力四件套（审核/后台/广告/置顶）全部落地，222 tests passed。
+- 2026-08-31：独立管理后台 8 批次全部完成，307 tests passed，双端 type-check 0 错。
 - 待办：生产部署（Nginx/HTTPS/密钥管理）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后审核链路才真实生效）、发布页图片上传（后端 /upload/direct 已就绪，前端 uni.uploadFile 未接）。
-- 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。
+- 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。`frontend/src/static/default-avatar.png` 是目录不是文件（post-card 引用会触发 dev server EISDIR 崩溃，待修）。
+- 本地开发环境：backend :8000（uvicorn --reload）、frontend H5 :5173（/tmp/schoolwall-h5.sh 自愈包装）、admin-frontend :5174；测试管理员账号 boss（2026-08-31 建）。

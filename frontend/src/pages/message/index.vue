@@ -115,6 +115,7 @@ const briefOf = (n: NotificationItem) => {
   if (n.type === 'comment') return '评论了你的帖子'
   if (n.type === 'group') return '邀请你加入组局'
   if (n.type === 'moderation') return '你发布的帖子未通过审核'
+  if (n.type === 'announcement') return (n as { payload?: { title?: string } }).payload?.title || '系统公告'
   return '有了新动态'
 }
 
@@ -131,7 +132,7 @@ const loadMessages = async () => {
     const res = await listNotifications(filter.value || undefined)
     messages.value = res.items.map((n) => ({
       id: n.id,
-      nickname: n.type === 'moderation' ? '系统' : n.actor.nickname,
+      nickname: n.type === 'moderation' || n.type === 'announcement' ? '系统' : n.actor.nickname,
       time: timeAgo(n.created_at),
       brief: briefOf(n),
       post_id: n.post_id,

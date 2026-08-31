@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -22,4 +22,8 @@ class Notification(Base):
     post_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     comment_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 公告群发文案（type=announcement 时使用）；其他类型为空
+    payload = mapped_column(JSONB, nullable=True)
+    # 同一次群发的批次号（按批次聚合历史）
+    batch_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

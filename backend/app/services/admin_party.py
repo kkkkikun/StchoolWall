@@ -1,0 +1,77 @@
+"""管理后台组局管理：列表 + 关闭/恢复。"""
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.party import Party
+from app.models.user import User
+
+# admin 允许的组局状态流转：招募中/已满 → 关闭；关闭 → 恢复
+PARTY_STATUS_TRANSITIONS = {1: {-1}, 2: {-1}, -1: {1}}
+
+
+def _party_to_dict(p: Party, nick: str) -> dict:
+    return {
+        "id": p.id,
+        "type": p.type,
+        "category": p.category,
+        "title": p.title,
+        "content": p.content[:80],
+        "total": p.total,
+        "joined_count": p.joined_count,
+        "status": p.status,
+        "meet_time": p.meet_time.isoformat() if p.meet_time else None,
+        "location": p.location,
+        "organizer": {"nickname": nick, "id": str(p.user_id)},
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+async def list_parties_admin(
+    db: AsyncSession,
+    *,
+    q: str | None = None,
+    status: int | None = None,
+    type: str | None = None,
+    category: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[dict], int]:
+    conditions = []
+    if q:
+        like = f"%{q}%"
+        conditions.append(Party.title.ilike(like) | Party.content.ilike(like))
+    if status is not None:
+        conditions.append(Party.status == status)
+    if type:
+        conditions.append(Party.type == type)
+    if category:
+        conditions.append(Party.category == category)
+
+    total = await db.scalar(
+        select(func.count()).select_from(Party).where(*conditions)
+    ) or 0
+    stmt = (
+        select(Party, User.nickname)
+        .join(User, Party.user_id == User.id)
+        .where(*conditions)
+        .order_by(Party.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [_party_to_dict(p, nick) for p, nick in rows], total
+
+
+async def admin_update_party_status(db: AsyncSession, party_id: int, new_status: int) -> Party | None | str:
+    """组局状态流转；非法流转返回 'invalid'，不存在返回 None。"""
+    result = await db.execute(select(Party).where(Party.id == party_id))
+    party = result.scalar_one_or_none()
+    if not party:
+        return None
+    allowed = PARTY_STATUS_TRANSITIONS.get(party.status, set())
+    if new_status not in allowed:
+        return "invalid"
+    party.status = new_status
+    await db.commit()
+    await db.refresh(party)
+    return party

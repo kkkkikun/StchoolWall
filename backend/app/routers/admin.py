@@ -26,7 +26,12 @@ from app.services.admin import (
     update_user_role,
 )
 from app.services import admin_log
+from app.services.admin_comment import admin_delete_comment, list_comments_admin
+from app.services.admin_export import iter_posts_csv, iter_users_csv
 from app.services.admin_log import list_admin_logs, log_admin_action
+from app.services.admin_party import admin_update_party_status, list_parties_admin
+from app.services.admin_stats import MAX_DAYS as TRENDS_MAX_DAYS, admin_stats_trends
+from app.services.announcement import create_announcement, list_announcements
 
 
 class PinRequest(BaseModel):
@@ -47,6 +52,12 @@ class PostBatchStatusRequest(BaseModel):
 
 class UserRoleUpdateRequest(BaseModel):
     role: Literal["guest", "student", "admin"]
+
+
+class AnnouncementRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+    content: str = Field(..., min_length=1, max_length=2000)
+    audience: Literal["all", "verified"] = "all"
 
 
 router = APIRouter()
@@ -303,3 +314,178 @@ async def get_admin_logs(
         time_start=time_start, time_end=time_end, cursor=cursor,
     )
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+
+
+# ---- 评论管理 ----
+
+
+@router.get("/comments")
+async def get_admin_comments(
+    q: str | None = Query(None, max_length=100),
+    post_id: int | None = Query(None),
+    status: int | None = Query(None),
+    time_start: datetime | None = Query(None),
+    time_end: datetime | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """评论列表（仅 admin）：搜索/帖子/状态/时间筛选。"""
+    items, total = await list_comments_admin(
+        db, q=q, post_id=post_id, status=status,
+        time_start=time_start, time_end=time_end, page=page, page_size=page_size,
+    )
+    return {"code": 0, "data": {"items": items, "total": total, "page": page, "page_size": page_size}}
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """软删评论（仅 admin）。"""
+    result = await admin_delete_comment(db, comment_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    await log_admin_action(db, actor, admin_log.COMMENT_DELETE, target_type="comment",
+                           target_id=comment_id, ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已删除"}
+
+
+# ---- 组局管理 ----
+
+
+@router.get("/parties")
+async def get_admin_parties(
+    q: str | None = Query(None, max_length=100),
+    status: int | None = Query(None),
+    type: str | None = Query(None, max_length=10),
+    category: str | None = Query(None, max_length=20),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """组局列表（仅 admin）。"""
+    items, total = await list_parties_admin(
+        db, q=q, status=status, type=type, category=category, page=page, page_size=page_size,
+    )
+    return {"code": 0, "data": {"items": items, "total": total, "page": page, "page_size": page_size}}
+
+
+@router.put("/parties/{party_id}/status")
+async def change_party_status(
+    party_id: int,
+    request: Request,
+    status: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """组局关闭/恢复（仅 admin）：1/2→-1 关闭，-1→1 恢复。"""
+    result = await admin_update_party_status(db, party_id, status)
+    if result is None:
+        raise HTTPException(status_code=404, detail="组局不存在")
+    if result == "invalid":
+        raise HTTPException(status_code=400, detail="非法的状态流转")
+    await log_admin_action(db, actor, admin_log.PARTY_STATUS, target_type="party",
+                           target_id=party_id, detail={"new_status": status},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "操作成功", "data": {"status": result.status}}
+
+
+# ---- 公告群发 ----
+
+
+@router.post("/announcements")
+async def send_announcement(
+    body: AnnouncementRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """群发公告（仅 admin）：all=全部 / verified=仅认证用户。"""
+    try:
+        result = await create_announcement(
+            db, actor, title=body.title, content=body.content, audience=body.audience,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await log_admin_action(db, actor, admin_log.ANNOUNCEMENT_SEND,
+                           target_type="announcement", target_id=result["batch_id"],
+                           detail={"title": body.title, "audience": body.audience,
+                                   "recipients": result["recipients"]},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": f"已发送给 {result['recipients']} 位用户", "data": result}
+
+
+@router.get("/announcements")
+async def get_announcements(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """公告历史（仅 admin）：按批次聚合。"""
+    items, total = await list_announcements(db, page=page, page_size=page_size)
+    return {"code": 0, "data": {"items": items, "total": total, "page": page, "page_size": page_size}}
+
+
+# ---- 趋势 / 导出 ----
+
+
+@router.get("/stats/trends")
+async def get_admin_trends(
+    days: int = Query(14, ge=1, le=TRENDS_MAX_DAYS),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """看板趋势（仅 admin）：按日聚合 posts/comments/likes/new_users/active_users。"""
+    data = await admin_stats_trends(db, days)
+    return {"code": 0, "data": data}
+
+
+@router.get("/export/posts")
+async def export_posts(
+    status: int | None = Query(None),
+    q: str | None = Query(None, max_length=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """帖子 CSV 导出（流式，UTF-8 BOM）。"""
+    from fastapi.responses import StreamingResponse
+
+    async def gen():
+        async for chunk in iter_posts_csv(db, status=status, q=q):
+            yield chunk
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=posts.csv"},
+    )
+
+
+@router.get("/export/users")
+async def export_users(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """用户 CSV 导出（含敏感字段，强制审计）。"""
+    from fastapi.responses import StreamingResponse
+
+    async def gen():
+        async for chunk in iter_users_csv(db, actor, ip=_client_ip(request)):
+            yield chunk
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users.csv"},
+    )

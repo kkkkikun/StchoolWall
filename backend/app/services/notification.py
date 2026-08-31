@@ -46,7 +46,7 @@ async def create_system_notification(
 
 
 def _notif_dict(n: Notification, actor_nick: str) -> dict:
-    return {
+    d = {
         "id": n.id,
         "type": n.type,
         "actor": {"nickname": actor_nick},
@@ -55,6 +55,9 @@ def _notif_dict(n: Notification, actor_nick: str) -> dict:
         "is_read": n.is_read,
         "created_at": n.created_at.isoformat() if n.created_at else None,
     }
+    if n.payload:
+        d["payload"] = n.payload
+    return d
 
 
 async def list_notifications(
@@ -96,6 +99,7 @@ async def unread_summary(db: AsyncSession, user: User) -> dict:
         "like": counts.get("like", 0),
         "group": counts.get("group", 0),
         "moderation": counts.get("moderation", 0),
+        "announcement": counts.get("announcement", 0),
         "im": 0,
     }
 

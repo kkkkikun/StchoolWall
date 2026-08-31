@@ -7,3 +7,4 @@ from app.models.notification import Notification
 from app.models.party import Party, PartyMember
 from app.models.follow import UserFollow
 from app.models.banner import Banner
+from app.models.admin_user import AdminUser

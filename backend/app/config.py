@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # 内容审核降级策略：True=微信故障时放行（可用性优先），False=保持待审等人工（合规优先）
     MODERATION_FAIL_OPEN: bool = True
 
+    # Admin console（独立 Web 管理后台）
+    ADMIN_TOKEN_EXPIRE_HOURS: int = 12
+    STATIC_BASE_DIR: str = "static"
+
     # Storage
     STORAGE_PROVIDER: str = "local"  # local, r2, aliyun
     CF_R2_ACCOUNT_ID: str = ""

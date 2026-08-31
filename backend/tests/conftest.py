@@ -11,6 +11,7 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
+from app.models.admin_user import AdminUser
 from app.models.user import User
 from app.utils.security import create_access_token
 
@@ -146,6 +147,37 @@ def student_token(student_user: User) -> str:
 @pytest.fixture
 def admin_token(admin_user: User) -> str:
     return create_access_token({"sub": str(admin_user.id), "role": "admin"})
+
+
+# ---- 管理后台（console）账号 ----
+
+
+@pytest_asyncio.fixture
+async def console_admin() -> AdminUser:
+    from app.utils.password import hash_password
+
+    async with TestSession() as db:
+        admin = AdminUser(
+            username=f"console_admin_{uuid.uuid4().hex[:6]}",
+            nickname="后台管理员",
+            password_hash=hash_password("Admin12345"),
+        )
+        db.add(admin)
+        await db.commit()
+        await db.refresh(admin)
+        return admin
+
+
+@pytest.fixture
+def console_token(console_admin: AdminUser) -> str:
+    from app.services.admin_auth import issue_console_token
+
+    return issue_console_token(console_admin)
+
+
+@pytest.fixture
+def console_headers(console_token: str) -> dict:
+    return {"Authorization": f"Bearer {console_token}"}
 
 
 # ---- 辅助 ----

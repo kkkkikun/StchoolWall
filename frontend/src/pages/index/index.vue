@@ -2,10 +2,17 @@
   <view class="page-home">
     <!-- 1. 顶部红色搜索（沉浸式：预留状态栏高度） -->
     <view class="header-search-box">
-      <view class="status-bar-spacer" :style="{ height: statusBarHeight + 'px' }" />
+      <view
+        class="status-bar-spacer"
+        :style="{ height: statusBarHeight + 'px' }"
+      />
       <view class="search-row">
         <view class="search-bar">
-          <text class="icon-search">🔍</text>
+          <image
+            class="icon-search"
+            src="/static/ref/search-copy.svg"
+            mode="aspectFit"
+          />
           <input
             v-model="searchKeyword"
             class="search-input"
@@ -41,7 +48,9 @@
           class="hot-item"
           @tap="goPost(item.id)"
         >
-          <text class="rank-num" :class="rankClass(item.rank)">{{ item.rank }}</text>
+          <text class="rank-num" :class="rankClass(item.rank)">{{
+            item.rank
+          }}</text>
           <text class="hot-item-title">{{ item.title }}</text>
           <text v-if="item.isHot" class="hot-tag">热</text>
           <text class="read-count">{{ item.reads }}</text>
@@ -59,7 +68,12 @@
       >
         <view class="grid-icon-wrapper">
           <text class="grid-icon">{{ item.icon }}</text>
-          <text v-if="item.badge" class="badge-dot" :class="{ all: item.badge === '全部' }">{{ item.badge }}</text>
+          <text
+            v-if="item.badge"
+            class="badge-dot"
+            :class="{ all: item.badge === '全部' }"
+            >{{ item.badge }}</text
+          >
         </view>
         <text class="grid-label">{{ item.name }}</text>
       </view>
@@ -89,8 +103,14 @@
           <text v-if="ad.tag" class="ad-tag">{{ ad.tag }}</text>
         </view>
         <!-- 无图 banner：emoji + 渐变背景（mock fallback 同款样式） -->
-        <view v-else class="ad-slide" :style="{ background: ad.bg || 'linear-gradient(135deg, #ff5e62, #ff9966)' }">
-          <text class="ad-emoji">{{ ad.emoji || '📢' }}</text>
+        <view
+          v-else
+          class="ad-slide"
+          :style="{
+            background: ad.bg || 'linear-gradient(135deg, #ff5e62, #ff9966)',
+          }"
+        >
+          <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>
           <view class="ad-text">
             <text class="ad-title">{{ ad.title }}</text>
             <text class="ad-desc">{{ ad.desc }}</text>
@@ -118,10 +138,19 @@
     <!-- 7. 信息流 -->
     <view class="feed-list">
       <view v-if="feedModeName" class="filter-chip" @tap="clearFilter">
-        <text>{{ feedModeName === '关注的人' ? '关注的人' : '分类：' + feedModeName }} ✕</text>
+        <text
+          >{{
+            feedModeName === "关注的人" ? "关注的人" : "分类：" + feedModeName
+          }}
+          ✕</text
+        >
       </view>
-      <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"><text>加载中…</text></view>
-      <view v-else-if="posts.length === 0" class="feed-tip"><text>暂无内容，下拉刷新或去发布</text></view>
+      <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"
+        ><text>加载中…</text></view
+      >
+      <view v-else-if="posts.length === 0" class="feed-tip"
+        ><text>暂无内容，下拉刷新或去发布</text></view
+      >
       <FeedCard
         v-for="p in posts"
         :key="p.id"
@@ -146,157 +175,173 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import FeedCard from '@/components/feed-card.vue'
-import TabBar from '@/components/tab-bar.vue'
-import { MENU_ITEMS, AD_BANNERS, POST_CATEGORIES } from '@/utils/mock'
-import type { MenuItem } from '@/types/mock'
-import type { PostBrief } from '@/types/api'
-import { getPosts, getHotPosts, getFollowingFeed } from '@/api/posts'
-import { getBanners, type BannerItem } from '@/api/banner'
-import { tokenStorage } from '@/utils/storage'
+import { ref } from "vue";
+import { onShow, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
+import FeedCard from "@/components/feed-card.vue";
+import TabBar from "@/components/tab-bar.vue";
+import { MENU_ITEMS, AD_BANNERS, POST_CATEGORIES } from "@/utils/mock";
+import type { MenuItem } from "@/types/mock";
+import type { PostBrief } from "@/types/api";
+import { getPosts, getHotPosts, getFollowingFeed } from "@/api/posts";
+import { getBanners, type BannerItem } from "@/api/banner";
+import { tokenStorage } from "@/utils/storage";
 
 // 顶部 tab：推荐 / 关注 / 9 个分类（与金刚区同源）
-const tabs = ['推荐', '关注', ...POST_CATEGORIES]
-const currentTab = ref(0)
+const tabs = ["推荐", "关注", ...POST_CATEGORIES];
+const currentTab = ref(0);
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
-const feedMode = ref<string>('all')
-const feedModeName = ref('') // chip 展示文本
-interface HotItem { id: number; rank: number; title: string; isHot: boolean; reads: string }
-const hotPosts = ref<HotItem[]>([])
-const menuItems = MENU_ITEMS
+const feedMode = ref<string>("all");
+const feedModeName = ref(""); // chip 展示文本
+interface HotItem {
+  id: number;
+  rank: number;
+  title: string;
+  isHot: boolean;
+  reads: string;
+}
+const hotPosts = ref<HotItem[]>([]);
+const menuItems = MENU_ITEMS;
 // 广告轮播：后端下发优先，失败/未配置时 fallback 到 mock（运营未配不白屏）
-const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([...AD_BANNERS])
+const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([
+  ...AD_BANNERS,
+]);
 
 const loadBanners = async () => {
   try {
-    const items = await getBanners()
-    if (items.length) adBanners.value = items
+    const items = await getBanners();
+    if (items.length) adBanners.value = items;
   } catch {
     /* 后端不可用时保留 fallback */
   }
-}
-const posts = ref<PostBrief[]>([])
-const loadingFeeds = ref(false)
-const nextCursor = ref<number | null>(null)
-const hasMore = ref(false)
-const searchKeyword = ref('')
+};
+const posts = ref<PostBrief[]>([]);
+const loadingFeeds = ref(false);
+const nextCursor = ref<number | null>(null);
+const hasMore = ref(false);
+const searchKeyword = ref("");
 
 // 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0;
 
 const loadFeeds = async (refresh = false) => {
-  if (loadingFeeds.value) return
-  loadingFeeds.value = true
+  if (loadingFeeds.value) return;
+  loadingFeeds.value = true;
   try {
-    const cursor = refresh ? undefined : nextCursor.value
-    let res
-    if (feedMode.value === 'following') res = await getFollowingFeed(cursor ?? undefined)
-    else if (feedMode.value !== 'all') res = await getPosts(cursor ?? undefined, undefined, feedMode.value)
-    else res = await getPosts(cursor ?? undefined)
-    if (refresh) posts.value = res.items
-    else posts.value.push(...res.items)
-    nextCursor.value = res.next_cursor
-    hasMore.value = res.has_more
+    const cursor = refresh ? undefined : nextCursor.value;
+    let res;
+    if (feedMode.value === "following")
+      res = await getFollowingFeed(cursor ?? undefined);
+    else if (feedMode.value !== "all")
+      res = await getPosts(cursor ?? undefined, undefined, feedMode.value);
+    else res = await getPosts(cursor ?? undefined);
+    if (refresh) posts.value = res.items;
+    else posts.value.push(...res.items);
+    nextCursor.value = res.next_cursor;
+    hasMore.value = res.has_more;
   } catch (e) {
-    uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
+    uni.showToast({ title: (e as Error).message || "加载失败", icon: "none" });
   } finally {
-    loadingFeeds.value = false
+    loadingFeeds.value = false;
   }
-}
+};
 
 onPullDownRefresh(async () => {
-  await loadFeeds(true)
-  uni.stopPullDownRefresh()
-})
+  await loadFeeds(true);
+  uni.stopPullDownRefresh();
+});
 
 onReachBottom(() => {
-  if (hasMore.value && !loadingFeeds.value) loadFeeds(false)
-})
+  if (hasMore.value && !loadingFeeds.value) loadFeeds(false);
+});
 
 const loadHot = async () => {
   try {
-    const list = await getHotPosts(5)
+    const list = await getHotPosts(5);
     hotPosts.value = list.map((p, i) => ({
       id: p.id,
       rank: i + 1,
       title: p.content,
       isHot: (p.like_count || 0) > 0,
       reads: `${p.view_count || 0} 浏览`,
-    }))
+    }));
   } catch {
     /* 热帖非关键，失败静默 */
   }
-}
+};
 
 onShow(() => {
-  loadFeeds(true)
-  loadHot()
-  loadBanners()
-})
+  loadFeeds(true);
+  loadHot();
+  loadBanners();
+});
 
-const rankClass = (rank: number) => `rank-${rank}`
+const rankClass = (rank: number) => `rank-${rank}`;
 
 const onSearch = () => {
-  const q = searchKeyword.value.trim()
-  uni.navigateTo({ url: q ? `/pages/search/index?q=${encodeURIComponent(q)}` : '/pages/search/index' })
-}
-const onNotice = () => uni.showToast({ title: '搭乘UFO～', icon: 'none' })
+  const q = searchKeyword.value.trim();
+  uni.navigateTo({
+    url: q
+      ? `/pages/search/index?q=${encodeURIComponent(q)}`
+      : "/pages/search/index",
+  });
+};
+const onNotice = () => uni.showToast({ title: "搭乘UFO～", icon: "none" });
 const onAd = (ad: BannerItem) => {
   if (ad.post_id) {
-    uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` })
+    uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` });
   } else if (ad.link_url) {
-    uni.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(ad.link_url)}` })
+    uni.navigateTo({
+      url: `/pages/webview/index?url=${encodeURIComponent(ad.link_url)}`,
+    });
   }
-}
+};
 const onMenu = (item: MenuItem) => {
-  if (item.name === '更多分类') {
-    uni.navigateTo({ url: '/pages/search/index' })
-    return
+  if (item.name === "更多分类") {
+    uni.navigateTo({ url: "/pages/search/index" });
+    return;
   }
   // 按 category 过滤，同步高亮对应 tab
-  feedMode.value = item.name
-  feedModeName.value = item.name
-  currentTab.value = tabs.indexOf(item.name)
-  loadFeeds(true)
-  uni.pageScrollTo({ selector: '.feed-list', duration: 200 })
-}
+  feedMode.value = item.name;
+  feedModeName.value = item.name;
+  currentTab.value = tabs.indexOf(item.name);
+  loadFeeds(true);
+  uni.pageScrollTo({ selector: ".feed-list", duration: 200 });
+};
 
 const goPost = (id: number) => {
-  uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` })
-}
+  uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` });
+};
 
 const switchTab = (idx: number) => {
-  const t = tabs[idx]
-  if (t === '推荐') {
-    feedMode.value = 'all'
-    feedModeName.value = ''
-  } else if (t === '关注') {
+  const t = tabs[idx];
+  if (t === "推荐") {
+    feedMode.value = "all";
+    feedModeName.value = "";
+  } else if (t === "关注") {
     if (!tokenStorage.isLoggedIn()) {
-      uni.showToast({ title: '请先登录后查看关注', icon: 'none' })
-      return
+      uni.showToast({ title: "请先登录后查看关注", icon: "none" });
+      return;
     }
-    feedMode.value = 'following'
-    feedModeName.value = '关注的人'
+    feedMode.value = "following";
+    feedModeName.value = "关注的人";
   } else {
-    feedMode.value = t
-    feedModeName.value = t
+    feedMode.value = t;
+    feedModeName.value = t;
   }
-  currentTab.value = idx
-  loadFeeds(true)
-}
+  currentTab.value = idx;
+  loadFeeds(true);
+};
 
 const clearFilter = () => {
-  feedMode.value = 'all'
-  feedModeName.value = ''
-  currentTab.value = 0
-  loadFeeds(true)
-}
+  feedMode.value = "all";
+  feedModeName.value = "";
+  currentTab.value = 0;
+  loadFeeds(true);
+};
 
 const scrollToTop = () => {
-  uni.pageScrollTo({ scrollTop: 0, duration: 200 })
-}
+  uni.pageScrollTo({ scrollTop: 0, duration: 200 });
+};
 </script>
 
 <style scoped>
@@ -318,14 +363,15 @@ const scrollToTop = () => {
 }
 
 .search-row {
-  padding: 24rpx 30rpx 34rpx;
+  height: 52rpx; /* 色块厚度（不含状态栏）：改这里只动红色块，不影响搜索框 */
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .search-bar {
-  flex: 1;
-  height: 68rpx;
+  width: 50%; /* 7/28 → 21/28，两侧各留 25% 空白 */
+  height: 20rpx; /* 搜索框高度：改这里只动搜索框，不影响色块 */
   background-color: rgba(255, 255, 255, 0.25);
   border-radius: 34rpx;
   padding: 0 24rpx;
@@ -334,8 +380,9 @@ const scrollToTop = () => {
 }
 
 .icon-search {
-  font-size: 28rpx;
-  color: #ffffff;
+  width: 30rpx;
+  height: 30rpx;
+  flex-shrink: 0;
 }
 
 .search-input {
@@ -444,9 +491,15 @@ const scrollToTop = () => {
   color: var(--text-3);
 }
 
-.rank-1 { color: #ff3b30; }
-.rank-2 { color: #ff9500; }
-.rank-3 { color: #ffcc00; }
+.rank-1 {
+  color: #ff3b30;
+}
+.rank-2 {
+  color: #ff9500;
+}
+.rank-3 {
+  color: #ffcc00;
+}
 
 .hot-item-title {
   flex: 1;

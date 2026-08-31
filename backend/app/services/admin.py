@@ -90,7 +90,7 @@ async def handle_report(
     report.handled_at = sa_func.now()
 
     await db.commit()
-    return {"report_id": report.id, "status": report.status}
+    return {"report_id": report.id, "status": report.status, "post_id": report.post_id}
 
 
 # ---- 帖子管理（待审队列 / 封禁恢复） ----

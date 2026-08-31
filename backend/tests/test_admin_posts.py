@@ -135,7 +135,137 @@ class TestAdminStats:
         assert data["frozen_users"] == 0
 
 
-class TestReportHandledBy:
+class TestPostFineFilters:
+    """批3：多条件筛选 + page 分页 + 编辑 + 批量。"""
+
+    async def _seed_many(self, student_user, n=15):
+        for i in range(n):
+            await _seed_post(student_user.id, f"精管帖{i:02d}")
+
+    async def test_filter_by_post_type_and_category(self, client, console_headers, student_user, admin_user):
+        await _seed_post(student_user.id, "普通广场帖", status=1, post_type="general")
+        async with TestSession() as db:
+            db.add(Post(user_id=admin_user.id, post_type="second_hand",
+                        content="二手交易帖", status=1, category="二手市场"))
+            await db.commit()
+
+        r = await client.get("/api/v1/admin/posts?post_type=second_hand", headers=console_headers)
+        contents = [it["content"] for it in r.json()["data"]["items"]]
+        assert contents == ["二手交易帖"]
+
+    async def test_filter_by_author(self, client, console_headers, student_user, admin_user):
+        await _seed_post(student_user.id, "学生的帖")
+        await _seed_post(admin_user.id, "管理员的帖")
+        r = await client.get(f"/api/v1/admin/posts?author_id={student_user.id}", headers=console_headers)
+        contents = [it["content"] for it in r.json()["data"]["items"]]
+        assert contents == ["学生的帖"]
+
+    async def test_time_range_filter(self, client, console_headers, student_user):
+        old = await _seed_post(student_user.id, "旧帖")
+        await _seed_post(student_user.id, "新帖")
+        from sqlalchemy import update
+        from datetime import datetime, timedelta, timezone
+        async with TestSession() as db:
+            await db.execute(update(Post).where(Post.id == old).values(
+                created_at=datetime.now(timezone.utc) - timedelta(days=30)))
+            await db.commit()
+
+        start = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+        r = await client.get(f"/api/v1/admin/posts?time_start={start}", headers=console_headers)
+        contents = [it["content"] for it in r.json()["data"]["items"]]
+        assert contents == ["新帖"]
+
+    async def test_page_pagination_returns_total(self, client, console_headers, student_user):
+        await self._seed_many(student_user, 25)
+        r = await client.get("/api/v1/admin/posts?page=2&page_size=10", headers=console_headers)
+        data = r.json()["data"]
+        assert data["total"] == 25
+        assert len(data["items"]) == 10
+        assert data["page"] == 2
+
+    async def test_legacy_cursor_still_works(self, client, console_headers, student_user):
+        """旧 cursor 分页不破坏（小程序端兼容）。"""
+        await self._seed_many(student_user, 5)
+        r = await client.get("/api/v1/admin/posts", headers=console_headers)
+        data = r.json()["data"]
+        assert "next_cursor" in data and "has_more" in data
+
+
+class TestPostEdit:
+    async def test_edit_content_and_category(self, client, console_headers, student_user):
+        pid = await _seed_post(student_user.id, "原始内容", status=1)
+        r = await client.put(f"/api/v1/admin/posts/{pid}", headers=console_headers,
+                             json={"content": "编辑后内容", "category": "校园广场"})
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["content"] == "编辑后内容"
+        assert data["category"] == "校园广场"
+
+    async def test_edit_partial_fields_only(self, client, console_headers, student_user):
+        """只传 content，category 保持原值。"""
+        async with TestSession() as db:
+            p = Post(user_id=student_user.id, post_type="general", content="原文",
+                     status=1, category="树洞倾诉")
+            db.add(p); await db.commit(); await db.refresh(p)
+            pid = p.id
+        r = await client.put(f"/api/v1/admin/posts/{pid}", headers=console_headers,
+                             json={"content": "只改文字"})
+        assert r.json()["data"]["category"] == "树洞倾诉"
+
+    async def test_edit_nonexistent_404(self, client, console_headers):
+        r = await client.put("/api/v1/admin/posts/999999", headers=console_headers,
+                             json={"content": "x"})
+        assert r.status_code == 404
+
+    async def test_edit_writes_audit(self, client, console_headers, student_user):
+        from sqlalchemy import select
+        from app.models.admin_log import AdminLog
+        pid = await _seed_post(student_user.id, "待编辑")
+        await client.put(f"/api/v1/admin/posts/{pid}", headers=console_headers,
+                         json={"content": "已编辑"})
+        async with TestSession() as db:
+            log = (await db.execute(select(AdminLog).where(AdminLog.action == "post.edit"))).scalar_one()
+            assert log.target_id == str(pid)
+
+
+class TestPostBatch:
+    async def test_batch_ban_posts(self, client, console_headers, student_user):
+        ids = [await _seed_post(student_user.id, f"批量{i}", status=1) for i in range(3)]
+        r = await client.post("/api/v1/admin/posts/batch-status", headers=console_headers,
+                              json={"post_ids": ids, "status": -1})
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert sorted(data["succeeded"]) == sorted(ids)
+        assert data["failed"] == []
+
+    async def test_batch_reports_partial_failures(self, client, console_headers, student_user):
+        """混合不存在/非法流转的 id：逐条报告失败原因。"""
+        ok1 = await _seed_post(student_user.id, "可封禁", status=1)
+        ok2 = await _seed_post(student_user.id, "待审的", status=0)
+        r = await client.post("/api/v1/admin/posts/batch-status", headers=console_headers,
+                              json={"post_ids": [ok1, ok2, 999999], "status": -1})
+        data = r.json()["data"]
+        assert data["succeeded"] == [ok1, ok2]
+        assert len(data["failed"]) == 1
+        assert data["failed"][0]["id"] == 999999
+
+    async def test_batch_over_limit_400(self, client, console_headers):
+        r = await client.post("/api/v1/admin/posts/batch-status", headers=console_headers,
+                              json={"post_ids": list(range(101)), "status": -1})
+        assert r.status_code == 422
+
+    async def test_batch_writes_audit(self, client, console_headers, student_user):
+        from sqlalchemy import select
+        from app.models.admin_log import AdminLog
+        ids = [await _seed_post(student_user.id, f"审{i}", status=0) for i in range(2)]
+        await client.post("/api/v1/admin/posts/batch-status", headers=console_headers,
+                          json={"post_ids": ids, "status": 1})
+        async with TestSession() as db:
+            log = (await db.execute(select(AdminLog).where(AdminLog.action == "post.batch_status"))).scalar_one()
+            assert log.detail["count"] == 2
+
+
+
     async def test_handle_report_records_admin(self, client: AsyncClient, admin_token: str, admin_user: User, student_user: User):
         """举报处理后 handled_by/handled_at 落库。"""
         pid = await _seed_post(student_user.id, "举报目标", status=1)

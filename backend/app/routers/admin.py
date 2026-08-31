@@ -1,12 +1,13 @@
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import AdminActor, require_admin_console
-from app.models.user import User
+from app.models.post import Post
 from app.schemas.admin import ReportHandle
 from app.services.admin import (
     handle_report,
@@ -15,12 +16,38 @@ from app.services.admin import (
     update_user_status,
 )
 from app.services.post import set_post_pinned
-from app.services.admin import admin_stats, admin_update_post_status, list_posts_admin
+from app.services.admin import (
+    admin_batch_post_status,
+    admin_stats,
+    admin_update_post,
+    admin_update_post_status,
+    admin_user_detail,
+    list_posts_admin,
+    update_user_role,
+)
 from app.services import admin_log
 from app.services.admin_log import list_admin_logs, log_admin_action
 
+
 class PinRequest(BaseModel):
     pinned: bool
+
+
+class PostUpdateRequest(BaseModel):
+    content: str | None = Field(None, min_length=1, max_length=2000)
+    category: str | None = Field(None, max_length=20)
+    images: list[str] | None = Field(None, max_length=6)
+    price: float | None = Field(None, ge=0)
+
+
+class PostBatchStatusRequest(BaseModel):
+    post_ids: list[int] = Field(..., min_length=1, max_length=100)
+    status: int
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: Literal["guest", "student", "admin"]
+
 
 router = APIRouter()
 
@@ -66,12 +93,60 @@ async def resolve_report(
 @router.get("/users")
 async def get_users(
     cursor: str | None = Query(None),
+    q: str | None = Query(None, max_length=50),
+    role: str | None = Query(None, max_length=20),
+    is_verified: bool | None = Query(None),
+    status: int | None = Query(None, ge=0, le=1),
+    time_start: datetime | None = Query(None),
+    time_end: datetime | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     actor: AdminActor = Depends(require_admin_console),
 ):
-    """获取用户列表（仅 admin）"""
-    items, next_cursor, has_more = await list_users(db, cursor)
-    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+    """用户列表（仅 admin）：q 搜索（昵称/学号/真名）、角色/认证/冻结/时间筛选。"""
+    items, next_cursor, has_more, total = await list_users(
+        db, cursor, q=q, role=role, is_verified=is_verified, status=status,
+        time_start=time_start, time_end=time_end, page=page, page_size=page_size,
+    )
+    data: dict = {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+    if total is not None:
+        data.update({"total": total, "page": page, "page_size": page_size})
+    return {"code": 0, "data": data}
+
+
+@router.put("/users/{user_id}/role")
+async def change_user_role(
+    user_id: str,
+    body: UserRoleUpdateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """修改用户角色（仅 admin）；不能改自己（防锁死）。"""
+    result = await update_user_role(db, user_id, body.role, actor.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if result == "self_demote":
+        raise HTTPException(status_code=400, detail="不能修改自己的角色")
+    await log_admin_action(db, actor, admin_log.USER_ROLE, target_type="user", target_id=user_id,
+                           detail={"new_role": body.role},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "角色已更新", "data": {"role": result.role}}
+
+
+@router.get("/users/{user_id}")
+async def get_user_detail(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """用户详情（仅 admin）：计数聚合 + 最近帖子。"""
+    data = await admin_user_detail(db, user_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return {"code": 0, "data": data}
 
 
 @router.put("/users/{user_id}/status")
@@ -98,12 +173,68 @@ async def get_admin_posts(
     status: int | None = Query(None),
     q: str | None = Query(None, max_length=100),
     cursor: int | None = Query(None),
+    post_type: str | None = Query(None, max_length=20),
+    category: str | None = Query(None, max_length=20),
+    author_id: str | None = Query(None, max_length=36),
+    time_start: datetime | None = Query(None),
+    time_end: datetime | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     actor: AdminActor = Depends(require_admin_console),
 ):
-    """帖子管理列表（仅 admin）：全量含待审/封禁/广告，支持状态过滤与内容搜索。"""
-    items, next_cursor, has_more = await list_posts_admin(db, status, q, cursor)
-    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+    """帖子管理列表（仅 admin）：多条件筛选 + cursor/page 双分页。"""
+    items, next_cursor, has_more, total = await list_posts_admin(
+        db, status, q, cursor,
+        post_type=post_type, category=category, author_id=author_id,
+        time_start=time_start, time_end=time_end,
+        page=page, page_size=page_size,
+    )
+    data: dict = {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+    if total is not None:
+        data.update({"total": total, "page": page, "page_size": page_size})
+    return {"code": 0, "data": data}
+
+
+@router.put("/posts/{post_id}")
+async def edit_post(
+    post_id: int,
+    body: PostUpdateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """编辑帖子内容（仅 admin）：content/category/images/price 局部更新。"""
+    data = body.model_dump(exclude_unset=True)
+    if not data:
+        raise HTTPException(status_code=400, detail="没有可更新的字段")
+    post = await admin_update_post(db, post_id, data)
+    if not post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+    await log_admin_action(db, actor, admin_log.POST_EDIT, target_type="post", target_id=post_id,
+                           detail={"fields": sorted(data.keys())},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已更新", "data": {
+        "id": post.id, "content": post.content, "category": post.category,
+        "images": post.images, "price": float(post.price) if post.price else None,
+    }}
+
+
+@router.post("/posts/batch-status")
+async def batch_post_status(
+    body: PostBatchStatusRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """批量状态流转（仅 admin）：逐条走状态机，返回成功/失败明细。"""
+    result = await admin_batch_post_status(db, body.post_ids, body.status)
+    await log_admin_action(db, actor, admin_log.POST_BATCH, target_type="post",
+                           detail={"count": len(result["succeeded"]), "status": body.status},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": f"成功 {len(result['succeeded'])} 条", "data": result}
 
 
 @router.put("/posts/{post_id}/status")

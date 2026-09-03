@@ -12,7 +12,7 @@
 		{
 			"path": "pages/group/index",
 			"style": {
-				"navigationBarTitleText": "组局"
+				"navigationStyle": "custom"
 			}
 		},
 		{
@@ -22,15 +22,39 @@
 			}
 		},
 		{
+			"path": "pages/profile-edit/index",
+			"style": {
+				"navigationBarTitleText": "编辑资料"
+			}
+		},
+		{
+			"path": "pages/info/index",
+			"style": {
+				"navigationBarTitleText": "详情"
+			}
+		},
+		{
+			"path": "pages/hot/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/interactions/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/message/index",
 			"style": {
-				"navigationBarTitleText": "消息"
+				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/mine/index",
 			"style": {
-				"navigationBarTitleText": "我的"
+				"navigationStyle": "custom"
 			}
 		},
 		{
@@ -55,7 +79,7 @@
 		{
 			"path": "pages/profile/index",
 			"style": {
-				"navigationBarTitleText": "个人主页"
+				"navigationStyle": "custom"
 			}
 		},
 		{

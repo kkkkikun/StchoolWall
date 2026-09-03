@@ -82,25 +82,24 @@ onMounted(() => {
   flex-direction: column;
 }
 
+/* 与首页吸顶 Tab 同规格：左对齐下划线式，弃用蓝色药丸 */
 .type-tabs {
   display: flex;
   background: #fff;
-  padding: 16rpx 20rpx;
-  gap: 12rpx;
+  padding: 16rpx 24rpx;
+  gap: 36rpx;
 }
 
 .tab {
-  flex: 1;
-  text-align: center;
-  padding: 12rpx 0;
-  font-size: 24rpx;
-  color: #666;
-  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #666666;
+  padding-bottom: 12rpx;
 }
 
 .tab.active {
-  background: #1296db;
-  color: #fff;
+  color: #111111;
+  font-weight: bold;
+  border-bottom: 6rpx solid var(--brand-red);
 }
 
 .scroll-container {

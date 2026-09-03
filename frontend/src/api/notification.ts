@@ -1,7 +1,7 @@
 /** 消息通知 API（模块 C）。无私信，im 恒 0。 */
 import { get, post } from '@/utils/request'
 
-export type NotificationType = 'comment' | 'like' | 'group' | 'moderation' | 'announcement'
+export type NotificationType = 'comment' | 'like' | 'favorite' | 'group' | 'moderation' | 'announcement'
 
 export interface NotificationItem {
   id: number
@@ -18,6 +18,7 @@ export interface NotificationItem {
 export interface UnreadSummary {
   comment: number
   like: number
+  favorite: number
   group: number
   moderation: number
   im: number

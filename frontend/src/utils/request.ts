@@ -108,3 +108,31 @@ export function del<T = unknown>(url: string, data?: Record<string, unknown> | o
 }
 
 export { request }
+
+/**
+ * 文件上传（uni.uploadFile 封装）：带 Bearer token，解析统一 {code,data} 壳。
+ * 返回后端 public_url。供头像/横幅/发帖图片等直接上传使用。
+ */
+export function uploadFile(filePath: string, path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${BASE_URL}/upload/direct?path=${encodeURIComponent(path)}`,
+      filePath,
+      name: 'file',
+      header: { Authorization: `Bearer ${getToken()}` },
+      success: (res) => {
+        try {
+          const body = JSON.parse(res.data)
+          if (body.code === 0 && body.data?.public_url) {
+            resolve(body.data.public_url as string)
+          } else {
+            reject(new Error(body.message || '上传失败'))
+          }
+        } catch {
+          reject(new Error('上传响应解析失败'))
+        }
+      },
+      fail: (err) => reject(new Error(err.errMsg || '上传失败')),
+    })
+  })
+}

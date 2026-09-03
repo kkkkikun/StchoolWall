@@ -72,8 +72,27 @@ export function unfavoritePost(postId: number) {
 }
 
 /** 我的收藏 */
-export function myFavorites(cursor?: number) {
-  return get<CursorList<unknown>>(`/me/favorites`, { cursor })
+export function myFavorites<T = unknown>(cursor?: number) {
+  return get<CursorList<T>>(`/me/favorites`, { cursor })
+}
+
+/** 我的点赞（点赞过的帖子） */
+export function myLikes<T = unknown>(cursor?: number) {
+  return get<CursorList<T>>(`/me/likes`, { cursor })
+}
+
+export interface MyCommentItem {
+  id: number
+  post_id: number
+  content: string
+  post_excerpt: string
+  post_author: string
+  created_at: string
+}
+
+/** 我发表过的评论（含所属帖子摘要） */
+export function myComments(cursor?: number) {
+  return get<CursorList<MyCommentItem>>(`/me/comments`, { cursor })
 }
 
 /** 我的足迹 */

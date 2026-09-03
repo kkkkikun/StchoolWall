@@ -19,10 +19,11 @@ onHide(() => {
 /* ===== 鄂应墙全局样式与设计 token ===== */
 page {
   /* CSS 变量：供 <style>（非 scoped 也可）与行内 style 使用 */
-  --brand-red: #f73b43;
-  --brand-red-dark: #ff3b30;
-  --brand-red-soft: #fcf1f2;
-  --brand-orange: #ff7e40;
+  /* 2026-09-01 客户反馈：整体改推特式干净配色，亮色部分用偏淡粉色 */
+  --brand-red: #ef8a97;      /* 主强调色：亮红 → 柔粉 */
+  --brand-red-dark: #e26d7d; /* 徽标/标签：艳红 → 深一档玫瑰粉 */
+  --brand-red-soft: #fdf0f2; /* 浅粉底 */
+  --brand-orange: #f7b8a6;   /* 渐变搭档：橙 → 蜜桃粉 */
   --bg-page: #f7f8fa;
   --bg-group: #fff9f5;
   --radius-card: 24rpx;

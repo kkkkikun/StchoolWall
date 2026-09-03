@@ -6,6 +6,8 @@ export interface UserProfile {
   id: string
   nickname: string
   avatar_url: string | null
+  banner_url?: string | null
+  bio?: string | null
   is_verified: boolean
   school: string | null
   posts_count: number
@@ -54,3 +56,13 @@ export function unfollowUser(userId: string) {
 }
 
 export type { PostBrief }
+
+/** 热门用户榜（公开）：按帖子获赞总数 Top N */
+export interface HotUser {
+  id: string
+  nickname: string
+  heat: number
+}
+export function getHotRanking(limit = 5) {
+  return get<{ items: HotUser[] }>('/user/hot-ranking', { limit })
+}

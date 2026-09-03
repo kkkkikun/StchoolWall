@@ -51,11 +51,11 @@ const GLYPHS: Record<string, string> = {
   emoji: '😀',
   folder: '📁',
   mic: '🎤',
-  // tab
-  home: '🏠',
-  group: '👥',
-  message: '💬',
-  mine: '👤',
+  // tab（单色字形，可随 color 变色：选中深黑/未选中浅黑；后续可换 static/tabbar/ 下的 SVG）
+  home: '⌂',
+  group: '♟',
+  message: '✉',
+  mine: '☻',
   // 品牌/运营
   signin: '🐵',
   ufo: '🛸',

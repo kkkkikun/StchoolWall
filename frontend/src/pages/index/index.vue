@@ -7,6 +7,28 @@
         :style="{ height: statusBarHeight + 'px' }"
       />
       <view class="search-row">
+        <!-- 左上角：每日签到（LeetCode 式火焰两态：轮廓 → 燃烧） -->
+        <view class="checkin-btn" :class="{ done: checkedIn }" @tap="onCheckin">
+          <view class="checkin-icon">
+            <image
+              v-if="!checkedIn && CHECKIN_ICONS.outline"
+              class="checkin-svg"
+              :src="CHECKIN_ICONS.outline"
+              mode="aspectFit"
+            />
+            <image
+              v-else-if="checkedIn && CHECKIN_ICONS.burning"
+              class="checkin-svg"
+              :src="CHECKIN_ICONS.burning"
+              mode="aspectFit"
+            />
+            <!-- SVG 未配置时的兜底：轮廓态用描边圆+「签」，燃烧态用 🔥 -->
+            <text v-else class="checkin-fallback">{{
+              checkedIn ? "🔥" : "签"
+            }}</text>
+          </view>
+          <text class="checkin-count">{{ checkinLabel }}</text>
+        </view>
         <view class="search-bar">
           <image
             class="icon-search"
@@ -26,60 +48,35 @@
       </view>
     </view>
 
-    <!-- 2. 通知马灯 -->
-    <view class="notice-bar" @tap="onNotice">
-      <view class="notice-content">
-        <text class="icon-ufo">🛸</text>
-        <text class="notice-text">搭乘UFO，带你回到过去</text>
-      </view>
-      <text class="arrow-right">›</text>
-    </view>
-
-    <!-- 3. 十大热帖 -->
-    <view class="hot-posts-section">
+    <!-- 2. 十大热帖：首页只露前 4，整卡可进完整榜单（无数据时整块隐藏） -->
+    <view v-if="hotPosts.length" class="hot-posts-section" @tap="goHotList">
       <view class="hot-side-banner">
         <text class="hot-title">十大热帖</text>
         <text class="hot-arrow">›</text>
       </view>
-      <view class="hot-list">
-        <view
-          v-for="item in hotPosts"
-          :key="item.id"
-          class="hot-item"
-          @tap="goPost(item.id)"
-        >
-          <text class="rank-num" :class="rankClass(item.rank)">{{
-            item.rank
-          }}</text>
-          <text class="hot-item-title">{{ item.title }}</text>
-          <text v-if="item.isHot" class="hot-tag">热</text>
-          <text class="read-count">{{ item.reads }}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 4. 金刚区 10 宫格 -->
-    <view class="grid-menu">
-      <view
-        v-for="(item, idx) in menuItems"
-        :key="idx"
-        class="grid-item"
-        @tap="onMenu(item)"
-      >
-        <view class="grid-icon-wrapper">
-          <text class="grid-icon">{{ item.icon }}</text>
-          <text
-            v-if="item.badge"
-            class="badge-dot"
-            :class="{ all: item.badge === '全部' }"
-            >{{ item.badge }}</text
+      <view class="hot-main">
+        <view class="hot-list">
+          <view
+            v-for="item in hotPosts"
+            :key="item.id"
+            class="hot-item"
+            @tap.stop="goPost(item.id)"
           >
+            <text class="rank-num" :class="rankClass(item.rank)">{{
+              item.rank
+            }}</text>
+            <text class="hot-item-title">{{ item.title }}</text>
+            <text v-if="item.isHot" class="hot-tag">热</text>
+            <text class="read-count">{{ item.reads }}</text>
+          </view>
         </view>
-        <text class="grid-label">{{ item.name }}</text>
+        <view class="hot-more">
+          <text>查看完整榜单 ›</text>
+        </view>
       </view>
     </view>
 
-    <!-- 5. 广告位（可滑动轮播） -->
+    <!-- 4. 广告位（可滑动轮播）；原金刚区已删（2026-09-01 客户反馈：与下方分类 Tab 重复） -->
     <swiper
       class="ad-swiper"
       indicator-dots
@@ -107,7 +104,7 @@
           v-else
           class="ad-slide"
           :style="{
-            background: ad.bg || 'linear-gradient(135deg, #ff5e62, #ff9966)',
+            background: ad.bg || 'linear-gradient(135deg, #ef8a97, #f6b8c0)',
           }"
         >
           <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>
@@ -124,27 +121,19 @@
     <view class="tab-bar-sticky">
       <scroll-view class="tab-scroll" scroll-x :show-scrollbar="false">
         <view
-          v-for="(tab, idx) in tabs"
+          v-for="(t, idx) in TABS"
           :key="idx"
           class="tab-item"
           :class="{ active: currentTab === idx }"
           @tap="switchTab(idx)"
         >
-          {{ tab }}
+          {{ t.label }}
         </view>
       </scroll-view>
     </view>
 
     <!-- 7. 信息流 -->
     <view class="feed-list">
-      <view v-if="feedModeName" class="filter-chip" @tap="clearFilter">
-        <text
-          >{{
-            feedModeName === "关注的人" ? "关注的人" : "分类：" + feedModeName
-          }}
-          ✕</text
-        >
-      </view>
       <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"
         ><text>加载中…</text></view
       >
@@ -164,34 +153,35 @@
       </view>
     </view>
 
-    <!-- 8. 悬浮搜索 -->
-    <view class="floating-search-btn" @tap="scrollToTop">
-      <text class="fs-icon">🔍</text>
-      <text class="fs-text">搜索</text>
-    </view>
-
     <TabBar :current="0" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { onShow, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import FeedCard from "@/components/feed-card.vue";
 import TabBar from "@/components/tab-bar.vue";
-import { MENU_ITEMS, AD_BANNERS, POST_CATEGORIES } from "@/utils/mock";
-import type { MenuItem } from "@/types/mock";
+import { AD_BANNERS, POST_CATEGORIES } from "@/utils/mock";
 import type { PostBrief } from "@/types/api";
-import { getPosts, getHotPosts, getFollowingFeed } from "@/api/posts";
+import { getPosts, getHotPosts, getFeaturedPosts, getFollowingFeed } from "@/api/posts";
 import { getBanners, type BannerItem } from "@/api/banner";
+import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
 
-// 顶部 tab：推荐 / 关注 / 9 个分类（与金刚区同源）
-const tabs = ["推荐", "关注", ...POST_CATEGORIES];
+// 顶部 tab：对齐参考稿（精选/最新/二手/失物）+ 保留功能入口（关注/精华）
+// 分类完整清单仍由 POST_CATEGORIES 提供（发布页选择器用），此处只是首页瘦身
+const TABS: Array<{ label: string; mode: string }> = [
+  { label: "精选", mode: "all" }, // 热度时间衰减推荐
+  { label: "最新", mode: "latest" }, // 纯时间序（order=time）
+  { label: "关注", mode: "following" },
+  { label: "精华", mode: "featured" },
+  { label: "二手", mode: "二手市场" },
+  { label: "失物", mode: "失物招领" },
+];
 const currentTab = ref(0);
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
 const feedMode = ref<string>("all");
-const feedModeName = ref(""); // chip 展示文本
 interface HotItem {
   id: number;
   rank: number;
@@ -200,7 +190,6 @@ interface HotItem {
   reads: string;
 }
 const hotPosts = ref<HotItem[]>([]);
-const menuItems = MENU_ITEMS;
 // 广告轮播：后端下发优先，失败/未配置时 fallback 到 mock（运营未配不白屏）
 const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([
   ...AD_BANNERS,
@@ -214,6 +203,54 @@ const loadBanners = async () => {
     /* 后端不可用时保留 fallback */
   }
 };
+// 每日签到（收益体系定稿后扩展奖励弹窗）
+/**
+ * 火焰图标更换位（LeetCode 式两态）：
+ * 1. 把两张图放进 src/static/checkin/（任意文件名，建议正方形）
+ * 2. 把下面两行路径改成你的文件并解开注释，保存即生效（HMR 秒级热更）
+ * 注意：SVG 在 H5 没问题；微信小程序真机不渲染 SVG，上真机请换 PNG（路径后缀改 .png 即可）
+ */
+const CHECKIN_ICONS: { outline?: string; burning?: string } = {
+  // outline: "/static/checkin/flame-outline.svg", // 未签到：火焰轮廓（线条稿）
+  // burning: "/static/checkin/flame-burning.svg", // 已签到：燃烧的火焰（填充稿）
+};
+
+const checkedIn = ref(false);
+const streakDays = ref(0);
+// 右侧数字：已签=当前连签；未签但昨天的连签还在=显示它（提醒别断签）；全新=「签到」
+const checkinLabel = computed(() =>
+  checkedIn.value || streakDays.value > 0 ? String(streakDays.value) : "签到"
+);
+const loadCheckin = async () => {
+  if (!tokenStorage.isLoggedIn()) return;
+  try {
+    const st = await getCheckinStatus();
+    checkedIn.value = st.today_checked;
+    streakDays.value = st.streak_days;
+  } catch { /* 静默 */ }
+};
+const onCheckin = async () => {
+  if (!tokenStorage.isLoggedIn()) {
+    uni.showToast({ title: "登录后才能签到", icon: "none" });
+    return;
+  }
+  if (checkedIn.value) {
+    uni.showToast({ title: `今天已签到，连签 ${streakDays.value} 天`, icon: "none" });
+    return;
+  }
+  try {
+    const r = await doCheckin();
+    checkedIn.value = true;
+    streakDays.value = r.streak_days;
+    uni.showToast({
+      title: r.already ? `今天已签到，连签 ${r.streak_days} 天` : `签到成功！连签 ${r.streak_days} 天`,
+      icon: "none",
+    });
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || "签到失败", icon: "none" });
+  }
+};
+
 const posts = ref<PostBrief[]>([]);
 const loadingFeeds = ref(false);
 const nextCursor = ref<number | null>(null);
@@ -231,6 +268,10 @@ const loadFeeds = async (refresh = false) => {
     let res;
     if (feedMode.value === "following")
       res = await getFollowingFeed(cursor ?? undefined);
+    else if (feedMode.value === "featured")
+      res = await getFeaturedPosts(cursor ?? undefined);
+    else if (feedMode.value === "latest")
+      res = await getPosts(cursor ?? undefined, undefined, undefined, "time");
     else if (feedMode.value !== "all")
       res = await getPosts(cursor ?? undefined, undefined, feedMode.value);
     else res = await getPosts(cursor ?? undefined);
@@ -254,25 +295,40 @@ onReachBottom(() => {
   if (hasMore.value && !loadingFeeds.value) loadFeeds(false);
 });
 
+const HOT_TITLE_MAX = 30; // 榜单标题截断长度（rpx 布局按单行省略，防长文挤压）
+const HOT_TAG_MIN_LIKES = 3; // 「热」标门槛：赞或评论 ≥3，避免 1 赞也挂热
+
 const loadHot = async () => {
   try {
-    const list = await getHotPosts(5);
+    // 首页只露前 4 名（完整十强在二级页 pages/hot/index）
+    const list = await getHotPosts(4);
     hotPosts.value = list.map((p, i) => ({
       id: p.id,
       rank: i + 1,
-      title: p.content,
-      isHot: (p.like_count || 0) > 0,
+      // 正文首行做标题，超长截断
+      title: (() => {
+        const firstLine = (p.content || "").split("\n").find((s) => s.trim()) || "（无文字）";
+        return firstLine.length > HOT_TITLE_MAX
+          ? firstLine.slice(0, HOT_TITLE_MAX) + "…"
+          : firstLine;
+      })(),
+      isHot:
+        (p.like_count || 0) >= HOT_TAG_MIN_LIKES ||
+        (p.comment_count || 0) >= HOT_TAG_MIN_LIKES,
       reads: `${p.view_count || 0} 浏览`,
     }));
   } catch {
-    /* 热帖非关键，失败静默 */
+    /* 热帖非关键，失败静默（整块由 v-if 隐藏） */
   }
 };
+
+const goHotList = () => uni.navigateTo({ url: "/pages/hot/index" });
 
 onShow(() => {
   loadFeeds(true);
   loadHot();
   loadBanners();
+  loadCheckin();
 });
 
 const rankClass = (rank: number) => `rank-${rank}`;
@@ -285,7 +341,6 @@ const onSearch = () => {
       : "/pages/search/index",
   });
 };
-const onNotice = () => uni.showToast({ title: "搭乘UFO～", icon: "none" });
 const onAd = (ad: BannerItem) => {
   if (ad.post_id) {
     uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` });
@@ -295,52 +350,20 @@ const onAd = (ad: BannerItem) => {
     });
   }
 };
-const onMenu = (item: MenuItem) => {
-  if (item.name === "更多分类") {
-    uni.navigateTo({ url: "/pages/search/index" });
-    return;
-  }
-  // 按 category 过滤，同步高亮对应 tab
-  feedMode.value = item.name;
-  feedModeName.value = item.name;
-  currentTab.value = tabs.indexOf(item.name);
-  loadFeeds(true);
-  uni.pageScrollTo({ selector: ".feed-list", duration: 200 });
-};
 
 const goPost = (id: number) => {
   uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` });
 };
 
 const switchTab = (idx: number) => {
-  const t = tabs[idx];
-  if (t === "推荐") {
-    feedMode.value = "all";
-    feedModeName.value = "";
-  } else if (t === "关注") {
-    if (!tokenStorage.isLoggedIn()) {
-      uni.showToast({ title: "请先登录后查看关注", icon: "none" });
-      return;
-    }
-    feedMode.value = "following";
-    feedModeName.value = "关注的人";
-  } else {
-    feedMode.value = t;
-    feedModeName.value = t;
+  const t = TABS[idx];
+  if (t.mode === "following" && !tokenStorage.isLoggedIn()) {
+    uni.showToast({ title: "请先登录后查看关注", icon: "none" });
+    return;
   }
+  feedMode.value = t.mode;
   currentTab.value = idx;
   loadFeeds(true);
-};
-
-const clearFilter = () => {
-  feedMode.value = "all";
-  feedModeName.value = "";
-  currentTab.value = 0;
-  loadFeeds(true);
-};
-
-const scrollToTop = () => {
-  uni.pageScrollTo({ scrollTop: 0, duration: 200 });
 };
 </script>
 
@@ -363,25 +386,77 @@ const scrollToTop = () => {
 }
 
 .search-row {
-  height: 52rpx; /* 色块厚度（不含状态栏）：改这里只动红色块，不影响搜索框 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search-bar {
-  width: 50%; /* 7/28 → 21/28，两侧各留 25% 空白 */
-  height: 20rpx; /* 搜索框高度：改这里只动搜索框，不影响色块 */
-  background-color: rgba(255, 255, 255, 0.25);
-  border-radius: 34rpx;
+  height: 108rpx; /* 头部厚度（不含状态栏） */
   padding: 0 24rpx;
   display: flex;
   align-items: center;
 }
 
+/* 左上角火焰签到（LeetCode 式两态）：未签=描边幽灵胶囊，已签=白底实心 */
+.checkin-btn {
+  flex-shrink: 0;
+  height: 64rpx;
+  padding: 0 18rpx;
+  margin-right: 20rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+  border-radius: 34rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.checkin-btn.done {
+  background-color: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 2rpx 12rpx rgba(226, 109, 125, 0.18);
+}
+
+.checkin-icon {
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.checkin-svg {
+  width: 36rpx;
+  height: 36rpx;
+}
+/* 兜底字形：轮廓态「签」（描边风格），燃烧态 🔥 */
+.checkin-fallback {
+  font-size: 26rpx;
+  line-height: 1;
+  color: #ffffff;
+}
+.checkin-btn.done .checkin-fallback {
+  font-size: 30rpx;
+}
+
+/* 右侧连签数字 */
+.checkin-count {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+.checkin-btn.done .checkin-count {
+  color: var(--brand-red-dark);
+}
+
+.search-bar {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  background-color: #ffffff;
+  border-radius: 32rpx;
+  padding: 0 26rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2rpx 12rpx rgba(226, 109, 125, 0.12);
+}
+
 .icon-search {
-  width: 30rpx;
-  height: 30rpx;
+  width: 28rpx;
+  height: 28rpx;
   flex-shrink: 0;
 }
 
@@ -389,70 +464,41 @@ const scrollToTop = () => {
   flex: 1;
   font-size: 26rpx;
   margin-left: 14rpx;
-  color: #ffffff;
+  color: var(--text-1);
 }
 
 .search-placeholder {
-  color: rgba(255, 255, 255, 0.7);
+  color: #b9bcc2;
 }
 
 .search-confirm {
   font-size: 26rpx;
-  color: #ffffff;
+  color: var(--brand-red);
   padding-left: 20rpx;
-  border-left: 1rpx solid rgba(255, 255, 255, 0.3);
+  border-left: 1rpx solid #eef0f3;
 }
 
-/* 2. 通知马灯 */
-.notice-bar {
-  background-color: #ffffff;
-  margin: 20rpx 24rpx;
-  padding: 18rpx 24rpx;
-  border-radius: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.notice-content {
-  display: flex;
-  align-items: center;
-}
-
-.icon-ufo {
-  font-size: 34rpx;
-  margin-right: 12rpx;
-}
-
-.notice-text {
-  font-size: 24rpx;
-  color: var(--text-2);
-}
-
-.arrow-right {
-  color: var(--text-3);
-  font-size: 32rpx;
-}
-
-/* 3. 十大热帖 */
+/* 2. 十大热帖（原"搭乘UFO"通知栏已删，2026-09-01 客户反馈） */
 .hot-posts-section {
   background-color: #ffffff;
-  margin: 0 24rpx 24rpx;
+  margin: 20rpx 24rpx 24rpx;
   border-radius: var(--radius-card);
   padding: 24rpx;
   display: flex;
+  align-items: stretch; /* 侧边徽章跟随 10 行列表高度 */
 }
 
 .hot-side-banner {
   width: 150rpx;
-  height: 150rpx;
-  background: linear-gradient(135deg, #ff4c3b, #ff7e40);
+  min-height: 150rpx; /* 兜底：短列表时色块至少装得下"十大热帖"标题，防文字溢出 */
+  background: linear-gradient(135deg, #e8848f, #f6b8c0);
   border-radius: 16rpx;
   justify-content: center;
   align-items: center;
   display: flex;
   flex-direction: column;
   color: #ffffff;
+  flex-shrink: 0;
 }
 
 .hot-title {
@@ -469,18 +515,42 @@ const scrollToTop = () => {
   opacity: 0.8;
 }
 
-.hot-list {
+/* 右侧主体：前 4 列表 + 「查看完整榜单」脚注 */
+.hot-main {
   flex: 1;
+  min-width: 0; /* 关键：允许整列收缩，否则被最长行撑爆，热标/浏览数被顶出屏 */
+  overflow: hidden;
   margin-left: 24rpx;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+}
+
+.hot-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+
+.hot-more {
+  margin-top: 14rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #f5f5f6;
+  display: flex;
+  justify-content: center;
+}
+
+.hot-more text {
+  font-size: 22rpx;
+  color: var(--text-3);
 }
 
 .hot-item {
   display: flex;
   align-items: center;
   font-size: 24rpx;
+  line-height: 1.6;
+  padding: 2rpx 0;
 }
 
 .rank-num {
@@ -488,21 +558,23 @@ const scrollToTop = () => {
   font-style: italic;
   margin-right: 12rpx;
   width: 30rpx;
+  flex-shrink: 0;
   color: var(--text-3);
 }
 
 .rank-1 {
-  color: #ff3b30;
+  color: var(--brand-red-dark);
 }
 .rank-2 {
-  color: #ff9500;
+  color: #e8a23f;
 }
 .rank-3 {
-  color: #ffcc00;
+  color: #d9b23f;
 }
 
 .hot-item-title {
   flex: 1;
+  min-width: 0; /* flex 子项默认 min-width:auto，长文本会撑爆行容器，必须允许收缩 */
   color: var(--text-1);
   font-size: 26rpx;
   overflow: hidden;
@@ -517,70 +589,20 @@ const scrollToTop = () => {
   padding: 2rpx 8rpx;
   border-radius: 6rpx;
   margin-left: 10rpx;
+  flex-shrink: 0;
 }
 
 .read-count {
   font-size: 22rpx;
   color: var(--text-3);
   margin-left: 16rpx;
+  flex-shrink: 0;
 }
 
-/* 4. 金刚区 */
-.grid-menu {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  row-gap: 28rpx;
-  padding: 24rpx 10rpx;
-  background-color: #ffffff;
-  margin: 0 24rpx 24rpx;
-  border-radius: var(--radius-card);
-}
-
-.grid-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.grid-icon-wrapper {
-  position: relative;
-  width: 84rpx;
-  height: 84rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.grid-icon {
-  font-size: 52rpx;
-}
-
-.badge-dot {
-  position: absolute;
-  top: -6rpx;
-  right: -10rpx;
-  background-color: var(--brand-red-dark);
-  color: #ffffff;
-  font-size: 18rpx;
-  padding: 2rpx 8rpx;
-  border-radius: 18rpx;
-  font-weight: bold;
-}
-
-.badge-dot.all {
-  background-color: #ff5e52;
-}
-
-.grid-label {
-  font-size: 23rpx;
-  color: #444444;
-  margin-top: 12rpx;
-}
-
-/* 5. 广告位轮播 */
+/* 4. 广告位轮播（原金刚区样式已随功能删除） */
 .ad-swiper {
   height: 180rpx;
-  margin: 0 24rpx 24rpx;
+  margin: 24rpx 24rpx 24rpx; /* 金刚区删除后由顶部留白接管 */
 }
 
 .ad-slide {
@@ -683,16 +705,6 @@ const scrollToTop = () => {
 .feed-list {
   padding: 0 24rpx;
 }
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  background: var(--brand-red-soft);
-  color: var(--brand-red);
-  font-size: 24rpx;
-  padding: 8rpx 20rpx;
-  border-radius: 24rpx;
-  margin: 8rpx 0 16rpx;
-}
 .feed-tip {
   text-align: center;
   padding: 60rpx 0;
@@ -704,30 +716,5 @@ const scrollToTop = () => {
   padding: 32rpx 0;
   color: var(--text-3);
   font-size: 24rpx;
-}
-
-/* 8. 悬浮搜索 */
-.floating-search-btn {
-  position: fixed;
-  bottom: 200rpx;
-  right: 30rpx;
-  background-color: var(--brand-red);
-  color: #ffffff;
-  padding: 18rpx 32rpx;
-  border-radius: 44rpx;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 6rpx 20rpx rgba(247, 59, 67, 0.4);
-  z-index: 99;
-}
-
-.fs-icon {
-  font-size: 28rpx;
-}
-
-.fs-text {
-  margin-left: 8rpx;
-  font-size: 26rpx;
-  font-weight: 500;
 }
 </style>

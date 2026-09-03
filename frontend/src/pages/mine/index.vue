@@ -1,98 +1,133 @@
 <template>
   <view class="page-mine">
-    <!-- 1. 红色沉浸式头部 -->
-    <view class="profile-header-bg">
-      <view class="user-info-wrapper">
-        <view class="avatar-outer-ring">
-          <text class="user-avatar">{{ user.avatarUrl }}</text>
-        </view>
-        <view class="user-meta-box">
-          <text class="user-nickname">{{ user.nickName }}</text>
-          <view v-if="user.schoolName" class="school-tag-capsule">
-            <text>{{ user.schoolName }}</text>
-          </view>
-          <view v-if="!loggedIn" class="dev-login-row">
-            <view class="dev-login-capsule" @tap="doDevLogin(false)">
-              <text>一键登录（演示学生）</text>
-            </view>
-            <view class="dev-login-capsule admin" @tap="doDevLogin(true)">
-              <text>🛡️ 演示管理员</text>
-            </view>
-          </view>
-          <view v-if="loggedIn && !isVerified" class="verify-capsule" @tap="goVerify">
-            <text>🎓 学籍认证（发帖/互动需认证）</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 5 列统计（含关注/粉丝） -->
-      <view class="stats-panel-row">
-        <view class="stats-item" @tap="goStats('posts')">
-          <text class="stats-label">帖子</text>
-          <text class="stats-count">{{ profileStats.posts_count }}</text>
-        </view>
-        <view class="stats-divider" />
-        <view class="stats-item" @tap="goMyProfile('following')">
-          <text class="stats-label">关注</text>
-          <text class="stats-count">{{ profileStats.following_count }}</text>
-        </view>
-        <view class="stats-divider" />
-        <view class="stats-item" @tap="goMyProfile('followers')">
-          <text class="stats-label">粉丝</text>
-          <text class="stats-count">{{ profileStats.followers_count }}</text>
-        </view>
-        <view class="stats-divider" />
-        <view class="stats-item" @tap="goStats('favorites')">
-          <text class="stats-label">收藏</text>
-          <text class="stats-count">{{ stats.favoritesCount }}</text>
-        </view>
-        <view class="stats-divider" />
-        <view class="stats-item" @tap="goStats('footprints')">
-          <text class="stats-label">足迹</text>
-          <text class="stats-count">{{ stats.footprintsCount }}</text>
-        </view>
-      </view>
+    <!-- 1. 粉色校园横幅（照片位：BANNER_IMG 配置，空则渐变兜底） -->
+    <!-- 点击横幅直接更换（QQ式）；BANNER_IMG 为静态兜底图位 -->
+    <view class="banner" @tap="changeBanner">
+      <image v-if="bannerUrl || BANNER_IMG" class="banner-img" :src="bannerUrl || BANNER_IMG" mode="aspectFill" />
     </view>
 
-    <!-- 2. 菜单区（上浮覆盖红头） -->
-    <view class="menu-container">
-      <!-- 管理后台入口（仅 admin 可见） -->
-      <view v-if="isAdmin" class="admin-entry-card" @tap="goAdmin">
-        <view class="menu-item-left">
-          <text class="menu-icon">🛡️</text>
-          <text class="menu-title admin-title">管理后台</text>
-        </view>
-        <text class="arrow-icon">›</text>
-      </view>
-
-      <view class="menu-card-group">
-        <view
-          v-for="item in menu1"
-          :key="item.action"
-          class="menu-item"
-          @tap="onMenu(item.action)"
-        >
-          <view class="menu-item-left">
-            <text class="menu-icon">{{ item.icon }}</text>
-            <text class="menu-title">{{ item.name }}</text>
+    <!-- 2. 白色圆角面板（上浮盖住横幅底部） -->
+    <view class="sheet">
+      <view class="avatar-row">
+        <view class="avatar-ring" @tap.stop="changeAvatar">
+          <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
+          <view v-else class="avatar" :style="{ background: avatarColor }">
+            <text class="avatar-letter">{{ avatarLetter }}</text>
           </view>
-          <text class="arrow-icon">›</text>
+          <view class="avatar-cam"><text>📷</text></view>
         </view>
       </view>
 
-      <view class="menu-card-group">
-        <view
-          v-for="item in menu2"
-          :key="item.action"
-          class="menu-item"
-          @tap="onMenu(item.action)"
-        >
-          <view class="menu-item-left">
-            <text class="menu-icon">{{ item.icon }}</text>
-            <text class="menu-title">{{ item.name }}</text>
+      <!-- 昵称 + 编辑资料 + 设置齿轮 -->
+      <view class="name-row">
+        <text class="nickname">{{ user.nickname }}</text>
+        <view class="name-actions">
+          <view class="edit-btn" @tap="goEditProfile">
+            <text>编辑资料</text>
           </view>
-          <text class="arrow-icon">›</text>
+          <view class="gear-btn" @tap="goSettings">
+            <text class="gear-icon">⚙️</text>
+          </view>
         </view>
+      </view>
+
+      <!-- 简介：编辑资料页可改；未设置时用默认文案 -->
+      <view class="bio">
+        <text>{{ user.bio || '热爱生活，热爱分享～' }}</text>
+        <text v-if="!user.bio">在校园里发现美好，记录点滴日常 ✨</text>
+      </view>
+
+      <!-- 未登录：演示登录入口（H5 联调用） -->
+      <view v-if="!loggedIn" class="dev-login-row">
+        <view class="dev-capsule" @tap="doDevLogin(false)">
+          <text>一键登录（演示学生）</text>
+        </view>
+        <view class="dev-capsule admin" @tap="doDevLogin(true)">
+          <text>🛡️ 演示管理员</text>
+        </view>
+      </view>
+      <!-- 未认证提示 / 管理员入口（功能性保留，弱化为细条） -->
+      <view v-if="loggedIn && !isVerified" class="slim-tip" @tap="goVerify">
+        <text>🎓 学籍认证（发帖/互动需认证） ›</text>
+      </view>
+      <view v-if="isAdmin" class="slim-tip admin" @tap="goAdmin">
+        <text>🛡️ 管理后台 ›</text>
+      </view>
+
+      <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一） -->
+      <view class="content-tabs">
+        <view
+          v-for="(t, i) in CONTENT_TABS"
+          :key="t.key"
+          class="ct-item"
+          :class="{ on: contentTab === t.key }"
+          @tap="switchTab(t.key)"
+        >
+          <text class="ct-icon">{{ t.icon }}</text>
+          <view v-if="contentTab === t.key" class="ct-underline" />
+        </view>
+      </view>
+
+      <!-- 4. 内容区 -->
+      <view class="content-panel">
+        <text class="content-title">{{ activeTitle }}</text>
+
+        <!-- 帖子 / 收藏 / 点赞：紧凑内容卡（标题+摘要+日期+浏览+评论+缩略图） -->
+        <template v-if="contentTab !== 'comments'">
+          <view v-if="!posts.length" class="empty">
+            <text>{{ emptyText }}</text>
+          </view>
+          <view
+            v-for="p in posts"
+            :key="`${contentTab}-${p.id}`"
+            class="post-card"
+            @tap="goDetail(p.id)"
+          >
+            <view class="pc-main">
+              <text class="pc-title">{{ titleOf(p) }}</text>
+              <text class="pc-excerpt">{{ excerptOf(p) }}</text>
+              <view class="pc-meta">
+                <text class="pc-date">{{ dateOf(p.created_at) }}</text>
+                <view class="pc-stat">
+                  <text class="pc-stat-icon">👁</text>
+                  <text>{{ fmtCount(p.view_count) }}</text>
+                </view>
+                <view class="pc-stat">
+                  <text class="pc-stat-icon">💬</text>
+                  <text>{{ fmtCount(p.comment_count) }}</text>
+                </view>
+              </view>
+            </view>
+            <image
+              v-if="p.images && p.images.length"
+              class="pc-thumb"
+              :src="p.images[0]"
+              mode="aspectFill"
+            />
+            <view v-else class="pc-thumb pc-thumb-ph">
+              <text>🖼</text>
+            </view>
+          </view>
+        </template>
+
+        <!-- 评论过的 -->
+        <template v-else>
+          <view v-if="!myCommentList.length" class="empty"><text>还没有发表过评论</text></view>
+          <view
+            v-for="c in myCommentList"
+            :key="c.id"
+            class="post-card"
+            @tap="goDetail(c.post_id)"
+          >
+            <view class="pc-main">
+              <text class="pc-title">{{ c.content }}</text>
+              <text class="pc-excerpt">在「{{ c.post_author }}」的帖子下：{{ c.post_excerpt }}</text>
+              <view class="pc-meta">
+                <text class="pc-date">{{ dateOf(c.created_at) }}</text>
+              </view>
+            </view>
+          </view>
+        </template>
       </view>
     </view>
 
@@ -104,48 +139,162 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
-import { MINE_USER, MINE_STATS, MINE_MENU_1, MINE_MENU_2 } from '@/utils/mock'
 import { myStats } from '@/api/interaction'
 import { devLogin } from '@/api/auth'
-import { getProfile, type UserProfile } from '@/api/profile'
+import { getProfile } from '@/api/profile'
+import { get, put, uploadFile } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import type { PostBrief } from '@/types/api'
 
-const menu1 = MINE_MENU_1
-const menu2 = MINE_MENU_2
-const user = ref(MINE_USER)
-const stats = ref(MINE_STATS)
-const profileStats = ref({ posts_count: 0, following_count: 0, followers_count: 0 })
+/**
+ * 横幅照片更换位：把校园照片放到 src/static/（如 mine-banner.jpg）后填路径即可，
+ * 空值走粉色渐变兜底。H5/小程序均支持 jpg/png。
+ */
+const BANNER_IMG = '' // 静态兜底图；用户上传后以 bannerUrl 优先
+
+const avatarUrl = ref('')
+const bannerUrl = ref('')
+
+const CONTENT_TABS = [
+  { key: 'posts', icon: '📄' },
+  { key: 'comments', icon: '💬' },
+  { key: 'favorites', icon: '🔖' },
+  { key: 'likes', icon: '🤍' },
+] as const
+type ContentTab = (typeof CONTENT_TABS)[number]['key']
+
+const contentTab = ref<ContentTab>('posts')
+const user = ref({ nickname: '未登录', bio: '' })
 const loggedIn = ref(tokenStorage.isLoggedIn())
 const isVerified = ref(!!userStorage.getUserInfo()?.is_verified)
 const isAdmin = computed(() => userStorage.getUserInfo()?.role === 'admin')
 
+const posts = ref<PostBrief[]>([])
+const myCommentList = ref<
+  Array<{ id: number; post_id: number; content: string; post_excerpt: string; post_author: string; created_at: string }>
+>([])
+const loadedTabs = ref(new Set<string>())
+const loading = ref(false)
+
+const avatarLetter = computed(() => (user.value.nickname || '?').slice(0, 1))
+const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
+const avatarColor = computed(() => {
+  const s = user.value.nickname || ''
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+})
+
+const activeTitle = computed(
+  () =>
+    (({ posts: '我发出的内容', comments: '我评论过的', favorites: '我收藏的', likes: '我点赞的' }) as Record<ContentTab, string>)[
+      contentTab.value
+    ],
+)
+const emptyText = computed(
+  () =>
+    (({ posts: '还没有发过帖子', comments: '还没有发表过评论', favorites: '还没有收藏', likes: '还没有点赞' }) as Record<
+      ContentTab,
+      string
+    >)[contentTab.value],
+)
+
+const titleOf = (p: PostBrief) => {
+  const first = (p.content || '').split('\n').find((s) => s.trim()) || '（无标题）'
+  return first.length > 22 ? first.slice(0, 22) : first
+}
+const excerptOf = (p: PostBrief) => {
+  const lines = (p.content || '').split('\n').filter((s) => s.trim())
+  const rest = lines.length > 1 ? lines.slice(1).join(' ') : lines[0] || ''
+  const t = rest.length > 40 ? rest.slice(0, 40) + '…' : rest
+  return t
+}
+const pad = (n: number) => String(n).padStart(2, '0')
+const dateOf = (iso?: string) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+const fmtCount = (n?: number) => {
+  const v = n || 0
+  if (v < 10000) return String(v)
+  const w = v / 10000
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, '')}万`
+}
+
+interface MyCommentItem {
+  id: number
+  post_id: number
+  content: string
+  post_excerpt: string
+  post_author: string
+  created_at: string
+}
+
+const fetchMyPosts = async () => {
+  const res = await get<{ items: PostBrief[] }>('/posts/my')
+  posts.value = res.items || []
+}
+const fetchFavorites = async () => {
+  const res = await get<{ items: PostBrief[] }>('/me/favorites')
+  posts.value = res.items || []
+}
+const fetchLikes = async () => {
+  const res = await get<{ items: PostBrief[] }>('/me/likes')
+  posts.value = res.items || []
+}
+const fetchComments = async () => {
+  const res = await get<{ items: MyCommentItem[] }>('/me/comments')
+  myCommentList.value = res.items || []
+}
+
+const LOADERS: Record<ContentTab, () => Promise<void>> = {
+  posts: fetchMyPosts,
+  comments: fetchComments,
+  favorites: fetchFavorites,
+  likes: fetchLikes,
+}
+
+const switchTab = async (t: ContentTab) => {
+  contentTab.value = t
+  if (!loggedIn.value || loadedTabs.value.has(t)) return
+  loading.value = true
+  try {
+    await LOADERS[t]()
+    loadedTabs.value.add(t)
+  } catch (e) {
+    loadedTabs.value.delete(t)
+    uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
 const loadProfile = async () => {
-  if (!tokenStorage.isLoggedIn()) return
+  loggedIn.value = tokenStorage.isLoggedIn()
   const info = userStorage.getUserInfo()
   if (info) {
-    user.value = { avatarUrl: '🦅', nickName: info.nickname || MINE_USER.nickName, schoolName: MINE_USER.schoolName }
+    user.value = { nickname: info.nickname || '同学', bio: user.value.bio }
     isVerified.value = !!info.is_verified
+  } else {
+    user.value = { nickname: '未登录', bio: '' }
   }
-  try {
-    const s = await myStats()
-    stats.value = {
-      postsCount: s.posts_count,
-      commentsCount: s.comments_count,
-      favoritesCount: s.favorites_count,
-      footprintsCount: s.footprints_count,
-    }
-  } catch {
-    /* 未登录或失败时保留 mock 数据 */
-  }
-  // 关注/粉丝计数走公开资料接口（自己也是一份资料）
-  if (info?.id) {
+  // 拉取头像/横幅（登录后）
+  if (loggedIn.value) {
     try {
-      const p: UserProfile = await getProfile(info.id)
-      profileStats.value = {
-        posts_count: p.posts_count,
-        following_count: p.following_count,
-        followers_count: p.followers_count,
-      }
+      const p = await get<{ avatar_url?: string; banner_url?: string; bio?: string; nickname?: string }>('/user/profile')
+      avatarUrl.value = p.avatar_url || ''
+      bannerUrl.value = p.banner_url || ''
+      user.value = { nickname: p.nickname || user.value.nickname, bio: p.bio || '' }
+    } catch { /* 忽略 */ }
+  } else {
+    avatarUrl.value = ''
+    bannerUrl.value = ''
+  }
+  if (loggedIn.value && !loadedTabs.value.has('posts')) {
+    try {
+      await fetchMyPosts()
+      loadedTabs.value.add('posts')
     } catch { /* 忽略 */ }
   }
 }
@@ -157,270 +306,241 @@ const doDevLogin = async (asAdmin: boolean) => {
     userStorage.setUserInfo({
       id: res.user_info.id,
       nickname: res.user_info.nickname,
-      // role 用后端下发（演示管理员/学生），不再写死
       role: res.role,
       is_verified: res.user_info.is_verified,
     })
     loggedIn.value = true
     isVerified.value = !!res.user_info.is_verified
     uni.showToast({ title: asAdmin ? '已登录（管理员）' : '已登录（演示）', icon: 'success' })
+    loadedTabs.value.clear()
     await loadProfile()
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '登录失败', icon: 'none' })
   }
 }
 
-onShow(() => {
-  loadProfile()
-})
+onShow(() => loadProfile())
 
-const goStats = (type: string) => {
-  if (type === 'posts') {
-    uni.navigateTo({ url: '/pages/my-posts/index' })
-    return
-  }
-  uni.showToast({ title: `${type} 列表（开发中）`, icon: 'none' })
-}
-
-const goVerify = () => uni.navigateTo({ url: '/pages/verify/index' })
-
-const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
-
-const goMyProfile = (section: string) => {
-  const id = userStorage.getUserInfo()?.id
-  if (!id) {
+/** QQ式点击更换：选图 → 上传 → 持久化（kind: avatars | banners） */
+const changeImage = (kind: 'avatars' | 'banners') => {
+  if (!loggedIn.value) {
     uni.showToast({ title: '请先登录', icon: 'none' })
     return
   }
-  uni.navigateTo({ url: `/pages/profile/index?id=${id}&section=${section}` })
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths[0]
+      if (!filePath) return
+      uni.showLoading({ title: '上传中…' })
+      try {
+        const url = await uploadFile(filePath, `${kind}/${Date.now()}.jpg`)
+        const field = kind === 'avatars' ? 'avatar_url' : 'banner_url'
+        await put('/user/profile', { [field]: url })
+        if (kind === 'avatars') avatarUrl.value = url
+        else bannerUrl.value = url
+        uni.hideLoading()
+        uni.showToast({ title: kind === 'avatars' ? '头像已更新' : '横幅已更新', icon: 'success' })
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: (e as Error).message || '更换失败', icon: 'none' })
+      }
+    },
+  })
 }
+const changeAvatar = () => changeImage('avatars')
+const changeBanner = () => changeImage('banners')
 
-const onMenu = (action: string) => {
-  if (action === 'settings') {
-    uni.navigateTo({ url: '/pages/settings/index' })
+const goEditProfile = () => {
+  if (!loggedIn.value) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
     return
   }
-  if (action === 'guidelines') {
-    uni.showModal({
-      title: '社区规范',
-      content: '1. 禁止发布违法违规内容\n2. 禁止人身攻击与泄露他人隐私\n3. 交易信息请当面验货\n4. 发现违规内容请举报',
-      showCancel: false,
-      confirmText: '我知道了',
-    })
-    return
-  }
-  if (action === 'about') {
-    uni.showModal({
-      title: '关于鄂应墙',
-      content: '鄂尔多斯应用技术学院校园匿名墙 / 信息撮合平台。',
-      showCancel: false,
-      confirmText: '好的',
-    })
-    return
-  }
-  uni.showToast({ title: `${action}（开发中）`, icon: 'none' })
+  uni.navigateTo({ url: '/pages/profile-edit/index' })
 }
+const goSettings = () => uni.navigateTo({ url: '/pages/settings/index' })
+const goVerify = () => uni.navigateTo({ url: '/pages/verify/index' })
+const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
+const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` })
 </script>
 
 <style scoped>
-.page-mine {
-  background-color: var(--bg-page);
-  min-height: 100vh;
-}
+.page-mine { min-height: 100vh; background: var(--bg-page); padding-bottom: 40rpx; }
 
-/* 1. 红头 */
-.profile-header-bg {
-  background-color: var(--brand-red);
-  padding: 40rpx 40rpx 80rpx;
+/* 1. 横幅（无照片时粉色渐变兜底） */
+.banner {
+  height: 460rpx;
+  background: linear-gradient(160deg, #fbc6d0 0%, #f7a8bc 45%, #f2b8c8 100%);
+  position: relative;
+  overflow: hidden;
 }
-
-.user-info-wrapper {
-  display: flex;
-  align-items: center;
-  margin-top: 20rpx;
-}
-
-.avatar-outer-ring {
-  width: 136rpx;
-  height: 136rpx;
+.banner::after {
+  content: '';
+  position: absolute;
+  right: -80rpx;
+  top: -60rpx;
+  width: 400rpx;
+  height: 400rpx;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+}
+.banner-img { width: 100%; height: 100%; }
+
+.avatar-cam {
+  position: absolute;
+  right: -4rpx;
+  bottom: -4rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  background: var(--brand-red-dark);
+  border: 4rpx solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
-}
-
-.user-avatar {
-  width: 124rpx;
-  height: 124rpx;
-  border-radius: 50%;
-  background-color: #ffffff;
-  font-size: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-meta-box {
-  margin-left: 30rpx;
-  display: flex;
-  flex-direction: column;
-}
-
-.user-nickname {
-  color: #ffffff;
-  font-size: 38rpx;
-  font-weight: bold;
-  letter-spacing: 1rpx;
-}
-
-.school-tag-capsule {
-  align-self: flex-start;
-  background-color: rgba(255, 255, 255, 0.22);
-  padding: 6rpx 24rpx;
-  border-radius: 24rpx;
-  margin-top: 14rpx;
-}
-
-.school-tag-capsule text {
-  color: #ffffff;
-  font-size: 22rpx;
-  font-weight: 500;
-}
-
-.dev-login-row {
-  display: flex;
-  gap: 16rpx;
-  margin-top: 14rpx;
-}
-.dev-login-capsule {
-  align-self: flex-start;
-  background-color: #ffffff;
-  padding: 8rpx 24rpx;
-  border-radius: 24rpx;
-  margin-top: 14rpx;
-}
-.dev-login-row .dev-login-capsule {
-  margin-top: 0;
-}
-.dev-login-capsule.admin {
-  background-color: rgba(255, 255, 255, 0.22);
-}
-.dev-login-capsule.admin text {
-  color: #ffffff;
-}
-.dev-login-capsule text {
-  color: var(--brand-red);
-  font-size: 22rpx;
-  font-weight: 600;
-}
-.verify-capsule {
-  align-self: flex-start;
-  background-color: rgba(255, 255, 255, 0.22);
-  padding: 8rpx 24rpx;
-  border-radius: 24rpx;
-  margin-top: 14rpx;
-}
-.verify-capsule text {
-  color: #ffffff;
-  font-size: 22rpx;
-  font-weight: 600;
-}
-
-.stats-panel-row {
-  margin-top: 50rpx;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 0 10rpx;
-}
-
-.stats-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.stats-label {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 12rpx;
+  z-index: 2;
 }
+.avatar-ring { position: relative; }
+.avatar-img { width: 176rpx; height: 176rpx; border-radius: 50%; }
 
-.stats-count {
-  font-size: 34rpx;
-  font-weight: bold;
+/* 2. 白色圆角面板 */
+/* 头像悬浮几何（transform 实现，免疫负 margin 塌陷/兼容性差异）：
+   头像(176rpx) 上移 100rpx ≈ 4/7 压横幅、3/7 落白面板；
+   margin-bottom 负值回收位移产生的空隙，保留 24rpx 与昵称的间距 */
+.sheet {
+  background: #ffffff;
+  border-radius: 40rpx 40rpx 0 0;
+  padding: 0 40rpx 40rpx;
+  position: relative;
+  min-height: 60vh;
+}
+.avatar-row {
+  transform: translateY(-108rpx);
+  margin-bottom: -80rpx;
+}
+.avatar-ring {
+  display: inline-flex;
+  padding: 8rpx;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+.avatar {
+  width: 176rpx;
+  height: 176rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: #ffffff; }
+
+/* 昵称行 + 编辑资料 + 齿轮 */
+.name-row { display: flex; align-items: center; margin-top: 24rpx; }
+.nickname { font-size: 40rpx; font-weight: bold; color: var(--text-1); }
+.name-actions { margin-left: auto; display: flex; align-items: center; gap: 18rpx; }
+.edit-btn {
+  border: 2rpx solid #e5e6eb;
+  border-radius: 36rpx;
+  padding: 14rpx 34rpx;
+  font-size: 26rpx;
+  color: var(--text-1);
+  background: #ffffff;
+}
+.gear-btn { padding: 8rpx; }
+.gear-icon { font-size: 40rpx; line-height: 1; }
+
+.bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
+
+.dev-login-row { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.dev-capsule {
+  background: var(--brand-red-dark);
   color: #ffffff;
+  font-size: 24rpx;
+  padding: 14rpx 28rpx;
+  border-radius: 30rpx;
+}
+.dev-capsule.admin { background: #8a5cf5; }
+
+.slim-tip {
+  margin-top: 20rpx;
+  background: var(--brand-red-soft);
+  border-radius: 12rpx;
+  padding: 14rpx 22rpx;
+  font-size: 24rpx;
+  color: var(--brand-red-dark);
+}
+.slim-tip.admin { background: #f1ecfe; color: #6b46d6; }
+
+/* 3. 四栏内容 Tab（下划线式） */
+.content-tabs {
+  display: flex;
+  margin-top: 36rpx;
+  border-bottom: 1rpx solid #f0f0f2;
+}
+.ct-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  padding-bottom: 18rpx;
+  position: relative;
+}
+.ct-icon { font-size: 40rpx; line-height: 1; opacity: 0.55; }
+.ct-item.on .ct-icon { opacity: 1; }
+.ct-underline {
+  position: absolute;
+  bottom: -2rpx;
+  width: 80rpx;
+  height: 6rpx;
+  border-radius: 3rpx;
+  background: var(--brand-red);
 }
 
-.stats-divider {
-  width: 1rpx;
-  height: 40rpx;
-  background-color: rgba(255, 255, 255, 0.25);
-}
+/* 4. 内容区 */
+.content-panel { margin-top: 30rpx; }
+.content-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 
-/* 2. 菜单区（负 margin 上浮） */
-.menu-container {
-  margin-top: -36rpx;
-  border-top-left-radius: 36rpx;
-  border-top-right-radius: 36rpx;
-  background-color: var(--bg-page);
-  padding: 36rpx 24rpx 0;
+.post-card {
+  background: #fafafb;
+  border-radius: 20rpx;
+  padding: 26rpx;
+  margin-top: 20rpx;
+  display: flex;
+  gap: 20rpx;
 }
-
-.menu-card-group {
-  background-color: #ffffff;
-  border-radius: var(--radius-card);
-  padding: 0 32rpx;
-  margin-bottom: 24rpx;
+.pc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pc-title { font-size: 28rpx; font-weight: bold; color: var(--text-1); line-height: 1.5; }
+.pc-excerpt {
+  font-size: 24rpx;
+  color: var(--text-3);
+  margin-top: 10rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.admin-entry-card {
-  background-color: #ffffff;
-  border-radius: var(--radius-card);
-  padding: 0 32rpx;
-  margin-bottom: 24rpx;
+.pc-meta { display: flex; align-items: center; gap: 28rpx; margin-top: 16rpx; }
+.pc-date { font-size: 22rpx; color: var(--text-3); margin-right: auto; }
+.pc-stat { display: flex; align-items: center; gap: 6rpx; font-size: 22rpx; color: var(--text-3); }
+.pc-stat-icon { font-size: 24rpx; }
+.pc-thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+}
+.pc-thumb-ph {
+  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  border-left: 8rpx solid var(--brand-red);
-}
-.admin-title {
-  color: var(--brand-red);
-  font-weight: 600;
+  justify-content: center;
+  font-size: 48rpx;
+  opacity: 0.7;
 }
 
-.menu-item {
-  padding: 36rpx 0;
-  border-bottom: 1rpx solid #f5f6f7;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.menu-card-group .menu-item:last-child {
-  border-bottom: none;
-}
-
-.menu-item-left {
-  display: flex;
-  align-items: center;
-}
-
-.menu-icon {
-  font-size: 40rpx;
-  margin-right: 24rpx;
-}
-
-.menu-title {
-  font-size: 29rpx;
-  color: #2b2b2b;
-}
-
-.arrow-icon {
-  color: #c8c9cc;
-  font-size: 32rpx;
-}
+.empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
 </style>

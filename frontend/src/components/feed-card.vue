@@ -10,6 +10,7 @@
           <view class="name-box">
             <text class="username">{{ post.author.nickname }}</text>
             <text v-if="post.is_pinned" class="pinned-badge">置顶</text>
+            <text v-if="post.is_featured" class="featured-badge">精华</text>
           </view>
           <text class="time-ago">{{ timeAgo }} · {{ typeLabel }}</text>
         </view>
@@ -31,19 +32,22 @@
       </view>
     </view>
 
-    <!-- 底部四操作 -->
+    <!-- 底部操作栏（参考稿样式：评论/点赞/浏览/收藏 均匀分布，SVG 图标） -->
     <view class="feed-actions">
-      <view class="action-item" @tap="onShare">
-        <text class="action-icon">↗</text><text>{{ post.view_count || 0 }}</text>
-      </view>
-      <view class="action-item" :class="{ on: isFav }" @tap="onFavorite">
-        <text class="action-icon">{{ isFav ? '★' : '☆' }}</text><text>{{ favLabel }}</text>
+      <view class="action-item" @tap="onDetail">
+        <image class="act-icon" :src="FEED_ICONS.comment" mode="aspectFit" />
+        <text class="act-num">{{ fmtCount(post.comment_count) }}</text>
       </view>
       <view class="action-item" :class="{ on: isLiked }" @tap="onLike">
-        <text class="action-icon">{{ isLiked ? '♥' : '♡' }}</text><text>{{ likeCount }}</text>
+        <image class="act-icon" :src="isLiked ? FEED_ICONS.heartOn : FEED_ICONS.heart" mode="aspectFit" />
+        <text class="act-num">{{ fmtCount(likeCount) }}</text>
       </view>
       <view class="action-item" @tap="onDetail">
-        <text class="action-icon">💬</text><text>{{ post.comment_count || 0 }}</text>
+        <image class="act-icon" :src="FEED_ICONS.view" mode="aspectFit" />
+        <text class="act-num">{{ fmtCount(post.view_count) }}</text>
+      </view>
+      <view class="action-item" :class="{ on: isFav }" @tap="onFavorite">
+        <image class="act-icon" :src="isFav ? FEED_ICONS.bookmarkOn : FEED_ICONS.bookmark" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -60,6 +64,27 @@ interface Props {
   post: PostBrief
 }
 const props = defineProps<Props>()
+
+/**
+ * 操作栏图标更换位：不满意自带线条稿时，把新文件放进 src/static/icons/feed/，
+ * 改下面的路径即可（正方形最佳；SVG 仅 H5，微信真机请用 PNG）。
+ */
+const FEED_ICONS = {
+  comment: '/static/icons/feed/comment.svg',
+  heart: '/static/icons/feed/heart.svg',
+  heartOn: '/static/icons/feed/heart-on.svg',
+  view: '/static/icons/feed/view.svg',
+  bookmark: '/static/icons/feed/bookmark.svg',
+  bookmarkOn: '/static/icons/feed/bookmark-on.svg',
+}
+
+/** 计数格式化：≥1万 显示 x.x万（参考稿样式） */
+const fmtCount = (n?: number): string => {
+  const v = n || 0
+  if (v < 10000) return String(v)
+  const w = v / 10000
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, '')}万`
+}
 const emit = defineEmits<{ (e: 'detail', id: number): void }>()
 
 const isLiked = ref(!!props.post.is_liked)
@@ -67,7 +92,6 @@ const likeCount = ref(props.post.like_count || 0)
 const isFav = ref(!!props.post.is_favorited)
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[props.post.post_type] || '动态')
-const favLabel = computed(() => (isFav.value ? '已藏' : '收藏'))
 
 const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
 const avatarLetter = computed(() => (props.post.author.nickname || '?').slice(0, 1))
@@ -140,7 +164,6 @@ const onFavorite = async () => {
   }
 }
 
-const onShare = () => uni.showToast({ title: '转发（开发中）', icon: 'none' })
 </script>
 
 <style scoped>
@@ -168,6 +191,16 @@ const onShare = () => uni.showToast({ title: '转发（开发中）', icon: 'non
   padding: 2rpx 10rpx;
   border-radius: 6rpx;
 }
+
+.featured-badge {
+  margin-left: 10rpx;
+  font-size: 18rpx;
+  color: var(--brand-red-dark);
+  background: var(--brand-red-soft);
+  border: 1rpx solid var(--brand-red);
+  padding: 1rpx 10rpx;
+  border-radius: 6rpx;
+}
 .time-ago { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
 .more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
 .feed-body { margin-top: 20rpx; }
@@ -178,7 +211,8 @@ const onShare = () => uni.showToast({ title: '转发（开发中）', icon: 'non
   display: flex; margin-top: 28rpx; border-top: 1rpx solid #f5f5f5;
   padding-top: 24rpx; justify-content: space-between;
 }
-.action-item { display: flex; align-items: center; color: #666; font-size: 24rpx; }
-.action-item.on { color: var(--brand-red); }
-.action-icon { font-size: 32rpx; margin-right: 10rpx; }
+.action-item { display: flex; align-items: center; gap: 10rpx; color: #666; }
+.action-item.on .act-num { color: var(--brand-red-dark); }
+.act-icon { width: 36rpx; height: 36rpx; }
+.act-num { font-size: 24rpx; color: #666; }
 </style>

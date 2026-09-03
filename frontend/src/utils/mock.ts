@@ -57,7 +57,7 @@ export const AD_BANNERS: AdBanner[] = [
     title: '毕业季 · 鄂应专属',
     desc: '留下你的校园回忆，赢毕业礼包',
     tag: '活动',
-    bg: 'linear-gradient(135deg, #ff5e62, #ff9966)',
+    bg: 'linear-gradient(135deg, #ef8a97, #f6b8c0)',
   },
   {
     id: 2,

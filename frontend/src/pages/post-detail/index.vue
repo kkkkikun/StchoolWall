@@ -9,7 +9,10 @@
           <text class="avatar-letter">{{ avatarLetter }}</text>
         </view>
         <view class="author-meta" @tap="goAuthor">
-          <text class="nickname">{{ post.author.nickname }}</text>
+          <view class="name-row">
+            <text class="nickname">{{ post.author.nickname }}</text>
+            <text v-if="post.is_featured" class="featured-chip">精华</text>
+          </view>
           <text class="sub">{{ timeText }} · {{ typeLabel }} ›</text>
         </view>
         <view v-if="canFollow" class="follow-btn" :class="{ on: isFollowing }" @tap="onFollow">
@@ -338,6 +341,8 @@ const copyContact = () => {
 .avatar-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
 .author-meta { flex: 1; display: flex; flex-direction: column; }
 .nickname { font-size: 30rpx; font-weight: bold; color: #333; }
+.name-row { display: flex; align-items: center; }
+.featured-chip { margin-left: 12rpx; font-size: 18rpx; color: var(--brand-red-dark); background: var(--brand-red-soft); border: 1rpx solid var(--brand-red); padding: 1rpx 10rpx; border-radius: 6rpx; }
 .sub { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
 .report-btn { font-size: 24rpx; color: var(--text-3); border: 1rpx solid #eee; padding: 8rpx 20rpx; border-radius: 24rpx; }
 .follow-btn { font-size: 24rpx; color: #fff; background: var(--brand-red); padding: 8rpx 24rpx; border-radius: 24rpx; margin-right: 16rpx; }

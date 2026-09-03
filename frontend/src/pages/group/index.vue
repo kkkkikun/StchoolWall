@@ -1,5 +1,11 @@
 <template>
   <view class="page-group">
+    <!-- 0. 标题栏（沉浸式：预留状态栏，与消息页同款） -->
+    <view class="page-header">
+      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
+      <text class="page-title">组局</text>
+    </view>
+
     <!-- 1. 累计攒局人数 -->
     <view class="header-stats">
       <text class="stats-text">已攒 <text class="highlight-num">{{ totalMembers }}</text> 人</text>
@@ -82,6 +88,9 @@ import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { listParties, partiesSummary, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
+
+// 沉浸式标题栏：预留状态栏高度（H5 下为 0）
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
 // 分类筛选（第 1 项=有空位=only_vacant，其余=分类）
 const categories = [
@@ -211,6 +220,10 @@ const goCreate = () => {
 
 <style scoped>
 .page-group { background-color: var(--bg-group); padding: 20rpx 24rpx 40rpx; min-height: 100vh; }
+
+/* 0. 标题栏（全宽出血：负 margin 抵消页面根 padding，与消息页同款） */
+.page-header { background-color: var(--brand-red); margin: -20rpx -24rpx 0; }
+.page-title { display: block; padding: 30rpx 40rpx; text-align: center; color: #ffffff; font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
 
 .header-stats { display: flex; align-items: center; justify-content: space-between; font-size: 26rpx; color: #666; padding: 10rpx; }
 .highlight-num { color: var(--brand-red-dark); font-weight: bold; font-size: 32rpx; margin: 0 4rpx; }

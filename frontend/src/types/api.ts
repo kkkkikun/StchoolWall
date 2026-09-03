@@ -37,6 +37,7 @@ export interface PostBrief {
   price?: number
   status: PostStatus
   is_pinned: boolean
+  is_featured?: boolean
   created_at: string
   updated_at: string
   author: {

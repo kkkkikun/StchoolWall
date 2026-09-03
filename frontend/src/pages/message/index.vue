@@ -1,61 +1,86 @@
 <template>
   <view class="page-message">
-    <!-- 1. 红色标题栏 -->
+    <!-- 1. 标题栏 -->
     <view class="message-header">
+      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
       <text class="header-title">消息</text>
     </view>
 
-    <!-- 2. 4 分类通知 -->
-    <view class="msg-category-row">
-      <view
-        v-for="c in categories"
-        :key="c.type"
-        class="category-item"
-        @tap="onCategory(c.type)"
-      >
-        <view class="icon-wrapper" :class="`bg-${c.colorClass}`">
-          <text class="category-icon">{{ c.icon }}</text>
-          <text v-if="c.unread > 0" class="badge-num">
-            {{ c.unread > 99 ? '99+' : c.unread }}
-          </text>
+    <!-- 2. 热门用户榜（横滑 Top5，皇冠+TOP徽章+🔥热度） -->
+    <view class="panel" v-if="hotUsers.length">
+      <view class="panel-head">
+        <text class="panel-title">热门用户榜</text>
+        <text class="panel-more" @tap="onMoreRank">更多 ›</text>
+      </view>
+      <scroll-view scroll-x :show-scrollbar="false" class="rank-scroll">
+        <view
+          v-for="(u, i) in hotUsers"
+          :key="u.id"
+          class="rank-user"
+          @tap="goProfile(u.id)"
+        >
+          <text class="crown">{{ i < 3 ? '👑' : '' }}</text>
+          <view class="rank-avatar" :style="{ background: colorOf(u.nickname) }">
+            <text>{{ (u.nickname || '?').slice(0, 1) }}</text>
+          </view>
+          <text class="rank-badge" :class="{ dim: i >= 3 }">TOP{{ i + 1 }}</text>
+          <text class="rank-name">{{ u.nickname }}</text>
+          <text class="rank-heat">🔥 {{ fmtHeat(u.heat) }}</text>
         </view>
-        <text class="category-label">{{ c.name }}</text>
-      </view>
+      </scroll-view>
     </view>
 
-    <!-- 3. 帖子动态标题 + 全部已读 -->
-    <view class="dynamic-control-bar">
-      <text class="section-title">{{ filterLabel }}</text>
-      <view v-if="messages.length > 0" class="mark-read-btn" @tap="onMarkAllRead">
-        <text>全部已读</text>
-        <text class="icon-check">✓</text>
+    <!-- 3. 互动提醒（横滑最新几条赞/藏/评；更多→互动二级页） -->
+    <view class="panel" v-if="reminders.length">
+      <view class="panel-head">
+        <text class="panel-title">互动提醒</text>
+        <text class="panel-more" @tap="goInteractions">更多 ›</text>
       </view>
+      <scroll-view scroll-x :show-scrollbar="false" class="rem-scroll">
+        <view
+          v-for="r in reminders"
+          :key="r.id"
+          class="rem-chip"
+          @tap="goInteractions"
+        >
+          <view class="rem-icon" :class="`ic-${r.type}`">
+            <text>{{ iconOf(r.type) }}</text>
+          </view>
+          <view class="rem-main">
+            <text class="rem-name">{{ r.nickname }}</text>
+            <text class="rem-action">{{ r.action }}</text>
+            <text class="rem-time">{{ r.time }}</text>
+          </view>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- 4. 内容区 -->
-    <view class="message-content-area">
+    <!-- 4. 动态列表（全部通知；时间右侧+未读红点） -->
+    <view class="panel list-panel">
+      <view class="panel-head">
+        <text class="panel-title">动态</text>
+        <text v-if="messages.length" class="panel-more" @tap="onMarkAllRead">全部已读 ✓</text>
+      </view>
       <view v-if="messages.length === 0" class="empty-state">
         <text class="empty-emoji">📭</text>
-        <text class="empty-text">{{ emptyText }}</text>
+        <text class="empty-text">{{ loggedIn ? '暂无消息' : '登录后查看消息' }}</text>
       </view>
-      <view v-else>
-        <view
-          v-for="m in messages"
-          :key="m.id"
-          class="message-card"
-          :class="{ unread: !m.is_read }"
-          @tap="onMessage(m)"
-        >
-          <view class="sender-avatar" :style="{ background: colorOf(m.nickname) }">
-            <text>{{ (m.nickname || '?').slice(0, 1) }}</text>
-          </view>
-          <view class="msg-main">
-            <view class="msg-top">
-              <text class="sender-name">{{ m.nickname }}</text>
-              <text class="msg-time">{{ m.time }}</text>
-            </view>
-            <text class="msg-text">{{ m.brief }}</text>
-          </view>
+      <view
+        v-for="m in messages"
+        :key="m.id"
+        class="msg-row"
+        :class="{ unread: !m.is_read }"
+        @tap="onMessage(m)"
+      >
+        <view class="sender-avatar" :style="{ background: colorOf(m.nickname) }">
+          <text>{{ (m.nickname || '?').slice(0, 1) }}</text>
+        </view>
+        <view class="msg-main">
+          <text class="msg-name">{{ m.nickname }}</text>
+          <text class="msg-text">{{ m.brief }}</text>
+        </view>
+        <view class="msg-right">
+          <text class="msg-time">{{ m.time }}</text>
           <view v-if="!m.is_read" class="unread-dot" />
         </view>
       </view>
@@ -71,47 +96,80 @@ import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { unreadSummary, listNotifications, readAllNotifications, readNotification } from '@/api/notification'
 import type { NotificationItem, NotificationType } from '@/api/notification'
+import { getHotRanking, type HotUser } from '@/api/profile'
 import { tokenStorage } from '@/utils/storage'
 
-const summary = ref({ comment: 0, like: 0, group: 0, moderation: 0, im: 0 })
-const messages = ref<Array<{ id: number; nickname: string; time: string; brief: string; post_id: number | null; is_read: boolean }>>([])
-const filter = ref<NotificationType | ''>('')
+// 沉浸式标题栏：预留状态栏高度（H5 下为 0，真机防标题被状态栏压住）
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
-const categories = computed(() => [
-  { type: 'comment' as const, name: '评论', icon: '💬', colorClass: 'blue', unread: summary.value.comment },
-  { type: 'like' as const, name: '赞', icon: '♡', colorClass: 'pink', unread: summary.value.like },
-  { type: 'group' as const, name: '组局', icon: '👥', colorClass: 'yellow', unread: summary.value.group },
-  { type: 'im' as const, name: '私信', icon: '✉️', colorClass: 'green', unread: summary.value.im },
-])
+const loggedIn = tokenStorage.isLoggedIn()
+const hotUsers = ref<HotUser[]>([])
+const summary = ref({ comment: 0, like: 0, favorite: 0, group: 0, moderation: 0, im: 0 })
 
-const filterLabel = computed(() => {
-  const m: Record<string, string> = { comment: '评论', like: '赞和收藏', group: '组局', moderation: '系统通知', '': '帖子动态' }
-  return m[filter.value] || '帖子动态'
-})
-const emptyText = computed(() => (filter.value ? `暂无${filterLabel.value}通知` : '暂无消息'))
+interface MsgRow {
+  id: number
+  nickname: string
+  time: string
+  brief: string
+  post_id: number | null
+  is_read: boolean
+  _type: NotificationType
+}
+const messages = ref<MsgRow[]>([])
 
-const AVATAR_COLORS = ['#2f86f6', '#ff5c7a', '#ffb822', '#2ed573', '#d3adf7', '#ffd591']
+/** 赞/藏/评 聚合为互动提醒 chips（最新 5 条） */
+const ACTION_TEXT: Partial<Record<NotificationType, string>> = {
+  like: '赞了你的帖子',
+  favorite: '收藏了你的帖子',
+  comment: '评论了你的帖子',
+}
+const reminders = computed(() =>
+  messages.value
+    .filter((m) => m._type in ACTION_TEXT!)
+    .slice(0, 5)
+    .map((m) => ({
+      id: m.id,
+      type: m._type as string,
+      nickname: m.nickname,
+      action: ACTION_TEXT[m._type] || '与你互动',
+      time: m.time,
+    })),
+)
+
+const iconOf = (type: string) =>
+  (({ like: '♥', favorite: '★', comment: '💬' }) as Record<string, string>)[type] || '•'
+
+const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5', '#f5d0d8']
 const colorOf = (s: string) => {
   let h = 0
   for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
 
-const timeAgo = (t: string) => {
-  const ts = new Date(t).getTime()
-  if (!ts) return ''
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return '刚刚'
-  if (m < 60) return `${m}分钟前`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}小时前`
-  const d = Math.floor(h / 24)
-  return d < 7 ? `${d}天前` : ''
+/** 热度格式化：≥1000 → 2.4k */
+const fmtHeat = (n: number) => {
+  if (n < 1000) return String(n)
+  const k = n / 1000
+  return `${k >= 100 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}k`
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+/** 列表时间：今天 HH:MM / 昨天 HH:MM / M-D */
+const fmtTime = (iso: string) => {
+  const d = new Date(iso)
+  if (!d.getTime()) return ''
+  const now = new Date()
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (d.toDateString() === now.toDateString()) return hm
+  const yest = new Date(now)
+  yest.setDate(now.getDate() - 1)
+  if (d.toDateString() === yest.toDateString()) return `昨天 ${hm}`
+  return `${d.getMonth() + 1}-${d.getDate()}`
 }
 
 const briefOf = (n: NotificationItem) => {
   if (n.type === 'like') return '赞了你的帖子'
+  if (n.type === 'favorite') return '收藏了你的帖子'
   if (n.type === 'comment') return '评论了你的帖子'
   if (n.type === 'group') return '邀请你加入组局'
   if (n.type === 'moderation') return '你发布的帖子未通过审核'
@@ -119,21 +177,22 @@ const briefOf = (n: NotificationItem) => {
   return '有了新动态'
 }
 
-const loadSummary = async () => {
-  if (!tokenStorage.isLoggedIn()) return
+const loadHot = async () => {
   try {
-    summary.value = await unreadSummary()
-  } catch { /* 忽略 */ }
+    hotUsers.value = (await getHotRanking(5)).items
+  } catch { /* 榜单非关键，失败静默 */ }
 }
 
 const loadMessages = async () => {
-  if (!tokenStorage.isLoggedIn()) return
+  if (!loggedIn) return
   try {
-    const res = await listNotifications(filter.value || undefined)
+    const [res, sum] = await Promise.all([listNotifications(), unreadSummary()])
+    summary.value = sum
     messages.value = res.items.map((n) => ({
       id: n.id,
+      _type: n.type,
       nickname: n.type === 'moderation' || n.type === 'announcement' ? '系统' : n.actor.nickname,
-      time: timeAgo(n.created_at),
+      time: fmtTime(n.created_at),
       brief: briefOf(n),
       post_id: n.post_id,
       is_read: n.is_read,
@@ -142,37 +201,29 @@ const loadMessages = async () => {
 }
 
 onShow(() => {
-  loadSummary()
+  loadHot()
   loadMessages()
 })
 
-const onCategory = (type: string) => {
-  if (type === 'im') {
-    uni.showToast({ title: '私信暂未开放', icon: 'none' })
-    return
-  }
-  filter.value = filter.value === type ? '' : (type as NotificationType)
-  loadMessages()
-}
+const goInteractions = () => uni.navigateTo({ url: '/pages/interactions/index' })
+const goProfile = (id: string) => uni.navigateTo({ url: `/pages/profile/index?id=${id}` })
+const onMoreRank = () => uni.showToast({ title: '完整榜单即将上线', icon: 'none' })
 
 const onMarkAllRead = async () => {
   try {
     await readAllNotifications()
     uni.showToast({ title: '已全部标记为已读', icon: 'success' })
-    await loadSummary()
-    await loadMessages()
+    loadMessages()
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
   }
 }
 
-const onMessage = async (m: { id: number; post_id: number | null; is_read: boolean }) => {
-  // 标记已读
+const onMessage = async (m: MsgRow) => {
   if (!m.is_read) {
     try {
       await readNotification(m.id)
       m.is_read = true
-      await loadSummary()
     } catch { /* 忽略 */ }
   }
   if (m.post_id) {
@@ -182,38 +233,52 @@ const onMessage = async (m: { id: number; post_id: number | null; is_read: boole
 </script>
 
 <style scoped>
-.page-message { background-color: #ffffff; min-height: 100vh; }
+.page-message { background-color: var(--bg-page); min-height: 100vh; }
 
 .message-header { background-color: var(--brand-red); padding: 30rpx 40rpx; text-align: center; }
 .header-title { color: #ffffff; font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
 
-.msg-category-row { padding: 40rpx 44rpx; background-color: #ffffff; border-bottom: 16rpx solid var(--bg-page); display: flex; justify-content: space-between; }
-.category-item { display: flex; flex-direction: column; align-items: center; }
-.icon-wrapper { width: 104rpx; height: 104rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
-.bg-blue { background-color: #2f86f6; }
-.bg-pink { background-color: #ff5c7a; }
-.bg-yellow { background-color: #ffb822; }
-.bg-green { background-color: #2ed573; }
-.category-icon { font-size: 44rpx; }
-.badge-num { position: absolute; top: -4rpx; right: -8rpx; background-color: var(--brand-red-dark); color: #ffffff; font-size: 20rpx; font-weight: bold; padding: 2rpx 10rpx; border-radius: 20rpx; border: 4rpx solid #ffffff; line-height: 1.2; }
-.category-label { font-size: 26rpx; color: var(--text-1); margin-top: 16rpx; font-weight: 500; }
+/* 面板（参考稿：白卡圆角 + 标题行 + 更多） */
+.panel { background: #ffffff; border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.panel-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
+.panel-more { font-size: 24rpx; color: var(--text-3); }
 
-.dynamic-control-bar { padding: 36rpx 32rpx; display: flex; align-items: center; justify-content: space-between; }
-.section-title { font-size: 32rpx; font-weight: bold; color: #111; }
-.mark-read-btn { display: flex; align-items: center; font-size: 24rpx; color: var(--text-3); }
-.icon-check { margin-left: 8rpx; font-size: 24rpx; }
+/* 热门用户榜 */
+.rank-scroll { white-space: nowrap; }
+.rank-user { display: inline-flex; flex-direction: column; align-items: center; width: 138rpx; vertical-align: top; }
+.crown { height: 40rpx; font-size: 34rpx; line-height: 1; }
+.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: #fff; font-weight: bold; }
+.rank-badge { margin-top: -12rpx; background: var(--brand-red-dark); color: #fff; font-size: 18rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: 16rpx; border: 3rpx solid #fff; line-height: 1.5; }
+.rank-badge.dim { background: #f0a7b1; }
+.rank-name { margin-top: 8rpx; font-size: 22rpx; color: var(--text-1); max-width: 130rpx; overflow: hidden; text-overflow: ellipsis; }
+.rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--brand-red-dark); font-weight: 600; }
 
-.empty-state { padding-top: 160rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.empty-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
-.empty-text { font-size: 28rpx; color: #aaa; letter-spacing: 2rpx; }
+/* 互动提醒 */
+.rem-scroll { white-space: nowrap; }
+.rem-chip { display: inline-flex; align-items: flex-start; width: 300rpx; background: var(--bg-page); border-radius: 16rpx; padding: 20rpx; margin-right: 16rpx; vertical-align: top; }
+.rem-icon { width: 72rpx; height: 72rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32rpx; color: #fff; flex-shrink: 0; }
+.ic-like { background: #ff5c7a; }
+.ic-favorite { background: #ffb822; }
+.ic-comment { background: #9b7df7; }
+.rem-main { margin-left: 16rpx; min-width: 0; white-space: normal; }
+.rem-name { display: block; font-size: 26rpx; font-weight: bold; color: var(--brand-red-dark); max-width: 170rpx; overflow: hidden; text-overflow: ellipsis; }
+.rem-action { display: block; font-size: 24rpx; color: var(--text-1); margin-top: 6rpx; }
+.rem-time { display: block; font-size: 20rpx; color: var(--text-3); margin-top: 10rpx; }
 
-.message-card { padding: 24rpx 32rpx; border-bottom: 1rpx solid #f2f3f5; display: flex; align-items: center; position: relative; }
-.message-card.unread { background: #fff8f8; }
-.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #fff; font-weight: bold; }
-.msg-main { flex: 1; display: flex; flex-direction: column; }
-.msg-top { display: flex; justify-content: space-between; }
-.sender-name { font-size: 28rpx; color: #323233; font-weight: 500; }
-.msg-time { font-size: 22rpx; color: #c8c9cc; }
-.msg-text { font-size: 24rpx; color: #969799; margin-top: 8rpx; }
-.unread-dot { position: absolute; top: 36rpx; right: 24rpx; width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--brand-red); }
+/* 动态列表 */
+.list-panel { padding-bottom: 8rpx; margin-bottom: 24rpx; }
+.msg-row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f6; }
+.msg-row:last-child { border-bottom: none; }
+.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #fff; font-weight: bold; flex-shrink: 0; }
+.msg-main { flex: 1; min-width: 0; margin-left: 20rpx; }
+.msg-name { font-size: 28rpx; font-weight: bold; color: var(--text-1); }
+.msg-text { display: block; font-size: 24rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-right { display: flex; flex-direction: column; align-items: flex-end; margin-left: 16rpx; gap: 12rpx; }
+.msg-time { font-size: 22rpx; color: var(--text-3); }
+.unread-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--brand-red-dark); }
+
+.empty-state { padding: 60rpx 0 70rpx; display: flex; flex-direction: column; align-items: center; }
+.empty-emoji { font-size: 80rpx; margin-bottom: 20rpx; opacity: 0.5; }
+.empty-text { font-size: 26rpx; color: var(--text-3); letter-spacing: 2rpx; }
 </style>

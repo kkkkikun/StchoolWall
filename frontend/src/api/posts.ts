@@ -17,6 +17,7 @@ function mapBrief(raw: RawPost): PostBrief {
     price: raw.price ?? undefined,
     status: raw.status,
     is_pinned: !!raw.is_pinned,
+    is_featured: !!raw.is_featured,
     created_at: raw.created_at,
     updated_at: raw.updated_at || raw.created_at,
     author: {
@@ -45,11 +46,11 @@ function mapDetail(raw: RawPost): PostDetail {
   }
 }
 
-/** 获取帖子列表（可按 post_type 或 category 过滤） */
+/** 获取帖子列表（可按 post_type/category 过滤；order='time' 为最新流） */
 export async function getPosts(
-  cursor?: number, postType?: string, category?: string,
+  cursor?: number, postType?: string, category?: string, order?: 'time',
 ): Promise<PostListResponse> {
-  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType, category })
+  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType, category, order })
   return {
     items: (data.items || []).map(mapBrief),
     next_cursor: data.next_cursor,
@@ -67,6 +68,16 @@ export async function getPostDetail(postId: number): Promise<PostDetail> {
 export async function getHotPosts(limit = 10): Promise<PostBrief[]> {
   const data = await get<{ items: RawPost[] }>('/posts/hot', { limit })
   return (data.items || []).map(mapBrief)
+}
+
+/** 精华流：经验贴等长尾内容，历史热度排序（无时间衰减） */
+export async function getFeaturedPosts(cursor?: number): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts/featured', { cursor })
+  return {
+    items: (data.items || []).map(mapBrief),
+    next_cursor: data.next_cursor,
+    has_more: data.has_more,
+  }
 }
 
 /** 关注流（已关注用户的帖子） */

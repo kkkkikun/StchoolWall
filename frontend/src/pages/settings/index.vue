@@ -24,19 +24,33 @@
         </view>
         <text class="cell-value">{{ cacheSize }}</text>
       </view>
-      <view class="cell" @tap="onGuidelines">
+      <view class="cell" @tap="goInfo('community')">
         <view class="cell-left">
           <text class="cell-icon">🛡️</text>
           <text class="cell-title">社区规范</text>
         </view>
         <text class="arrow">›</text>
       </view>
-      <view class="cell" @tap="onAbout">
+      <view class="cell" @tap="goInfo('invite')">
+        <view class="cell-left">
+          <text class="cell-icon">🎁</text>
+          <text class="cell-title">邀请校友</text>
+        </view>
+        <text class="arrow">›</text>
+      </view>
+      <view class="cell" @tap="goInfo('about')">
         <view class="cell-left">
           <text class="cell-icon">ℹ️</text>
-          <text class="cell-title">关于鄂应墙</text>
+          <text class="cell-title">关于我们</text>
         </view>
         <text class="cell-value">v1.0.0</text>
+      </view>
+      <view class="cell" @tap="goInfo('contact')">
+        <view class="cell-left">
+          <text class="cell-icon">📞</text>
+          <text class="cell-title">联系我们</text>
+        </view>
+        <text class="arrow">›</text>
       </view>
     </view>
 
@@ -144,23 +158,10 @@ const goLogin = () => {
   uni.showToast({ title: '请到「我的」页登录', icon: 'none' })
 }
 
-const onGuidelines = () => {
-  uni.showModal({
-    title: '社区规范',
-    content: '1. 禁止发布违法违规内容\n2. 禁止人身攻击与泄露他人隐私\n3. 交易信息请当面验货\n4. 发现违规内容请举报',
-    showCancel: false,
-    confirmText: '我知道了',
-  })
+const goInfo = (type: 'community' | 'invite' | 'about' | 'contact') => {
+  uni.navigateTo({ url: `/pages/info/index?type=${type}` })
 }
 
-const onAbout = () => {
-  uni.showModal({
-    title: '鄂应墙',
-    content: '鄂尔多斯应用技术学院校园匿名墙 / 信息撮合平台。\n技术栈：FastAPI + uni-app (Vue3)',
-    showCancel: false,
-    confirmText: '好的',
-  })
-}
 
 onShow(() => {
   loggedIn.value = tokenStorage.isLoggedIn()

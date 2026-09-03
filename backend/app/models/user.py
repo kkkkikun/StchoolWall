@@ -17,7 +17,9 @@ class User(Base):
     real_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     wechat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    banner_url: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 我的主页横幅照片
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
+    bio: Mapped[str | None] = mapped_column(String(200), nullable=True)  # 个人简介
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="guest")
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[int] = mapped_column(SmallInteger, default=1)

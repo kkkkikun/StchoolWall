@@ -31,6 +31,8 @@ async def get_profile(db: AsyncSession, user_id: uuid.UUID, viewer: User | None)
         "id": str(u.id),
         "nickname": u.nickname,
         "avatar_url": u.avatar_url,
+        "banner_url": u.banner_url,
+        "bio": u.bio,
         "is_verified": u.is_verified,
         "school": SCHOOL_NAME if u.is_verified else None,
         "posts_count": posts_count,

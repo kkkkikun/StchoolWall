@@ -57,6 +57,19 @@ class TestProfile:
         for k in ("real_name", "wechat_id", "student_id", "openid"):
             assert k not in d
 
+    @pytest.mark.asyncio
+    async def test_profile_public_banner_bio(self, client: AsyncClient, student_user: User):
+        """公开资料含 banner_url / bio（个人主页"我的"风格展示用）"""
+        async with TestSession() as db:
+            u = await db.get(User, student_user.id)
+            u.banner_url = "/static/uploads/banners/b.jpg"
+            u.bio = "热爱生活，热爱分享～"
+            await db.commit()
+        r = await client.get(f"/api/v1/users/{student_user.id}/profile")
+        d = r.json()["data"]
+        assert d["banner_url"] == "/static/uploads/banners/b.jpg"
+        assert d["bio"] == "热爱生活，热爱分享～"
+
 
 class TestFollowingFollowersList:
     @pytest.mark.asyncio

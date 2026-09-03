@@ -1,14 +1,17 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user, require_role
+from app.models.interaction import Favorite, Like
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
 from app.services.moderation import check_post_moderation
 from app.services.post import (
     create_post,
+    featured_posts,
     following_feed,
     get_post_detail,
     hot_posts,
@@ -22,16 +25,28 @@ from app.services.post import (
 router = APIRouter()
 
 
+async def _viewer_flags(db: AsyncSession, user: User, ids: list[int]) -> tuple[set, set]:
+    """批量取当前用户对一组帖子的点赞/收藏视角。"""
+    liked = set((await db.execute(
+        select(Like.post_id).where(Like.user_id == user.id, Like.post_id.in_(ids))
+    )).scalars())
+    favs = set((await db.execute(
+        select(Favorite.post_id).where(Favorite.user_id == user.id, Favorite.post_id.in_(ids))
+    )).scalars())
+    return liked, favs
+
+
 @router.get("")
 async def get_posts(
     cursor: int | None = Query(None),
     post_type: str | None = Query(None),
     category: str | None = Query(None),
+    order: str | None = Query(None, pattern="^(time)$"),
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
     """获取帖子列表（公开，游标分页，广告置顶，带互动计数与当前用户视角）"""
-    items, next_cursor, has_more = await list_posts(db, cursor, post_type, viewer=user, category=category)
+    items, next_cursor, has_more = await list_posts(db, cursor, post_type, viewer=user, category=category, order=order)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
@@ -95,6 +110,23 @@ async def hot_posts_route(
     """十大热帖（公开）"""
     items = await hot_posts(db, limit)
     return {"code": 0, "data": {"items": items}}
+
+
+@router.get("/featured")
+async def featured_posts_route(
+    cursor: int | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """精华流：经验贴等长尾内容，历史热度排序（公开可看，登录后带点赞视角）"""
+    items, next_cursor, has_more = await featured_posts(db, cursor, limit)
+    if user and items:
+        liked_ids, fav_ids = await _viewer_flags(db, user, [it["id"] for it in items])
+        for it in items:
+            it["is_liked"] = it["id"] in liked_ids
+            it["is_favorited"] = it["id"] in fav_ids
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
 @router.get("/search")

@@ -1,13 +1,25 @@
-from sqlalchemy import select, func, and_, update, text
+from sqlalchemy import select, func, and_, update, text, literal, tuple_
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from app.models.interaction import Favorite, Footprint, Like
 from app.models.post import Post
 from app.models.report import Report
 from app.models.tag import PostTag
 from app.models.user import User
+
+
+def _hot_score(p: Post) -> any:
+    """推荐热度分：互动加权 / 时间衰减（Reddit 式）。
+
+    - 分子 +1 保底：零互动新帖不被永久淹没，无互动时退化为近似时间序
+    - 分母 (发布小时 + 2)^1.2：好帖大约存活 1~2 天后自然沉底
+    - 权重与热帖榜（hot_posts）同源：like*3 + comment*2 + view*0.2
+    """
+    hours = func.extract("epoch", func.now() - p.created_at) / 3600.0
+    engagement = p.like_count * 3 + p.comment_count * 2 + p.view_count * 0.2 + 1
+    return engagement / func.power(hours + 2, 1.2)
 
 
 async def create_post(
@@ -45,10 +57,12 @@ async def list_posts(
     limit: int = 20,
     viewer: User | None = None,
     category: str | None = None,
+    order: str | None = None,
 ) -> tuple[list[dict], int | None, bool]:
     # 广告轮播由独立 Banner 表承接（GET /banners），广告帖不再混入 feed
-    # 置顶：仅"推荐位"（无 category/post_type 筛选）第一页前置置顶块
-    is_recommend = not category and not post_type
+    # 置顶：仅"推荐位"（无 category/post_type/order=time）第一页前置置顶块
+    # order="time"：最新流，纯 id 倒序（与热度推荐的"精选"并列的两个主 Tab）
+    is_recommend = not category and not post_type and order != "time"
 
     pinned_rows: list = []
     if is_recommend and not cursor:
@@ -69,18 +83,31 @@ async def list_posts(
     # 推荐位置顶帖从主流排除（只在置顶块出现，防止翻页重复）
     if is_recommend:
         conditions.append(Post.is_pinned.is_(False))
-    if cursor:
-        conditions.append(Post.id < cursor)
     if post_type:
         conditions.append(Post.post_type == post_type)
     if category:
         conditions.append(Post.category == category)
 
+    if is_recommend:
+        # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id，
+        # 其得分在查询时按当前时间重算，对客户端透明）
+        score = _hot_score(Post)
+        if cursor:
+            cur = aliased(Post)
+            cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
+            conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
+        order_clause = (score.desc(), Post.id.desc())
+    else:
+        # 分类/类型流/最新流：保持最新在前
+        if cursor:
+            conditions.append(Post.id < cursor)
+        order_clause = (Post.id.desc(),)
+
     stmt = (
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conditions)
-        .order_by(Post.id.desc())
+        .order_by(*order_clause)
         .limit(limit + 1)
     )
     result = await db.execute(stmt)
@@ -167,6 +194,7 @@ async def get_post_detail(
         "price": float(post.price) if post.price else None,
         "status": post.status,
         "is_pinned": bool(post.is_pinned),
+        "is_featured": bool(post.is_featured),
         "created_at": post.created_at.isoformat() if post.created_at else None,
         "user_id": str(author.id),
         "user": {"nickname": author.nickname},
@@ -283,6 +311,7 @@ def _post_to_dict(post: Post, nickname: str) -> dict:
         "price": float(post.price) if post.price else None,
         "status": post.status,
         "is_pinned": bool(post.is_pinned),
+        "is_featured": bool(post.is_featured),
         "user": {"nickname": nickname},
         "like_count": post.like_count or 0,
         "comment_count": post.comment_count or 0,
@@ -311,25 +340,90 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
     return [_post_to_dict(p, nick) for p, nick in rows]
 
 
-async def search_posts(
-    db: AsyncSession, q: str, cursor: int | None = None, limit: int = 20
+async def featured_posts(
+    db: AsyncSession, cursor: int | None = None, limit: int = 20
 ) -> tuple[list[dict], int | None, bool]:
-    """全文搜索（PostgreSQL ILIKE），仅正常非广告帖。"""
-    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{q}%")]
+    """精华流：经验贴等长尾内容，按历史总热度排序（无时间衰减），键集分页。"""
+    score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
+    conds = [Post.is_featured.is_(True), Post.status == 1, Post.post_type != "advertisement"]
     if cursor:
-        conds.append(Post.id < cursor)
+        cur = aliased(Post)
+        cur_score = select(
+            cur.like_count * 3 + cur.comment_count * 2 + cur.view_count
+        ).where(cur.id == cursor).scalar_subquery()
+        conds.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
     stmt = (
         select(Post, User.nickname)
         .join(User, Post.user_id == User.id)
         .where(*conds)
-        .order_by(Post.id.desc())
+        .order_by(score.desc(), Post.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
     items = [_post_to_dict(p, nick) for p, nick in rows]
-    next_cursor = rows[-1].id if has_more and rows else None
+    next_cursor = rows[-1][0].id if has_more and rows else None
+    return items, next_cursor, has_more
+
+
+async def feature_candidates(db: AsyncSession, limit: int = 20) -> list[dict]:
+    """精华候选：未设精的正常帖里互动最高的（运营一键采纳）。"""
+    score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
+    stmt = (
+        select(Post, User.nickname)
+        .join(User, Post.user_id == User.id)
+        .where(
+            Post.is_featured.is_(False),
+            Post.status == 1,
+            Post.post_type != "advertisement",
+            score >= 10,  # 互动门槛：过滤零互动噪音
+        )
+        .order_by(score.desc(), Post.id.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [_post_to_dict(p, nick) for p, nick in rows]
+
+
+async def set_post_featured(db: AsyncSession, post_id: int, featured: bool) -> Post | None:
+    """设/取消精华。幂等：重复设置不覆盖 featured_at 首次时间。"""
+    post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
+    if not post:
+        return None
+    if featured and not post.is_featured:
+        post.is_featured = True
+        post.featured_at = func.now()
+    elif not featured and post.is_featured:
+        post.is_featured = False
+        post.featured_at = None
+    await db.commit()
+    await db.refresh(post)
+    return post
+
+
+async def search_posts(
+    db: AsyncSession, q: str, cursor: int | None = None, limit: int = 20
+) -> tuple[list[dict], int | None, bool]:
+    """全文搜索（PostgreSQL ILIKE），仅正常非广告帖；精华帖置顶（键集分页）。"""
+    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{q}%")]
+    if cursor:
+        # 精华置顶后的键集翻页：游标行的 (is_featured, id) 之后再取
+        cur = aliased(Post)
+        cur_featured = select(cur.is_featured).where(cur.id == cursor).scalar_subquery()
+        conds.append(tuple_(Post.is_featured, Post.id) < tuple_(cur_featured, literal(cursor)))
+    stmt = (
+        select(Post, User.nickname)
+        .join(User, Post.user_id == User.id)
+        .where(*conds)
+        .order_by(Post.is_featured.desc(), Post.id.desc())
+        .limit(limit + 1)
+    )
+    rows = (await db.execute(stmt)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = [_post_to_dict(p, nick) for p, nick in rows]
+    next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
 

@@ -10,6 +10,7 @@ export interface AdminPost {
   price: number | null
   status: number
   is_pinned: boolean
+  is_featured?: boolean
   author: { nickname: string; id: string }
   like_count: number
   comment_count: number
@@ -34,6 +35,14 @@ export function updatePostStatus(id: number, status: number) {
 
 export function pinPost(id: number, pinned: boolean) {
   return request.put(`/admin/posts/${id}/pin`, { pinned })
+}
+
+export function featurePost(id: number, featured: boolean) {
+  return request.put(`/admin/posts/${id}/featured`, { pinned: featured })
+}
+
+export function getFeatureCandidates(limit = 20) {
+  return request.get<any, { items: AdminPost[] }>('/admin/posts/feature-candidates', { params: { limit } })
 }
 
 export function editPost(id: number, data: Partial<{ content: string; category: string; images: string[]; price: number }>) {

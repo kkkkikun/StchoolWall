@@ -22,6 +22,9 @@ class Post(Base):
     # 管理员置顶：仅首页"推荐"位第一页前置展示
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     pinned_at = mapped_column(DateTime(timezone=True), nullable=True)
+    # 精华：经验贴等长尾价值内容，进"精华"流（历史热度排序，无时间衰减）
+    is_featured: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    featured_at = mapped_column(DateTime(timezone=True), nullable=True)
     # 互动计数（冗余字段，写操作时同步维护，列表页避免聚合查询）
     like_count: Mapped[int] = mapped_column(Integer, default=0)
     comment_count: Mapped[int] = mapped_column(Integer, default=0)

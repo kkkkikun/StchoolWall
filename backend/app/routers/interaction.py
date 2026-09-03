@@ -124,6 +124,26 @@ async def my_favorites(
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
+@router.get("/me/likes")
+async def my_likes(
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    items, next_cursor, has_more = await svc.list_my_likes(db, user, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+
+
+@router.get("/me/comments")
+async def my_comments(
+    cursor: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    items, next_cursor, has_more = await svc.list_my_comments(db, user, cursor)
+    return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
+
+
 @router.get("/me/footprints")
 async def my_footprints(
     cursor: int | None = Query(None),

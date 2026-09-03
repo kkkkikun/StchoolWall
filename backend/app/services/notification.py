@@ -97,6 +97,7 @@ async def unread_summary(db: AsyncSession, user: User) -> dict:
     return {
         "comment": counts.get("comment", 0),
         "like": counts.get("like", 0),
+        "favorite": counts.get("favorite", 0),
         "group": counts.get("group", 0),
         "moderation": counts.get("moderation", 0),
         "announcement": counts.get("announcement", 0),

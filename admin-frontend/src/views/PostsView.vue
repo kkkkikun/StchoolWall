@@ -38,6 +38,7 @@
                    @click="onBatch(-1)">批量封禁</el-button>
         <el-button size="small" type="success" plain :disabled="!selected.length"
                    @click="onBatch(1)">批量过审</el-button>
+        <el-button size="small" type="warning" plain @click="openCandidates">精华候选</el-button>
       </div>
 
       <el-table :data="items" @selection-change="(rows: AdminPost[]) => selected = rows" v-loading="loading">
@@ -47,6 +48,7 @@
           <template #default="{ row }">
             <div class="content-cell">
               <span class="pin-flag" v-if="row.is_pinned">置顶</span>
+              <span class="featured-flag" v-if="row.is_featured">精华</span>
               <span class="content-text">{{ row.content }}</span>
             </div>
           </template>
@@ -71,11 +73,14 @@
         <el-table-column label="发布时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="onEdit(row)">编辑</el-button>
             <el-button link :type="row.is_pinned ? 'warning' : 'success'" size="small" @click="onPin(row)">
               {{ row.is_pinned ? '取消置顶' : '置顶' }}
+            </el-button>
+            <el-button link :type="row.is_featured ? 'warning' : 'success'" size="small" @click="onFeature(row)">
+              {{ row.is_featured ? '取消精华' : '设精华' }}
             </el-button>
             <el-button v-if="row.status === 1" link type="danger" size="small" @click="onStatus(row, -1)">封禁</el-button>
             <el-button v-if="row.status === -1" link type="success" size="small" @click="onStatus(row, 1)">恢复</el-button>
@@ -89,6 +94,29 @@
                      v-model:current-page="page" v-model:page-size="pageSize"
                      :page-sizes="[10, 20, 50]" @change="load()" />
     </el-card>
+
+    <!-- 精华候选弹窗 -->
+    <el-dialog v-model="showCandidates" title="精华候选（按互动排序，未设精）" width="640px">
+      <el-table :data="candidates" v-loading="loadingCandidates" size="small">
+        <el-table-column label="ID" prop="id" width="70" />
+        <el-table-column label="内容" min-width="240">
+          <template #default="{ row }"><span class="content-text">{{ row.content }}</span></template>
+        </el-table-column>
+        <el-table-column label="互动" width="150">
+          <template #default="{ row }">
+            <span class="stats-text">👍{{ row.like_count }} 💬{{ row.comment_count }} 👁{{ row.view_count }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }">
+            <el-button link type="success" size="small" @click="adoptCandidate(row)">设为精华</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="showCandidates = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 编辑弹窗 -->
     <el-dialog v-model="showEdit" title="编辑帖子" width="560px">
@@ -111,7 +139,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPosts, updatePostStatus, pinPost, editPost, batchPostStatus, exportPostsUrl, type AdminPost } from '@/api/posts'
+import { getPosts, updatePostStatus, pinPost, featurePost, getFeatureCandidates, editPost, batchPostStatus, exportPostsUrl, type AdminPost } from '@/api/posts'
 import { getToken } from '@/utils/request'
 
 const STATUS: Record<number, string> = { '-2': '已删除', '-1': '已封禁', 0: '待审核', 1: '正常', 2: '已归档' }
@@ -179,6 +207,34 @@ const onPin = async (row: AdminPost) => {
   load()
 }
 
+const onFeature = async (row: AdminPost) => {
+  await featurePost(row.id, !row.is_featured)
+  ElMessage.success(row.is_featured ? '已取消精华' : '已设为精华')
+  load()
+}
+
+const showCandidates = ref(false)
+const candidates = ref<AdminPost[]>([])
+const loadingCandidates = ref(false)
+
+const openCandidates = async () => {
+  showCandidates.value = true
+  loadingCandidates.value = true
+  try {
+    const data = await getFeatureCandidates()
+    candidates.value = data.items
+  } catch { /* 拦截器已提示 */ } finally {
+    loadingCandidates.value = false
+  }
+}
+
+const adoptCandidate = async (row: AdminPost) => {
+  await featurePost(row.id, true)
+  ElMessage.success(`帖子 #${row.id} 已设为精华`)
+  candidates.value = candidates.value.filter(c => c.id !== row.id)
+  load()
+}
+
 const onBatch = async (status: number) => {
   const ids = selected.value.map(p => p.id)
   const label = status === 1 ? '过审' : '封禁'
@@ -241,6 +297,11 @@ onMounted(() => load())
   flex-shrink: 0;
   font-size: 11px; color: #fff; background: #f73b43;
   padding: 1px 6px; border-radius: 4px; margin-top: 2px;
+}
+.featured-flag {
+  flex-shrink: 0;
+  font-size: 11px; color: #e26d7d; background: #fdf0f2; border: 1px solid #ef8a97;
+  padding: 0 6px; border-radius: 4px; margin-top: 2px;
 }
 .content-text { color: #303133; }
 .stats-text { font-size: 12px; color: #909399; }

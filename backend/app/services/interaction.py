@@ -144,6 +144,8 @@ async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | No
     if not await _is_favorited(db, user.id, post_id):
         db.add(Favorite(user_id=user.id, post_id=post_id))
         await db.commit()
+        # 通知帖子作者（不通知自己）；type=favorite，消息页互动聚合展示
+        await create_notification(db, post.user_id, user.id, "favorite", post_id=post_id)
     return {"favorited": True}
 
 
@@ -196,6 +198,62 @@ async def list_favorites(
     has_more = len(rows) > limit
     rows = rows[:limit]
     items = [_post_brief(p, nick) for p, nick in rows]
+    next_cursor = rows[-1][0].id if has_more and rows else None
+    return items, next_cursor, has_more
+
+
+async def list_my_likes(
+    db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
+) -> tuple[list[dict], int | None, bool]:
+    """我点赞过的帖子（按点赞时间≈post_id 倒序）。"""
+    conds = [Like.user_id == user.id, Post.status == 1]
+    if cursor:
+        conds.append(Like.post_id < cursor)
+    stmt = (
+        select(Post, User.nickname)
+        .join(Like, Like.post_id == Post.id)
+        .join(User, Post.user_id == User.id)
+        .where(*conds)
+        .order_by(Like.post_id.desc())
+        .limit(limit + 1)
+    )
+    rows = (await db.execute(stmt)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = [_post_brief(p, nick) for p, nick in rows]
+    next_cursor = rows[-1][0].id if has_more and rows else None
+    return items, next_cursor, has_more
+
+
+async def list_my_comments(
+    db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
+) -> tuple[list[dict], int | None, bool]:
+    """我发表过的评论（含所属帖子摘要，软删除除外）。"""
+    conds = [Comment.user_id == user.id, Comment.status == 1]  # 软删除(−1)不显示
+    if cursor:
+        conds.append(Comment.id < cursor)
+    stmt = (
+        select(Comment, Post.content, User.nickname)
+        .join(Post, Comment.post_id == Post.id)
+        .join(User, Post.user_id == User.id)
+        .where(*conds)
+        .order_by(Comment.id.desc())
+        .limit(limit + 1)
+    )
+    rows = (await db.execute(stmt)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = [
+        {
+            "id": c.id,
+            "post_id": c.post_id,
+            "content": c.content,
+            "post_excerpt": (pc or "")[:50],
+            "post_author": nick,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c, pc, nick in rows
+    ]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 

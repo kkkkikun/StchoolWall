@@ -16,7 +16,7 @@ from app.services.admin import (
     list_users,
     update_user_status,
 )
-from app.services.post import set_post_pinned
+from app.services.post import feature_candidates, set_post_featured, set_post_pinned
 from app.services.admin import (
     admin_batch_post_status,
     admin_stats,
@@ -299,6 +299,36 @@ async def pin_post(
     return {"code": 0, "message": "置顶成功" if body.pinned else "已取消置顶", "data": {"is_pinned": post.is_pinned}}
 
 
+@router.put("/posts/{post_id}/featured")
+async def feature_post(
+    post_id: int,
+    body: PinRequest,  # 复用 {pinned: bool} 结构，语义为 featured
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """设为精华/取消精华（仅 admin）：进首页「精华」流，历史热度排序"""
+    post = await set_post_featured(db, post_id, body.pinned)
+    if not post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+    await log_admin_action(db, actor, admin_log.POST_FEATURED, target_type="post", target_id=post_id,
+                           detail={"featured": body.pinned},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已设为精华" if body.pinned else "已取消精华", "data": {"is_featured": post.is_featured}}
+
+
+@router.get("/posts/feature-candidates")
+async def get_feature_candidates(
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """精华候选：未设精帖子里互动最高的（一键采纳）"""
+    items = await feature_candidates(db, limit)
+    return {"code": 0, "data": {"items": items}}
+
+
 @router.get("/logs")
 async def get_admin_logs(
     action: str | None = Query(None, max_length=50),
@@ -535,3 +565,121 @@ async def admin_upload_image(
                            ip=_client_ip(request))
     await db.commit()
     return {"code": 0, "message": "上传成功", "data": {"public_url": public_url, "path": path}}
+
+
+# ---- 敏感词库（自动审核本地规则，命中即生效） ----
+
+
+class SensitiveWordCreate(BaseModel):
+    word: str = Field(min_length=1, max_length=50)
+    level: Literal["hard", "gray"]
+
+
+@router.get("/sensitive-words")
+async def admin_list_sensitive_words(
+    q: str | None = Query(None),
+    level: str | None = Query(None, pattern="^(hard|gray)$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """敏感词列表：词/级别筛选 + 分页。"""
+    from app.services.sensitive_word import list_sensitive_words
+    items, total = await list_sensitive_words(db, q=q, level=level, page=page, page_size=page_size)
+    return {"code": 0, "data": {
+        "items": [{"id": w.id, "word": w.word, "level": w.level,
+                   "created_by": w.created_by,
+                   "created_at": w.created_at.isoformat() if w.created_at else None} for w in items],
+        "total": total, "page": page, "page_size": page_size,
+    }}
+
+
+@router.post("/sensitive-words")
+async def admin_create_sensitive_word(
+    body: SensitiveWordCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """新增敏感词（hard=直接拒绝 / gray=转人工），审核时即时生效。"""
+    from app.services.sensitive_word import create_sensitive_word
+    try:
+        item = await create_sensitive_word(db, body.word.strip(), body.level, created_by=actor.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await log_admin_action(db, actor, admin_log.SENSITIVE_WORD_CREATE, target_type="sensitive_word",
+                           target_id=item.id, detail={"word": item.word, "level": item.level},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已添加", "data": {"id": item.id, "word": item.word, "level": item.level}}
+
+
+@router.put("/sensitive-words/{word_id}")
+async def admin_update_sensitive_word(
+    word_id: int,
+    body: SensitiveWordCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """修改敏感词内容或级别。"""
+    from app.services.sensitive_word import get_sensitive_word, update_sensitive_word
+    item = await get_sensitive_word(db, word_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="敏感词不存在")
+    try:
+        item = await update_sensitive_word(db, item, word=body.word.strip(), level=body.level)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await log_admin_action(db, actor, admin_log.SENSITIVE_WORD_UPDATE, target_type="sensitive_word",
+                           target_id=item.id, detail={"word": item.word, "level": item.level},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已更新", "data": {"id": item.id, "word": item.word, "level": item.level}}
+
+
+@router.delete("/sensitive-words/{word_id}")
+async def admin_delete_sensitive_word(
+    word_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """删除敏感词。"""
+    from app.services.sensitive_word import delete_sensitive_word, get_sensitive_word
+    item = await get_sensitive_word(db, word_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="敏感词不存在")
+    detail = {"word": item.word, "level": item.level}
+    await delete_sensitive_word(db, item)
+    await log_admin_action(db, actor, admin_log.SENSITIVE_WORD_DELETE, target_type="sensitive_word",
+                           target_id=word_id, detail=detail, ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已删除"}
+
+
+# ---- 审核记录（只读，机器判定可追溯） ----
+
+
+@router.get("/moderation-records")
+async def admin_list_moderation_records(
+    verdict: str | None = Query(None, pattern="^(pass|review|reject|error)$"),
+    source: str | None = Query(None, pattern="^(rule|wechat)$"),
+    post_id: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """机器审核记录：verdict/source/post_id 筛选 + 分页，id 倒序。"""
+    from app.services.moderation_record import list_moderation_records
+    items, total = await list_moderation_records(
+        db, verdict=verdict, source=source, post_id=post_id, page=page, page_size=page_size,
+    )
+    return {"code": 0, "data": {
+        "items": [{"id": r.id, "post_id": r.post_id, "source": r.source, "verdict": r.verdict,
+                   "matched": r.matched, "reason": r.reason, "trace_id": r.trace_id,
+                   "created_at": r.created_at.isoformat() if r.created_at else None} for r in items],
+        "total": total, "page": page, "page_size": page_size,
+    }}

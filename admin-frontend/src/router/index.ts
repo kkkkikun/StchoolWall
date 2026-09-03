@@ -11,6 +11,8 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '看板', icon: '📊' } },
       { path: 'posts', name: 'posts', component: () => import('@/views/PostsView.vue'), meta: { title: '帖子管理', icon: '📝' } },
+      { path: 'moderation-records', name: 'moderation-records', component: () => import('@/views/ModerationRecordsView.vue'), meta: { title: '审核记录', icon: '🛡️' } },
+      { path: 'sensitive-words', name: 'sensitive-words', component: () => import('@/views/SensitiveWordsView.vue'), meta: { title: '敏感词库', icon: '🚫' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '用户管理', icon: '👥' } },
       { path: 'reports', name: 'reports', component: () => import('@/views/ReportsView.vue'), meta: { title: '举报处理', icon: '🚨' } },
       { path: 'comments', name: 'comments', component: () => import('@/views/CommentsView.vue'), meta: { title: '评论管理', icon: '💬' } },

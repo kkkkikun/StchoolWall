@@ -150,6 +150,7 @@ async def list_posts_admin(
             "price": float(p.price) if p.price else None,
             "status": p.status,
             "is_pinned": bool(p.is_pinned),
+            "is_featured": bool(p.is_featured),
             "author": {"nickname": nick, "id": str(p.user_id)},
             "like_count": p.like_count or 0,
             "comment_count": p.comment_count or 0,

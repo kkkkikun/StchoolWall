@@ -59,6 +59,8 @@ const auth = useAuthStore()
 const menus = [
   { path: '/dashboard', title: '看板', icon: '📊' },
   { path: '/posts', title: '帖子管理', icon: '📝' },
+  { path: '/moderation-records', title: '审核记录', icon: '🛡️' },
+  { path: '/sensitive-words', title: '敏感词库', icon: '🚫' },
   { path: '/users', title: '用户管理', icon: '👥' },
   { path: '/reports', title: '举报处理', icon: '🚨' },
   { path: '/comments', title: '评论管理', icon: '💬' },

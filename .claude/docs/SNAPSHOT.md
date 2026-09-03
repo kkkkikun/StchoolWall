@@ -128,6 +128,13 @@ SchoolWall/
 - [x] Banner 独立轮播表（投放窗口/上下架/排序；旧广告帖不再混 feed）
 - [x] 管理员置顶（推荐位第一页前置置顶块，主流排除防重复）
 - [x] 真实内容审核（微信 msg_sec_check v2 + img_sec_check；pass/reject/review/error 四分流，fail-open 降级，审核通知）
+- [x] **自动审核本地规则层 + 可观测性**（2026-09-03，3 批次 TDD）：
+  - 本地敏感词：归一化子串匹配（NFKC/小写/去空白零宽，防全角与插空格变体），hard→直接拒绝 / gray→转人工，与微信层并联取最严（本地已 reject 跳过微信省配额）
+  - 频率风控：同用户 10 分钟 ≥3 帖 → 转人工（DB count，不依赖 Redis）
+  - `sensitive_words` 表（管理后台 CRUD + 审计 sensitive_word.*，迁移内置 20 条种子词）
+  - `moderation_records` 表：每次审核按来源（rule/wechat）落行（matched/reason/trace_id），review 分支补 commit 修复记录丢失
+  - 管理端新增两页：敏感词库 🚫 / 审核记录 🛡️（GET /admin/sensitive-words CRUD + GET /admin/moderation-records）
+  - 设计约束：本地判定先于微信重试循环算一次（review 严重度>error，折进循环会中断重试）；记录仅循环退出后写一次防重试重复
 - [x] GET /posts/my（我的帖子，含待审/封禁状态筛选）
 - [x] 设置页 + 退出登录（frontend/pages/settings）
 - [x] **独立 Web 管理后台**（2026-08-31 完成，8 批次）：
@@ -144,6 +151,7 @@ SchoolWall/
 ## 当前工作 / 下一步
 
 - 2026-08-31：独立管理后台 8 批次全部完成，307 tests passed，双端 type-check 0 错。
-- 待办：生产部署（Nginx/HTTPS/密钥管理）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后审核链路才真实生效）、发布页图片上传（后端 /upload/direct 已就绪，前端 uni.uploadFile 未接）。
+- 2026-09-03：自动审核系统激活（本地规则层 + 审核记录，366 tests passed）；dev 库已可用——学生帖现在会真实经过敏感词/频率判定。9-03 早些时候完成：编辑资料页、个人主页"我的"风格重做、check-in/精华/热榜/消息页改版（均未提交）。
+- 待办：生产部署（Nginx/HTTPS/密钥管理）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后微信审核层才真实生效，本地规则层已独立生效）、发布页图片上传（后端 /upload/direct 已就绪，前端 uni.uploadFile 未接）。
 - 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。`frontend/src/static/default-avatar.png` 是目录不是文件（post-card 引用会触发 dev server EISDIR 崩溃，待修）。
 - 本地开发环境：backend :8000（uvicorn --reload）、frontend H5 :5173（/tmp/schoolwall-h5.sh 自愈包装）、admin-frontend :5174；测试管理员账号 boss（2026-08-31 建）。

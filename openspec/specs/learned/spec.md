@@ -55,6 +55,16 @@
 - **WHEN** `openspec archive` 报非阻塞警告 "Change must have a Why section. Missing required headers. Expected: ## Why and ## What Changes"
 - **THEN** proposal.md 必须用英文标题 `## Why` / `## What Changes`（中文「## 为什么做」「## 做什么」不被识别）；解法：写 proposal 时用标准英文标题，正文可中文；archive 仍会成功（非阻塞），但用了标准标题更干净
 
+#### Scenario: 审核重试循环不能折入非微信判定
+
+- **WHEN** 给 `check_post_moderation` 加并联判定层（本地规则/频率）时把合并 verdict 折进 `while verdict == "error"` 重试条件
+- **THEN** 根因：verdict 严重度 review(2) > error(1)，本地 review 会让循环立即退出，微信侧 error 重试被静默跳过；解法：本地/频率判定在循环前算一次，循环条件只看微信结果，循环退出后再 `_strictest` 合并；预防：任何"多来源取最严 + 有重试"的管线都要把重试键与合并键分开
+
+#### Scenario: conftest 全表 TRUNCATE 与进程级缓存互斥
+
+- **WHEN** 想给敏感词库这类配置表加进程级/TTL 缓存（含 Redis pubsub 失效）
+- **THEN** 根因：测试环境每个用例 TRUNCATE 全部表，进程缓存会跨用例读到脏词库，测试随机漂移；解法：低 QPS 场景直接每次审核读库（"热加载"天然成立），把 loader 做成模块级函数留作未来缓存 seam；预防：凡是注册进 `models/__init__.py` 的表都会被 TRUNCATE，任何缓存测试都要想清楚失效来源
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

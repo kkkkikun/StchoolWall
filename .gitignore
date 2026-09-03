@@ -54,3 +54,4 @@ backend/static/
 原型导出/
 SchoolWall原型*.zip
 *.rar
+/static/

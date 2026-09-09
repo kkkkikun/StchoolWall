@@ -5,7 +5,8 @@
     <view v-else-if="post" class="body">
       <!-- 作者 -->
       <view class="author">
-        <view class="avatar" :style="{ background: avatarColor }">
+        <image v-if="post.author.avatar_url" class="avatar" :src="post.author.avatar_url" mode="aspectFill" />
+        <view v-else class="avatar" :style="{ background: avatarColor }">
           <text class="avatar-letter">{{ avatarLetter }}</text>
         </view>
         <view class="author-meta" @tap="goAuthor">
@@ -25,12 +26,13 @@
       <view class="content">
         <text class="content-text">{{ post.content }}</text>
         <view v-if="post.images && post.images.length" class="images">
+          <!-- 单图：widthFix 自适应铺开（高度随宽高比）；多图：1:1 方格排开 -->
           <image
             v-for="(img, i) in post.images"
             :key="i"
-            class="post-image"
+            :class="post.images.length === 1 ? 'post-image-single' : 'post-image'"
             :src="img"
-            mode="aspectFill"
+            :mode="post.images.length === 1 ? 'widthFix' : 'aspectFill'"
             @tap="previewImage(i)"
           />
         </view>
@@ -69,7 +71,8 @@
         <view class="comments-title">评论 {{ post.comment_count || 0 }}</view>
         <view v-if="comments.length === 0" class="empty-comment"><text>暂无评论，来抢沙发～</text></view>
         <view v-for="c in comments" :key="c.id" class="comment">
-          <view class="c-avatar" :style="{ background: colorOf(c.user.nickname) }">
+          <image v-if="c.user.avatar_url" class="c-avatar" :src="c.user.avatar_url" mode="aspectFill" />
+          <view v-else class="c-avatar" :style="{ background: colorOf(c.user.nickname) }">
             <text class="c-letter">{{ (c.user.nickname || '?').slice(0, 1) }}</text>
           </view>
           <view class="c-main">
@@ -256,11 +259,16 @@ const onSendComment = async () => {
   if (!text || sending.value) return
   sending.value = true
   try {
-    await createComment(post.value.id, text)
+    const created = await createComment(post.value.id, text)
     commentText.value = ''
-    if (post.value) post.value.comment_count = (post.value.comment_count || 0) + 1
-    await loadComments()
-    uni.showToast({ title: '评论成功', icon: 'success' })
+    if (created.status === 0) {
+      // 灰词转人工：审核通过后才公开
+      uni.showToast({ title: '已提交，审核通过后可见', icon: 'none' })
+    } else {
+      if (post.value) post.value.comment_count = (post.value.comment_count || 0) + 1
+      await loadComments()
+      uni.showToast({ title: '评论成功', icon: 'success' })
+    }
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '评论失败', icon: 'none' })
   } finally {
@@ -352,6 +360,7 @@ const copyContact = () => {
 .content-text { font-size: 30rpx; color: var(--text-1); line-height: 1.7; white-space: pre-wrap; }
 .images { display: flex; flex-wrap: wrap; gap: 12rpx; margin: 20rpx 0; }
 .post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: #f2f3f5; }
+.post-image-single { width: 100%; border-radius: 12rpx; background: #f2f3f5; }
 .price { font-size: 40rpx; font-weight: bold; color: var(--brand-red); display: block; margin-top: 16rpx; }
 .contact { background: var(--bg-page); padding: 16rpx 20rpx; border-radius: 12rpx; margin-top: 20rpx; }
 .contact-label { font-size: 24rpx; color: var(--text-3); }
@@ -368,13 +377,14 @@ const copyContact = () => {
 .comments-title { font-size: 30rpx; font-weight: bold; color: #222; margin-bottom: 20rpx; }
 .empty-comment { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 40rpx 0; }
 .comment { display: flex; padding: 20rpx 0; border-bottom: 1rpx solid #f7f7f7; }
-.c-avatar { width: 64rpx; height: 64rpx; border-radius: 50%; margin-right: 16rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.c-letter { font-size: 30rpx; font-weight: bold; color: #fff; }
+/* 评论者头像/昵称与楼主同规格（X 式层级：作者一致，正文小一号） */
+.c-avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.c-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
 .c-main { flex: 1; }
 .c-top { display: flex; align-items: center; justify-content: space-between; }
-.c-name { font-size: 26rpx; color: #555; font-weight: 500; }
+.c-name { font-size: 30rpx; color: #333; font-weight: bold; }
 .c-del { font-size: 22rpx; color: var(--text-3); }
-.c-text { font-size: 28rpx; color: var(--text-1); margin-top: 8rpx; display: block; line-height: 1.5; }
+.c-text { font-size: 25rpx; color: #555; margin-top: 8rpx; display: block; line-height: 1.5; }
 
 .comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: #fff; border-top: 1rpx solid #eee; padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
 .comment-input { flex: 1; height: 72rpx; background: var(--bg-page); border-radius: 36rpx; padding: 0 28rpx; font-size: 28rpx; }

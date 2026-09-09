@@ -13,6 +13,8 @@ class ModerationRecord(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts.id"), nullable=False, index=True)
+    # 评论审核记录（帖审核为空）；评论被硬词直接拒时 comment_id 为空、post_id 指向被评帖
+    comment_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("comments.id"), nullable=True, index=True)
     # "rule"（本地敏感词/频率） | "wechat"（msgSecCheck/imgSecCheck）
     source: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     # "pass" | "review" | "reject" | "error"

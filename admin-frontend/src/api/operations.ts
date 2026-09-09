@@ -21,6 +21,11 @@ export function deleteComment(id: number) {
   return request.delete(`/admin/comments/${id}`)
 }
 
+/** 评论状态流转：0 待审 → 1 过审 / -1 拒审；1 → -1 下架 */
+export function updateCommentStatus(id: number, status: number) {
+  return request.put(`/admin/comments/${id}/status`, null, { params: { status } })
+}
+
 // ---- 组局 ----
 
 export interface AdminParty {

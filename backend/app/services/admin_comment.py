@@ -1,5 +1,6 @@
 """管理后台评论管理：列表 + 软删。"""
 from sqlalchemy import func, select, update
+from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.interaction import Comment
@@ -20,7 +21,7 @@ async def list_comments_admin(
 ) -> tuple[list[dict], int]:
     conditions = []
     if q:
-        conditions.append(Comment.content.ilike(f"%{q}%"))
+        conditions.append(Comment.content.ilike(f"%{escape_like(q)}%"))
     if post_id is not None:
         conditions.append(Comment.post_id == post_id)
     if status is not None:
@@ -74,3 +75,51 @@ async def admin_delete_comment(db: AsyncSession, comment_id: int) -> bool | None
     )
     await db.commit()
     return True
+
+
+# 评论状态机：待审 → 过审/拒审；正常 → 拒审（等价软删）；已删不可逆
+COMMENT_STATUS_TRANSITIONS = {0: {1, -1}, 1: {-1}}
+
+
+async def admin_update_comment_status(db: AsyncSession, comment_id: int, new_status: int):
+    """管理端评论状态流转。返回 (comment, error) 二元组：error 非 None 时前端直接展示。
+
+    - 0→1 过审：补公开计数 +1，并补发帖子作者的评论通知
+      （待审期间未计数未通知，语义与"过审才可见"一致）
+    - 0→-1 / 1→-1 拒审/下架：计数 -1（若曾在计数中）
+    """
+    comment = (await db.execute(select(Comment).where(Comment.id == comment_id))).scalar_one_or_none()
+    if not comment:
+        return None, "评论不存在"
+    allowed = COMMENT_STATUS_TRANSITIONS.get(comment.status, set())
+    if new_status not in allowed:
+        return comment, f"不允许的状态流转（{comment.status} → {new_status}）"
+
+    old_status = comment.status
+    comment.status = new_status
+
+    if old_status == 0 and new_status == 1:
+        # 过审：补计数 + 通知帖子作者（不通知评论者自己）
+        await db.execute(
+            update(Post).where(Post.id == comment.post_id)
+            .values(comment_count=Post.comment_count + 1)
+        )
+        await db.flush()
+        from app.services.notification import create_notification
+        post = (await db.execute(select(Post).where(Post.id == comment.post_id))).scalar_one()
+        if str(post.user_id) != str(comment.user_id):
+            await create_notification(db, post.user_id, comment.user_id, "comment",
+                                      post_id=post.id, comment_id=comment.id)
+        else:
+            await db.commit()
+    elif new_status == -1 and old_status == 1:
+        await db.execute(
+            update(Post).where(Post.id == comment.post_id)
+            .values(comment_count=func.greatest(Post.comment_count - 1, 0))
+        )
+        await db.commit()
+    else:
+        await db.commit()
+
+    await db.refresh(comment)
+    return comment, None

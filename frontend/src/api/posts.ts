@@ -23,7 +23,7 @@ function mapBrief(raw: RawPost): PostBrief {
     author: {
       id: raw.author?.id ?? 0,
       nickname: raw.user?.nickname ?? raw.author?.nickname ?? '匿名',
-      avatar_url: raw.author?.avatar_url,
+      avatar_url: raw.user?.avatar_url ?? raw.author?.avatar_url,
     },
     tags: [],
     category: raw.category ?? null,

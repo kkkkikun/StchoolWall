@@ -387,6 +387,29 @@ async def delete_comment(
     return {"code": 0, "message": "已删除"}
 
 
+@router.put("/comments/{comment_id}/status")
+async def update_comment_status(
+    comment_id: int,
+    request: Request,
+    status: int = Query(..., ge=-1, le=1),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """评论状态流转（待审过审/拒审；正常下架）。"""
+    from app.services.admin_comment import admin_update_comment_status
+    comment, error = await admin_update_comment_status(db, comment_id, status)
+    if error == "评论不存在":
+        raise HTTPException(status_code=404, detail=error)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    await log_admin_action(db, actor, admin_log.COMMENT_STATUS, target_type="comment",
+                           target_id=comment_id,
+                           detail={"from": None if comment is None else status, "to": status},
+                           ip=_client_ip(request))
+    await db.commit()
+    return {"code": 0, "message": "已更新", "data": {"id": comment_id, "status": status}}
+
+
 # ---- 组局管理 ----
 
 

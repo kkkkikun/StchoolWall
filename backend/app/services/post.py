@@ -8,6 +8,10 @@ from app.models.post import Post
 from app.models.report import Report
 from app.models.tag import PostTag
 from app.models.user import User
+from app.utils.query import escape_like
+
+# 微号披露允许的帖型：交易/拼车联系刚需，其余帖型不向其他学生返回 contact_wechat
+TRADE_POST_TYPES = {"second_hand", "carpool"}
 
 
 def _hot_score(p: Post) -> any:
@@ -67,7 +71,7 @@ async def list_posts(
     pinned_rows: list = []
     if is_recommend and not cursor:
         pinned_stmt = (
-            select(Post, User.nickname)
+            select(Post, User)
             .join(User, Post.user_id == User.id)
             .where(
                 Post.post_type != "advertisement",
@@ -104,7 +108,7 @@ async def list_posts(
         order_clause = (Post.id.desc(),)
 
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conditions)
         .order_by(*order_clause)
@@ -116,7 +120,7 @@ async def list_posts(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [_post_to_dict(p, nick) for p, nick in pinned_rows + rows]
+    items = [_post_to_dict(p, u) for p, u in pinned_rows + rows]
     # 行是 (Post, nickname) 元组，游标取 Post.id
     next_cursor = rows[-1][0].id if has_more and rows else None
 
@@ -144,14 +148,14 @@ async def my_posts(
     if status is not None:
         conditions.append(Post.status == status)
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conditions)
         .order_by(Post.id.desc())
         .limit(100)
     )
     rows = (await db.execute(stmt)).all()
-    return [_post_to_dict(p, nick) for p, nick in rows]
+    return [_post_to_dict(p, u) for p, u in rows]
 
 
 async def get_post_detail(
@@ -168,6 +172,14 @@ async def get_post_detail(
         return None
 
     post, author = row
+
+    # 可见性门禁：仅 status==1 公开；作者本人与 admin 可查看自己的待审/被封/已删帖。
+    # 返回 None（404）而非 403，避免对隐藏帖做存在性探测。
+    is_privileged = viewer is not None and (
+        str(viewer.id) == str(post.user_id) or viewer.role == "admin"
+    )
+    if post.status != 1 and not is_privileged:
+        return None
 
     # 认证用户：浏览数 +1 并记录足迹（游客不计）
     if viewer:
@@ -197,7 +209,7 @@ async def get_post_detail(
         "is_featured": bool(post.is_featured),
         "created_at": post.created_at.isoformat() if post.created_at else None,
         "user_id": str(author.id),
-        "user": {"nickname": author.nickname},
+        "user": {"nickname": author.nickname, "avatar_url": author.avatar_url},
         "contact_wechat": None,
         "is_following": False,
         "like_count": post.like_count or 0,
@@ -211,13 +223,16 @@ async def get_post_detail(
         data["is_following"] = await is_following(db, viewer.id, author.id)
 
     if viewer:
+        # 微信号披露范围：admin 全量；作者本人自查；其他认证学生仅交易类帖型（联系刚需）
+        is_trade = post.post_type in TRADE_POST_TYPES
         if viewer.role == "admin":
             data["user"]["real_name"] = author.real_name
             data["user"]["student_id"] = author.student_id
             data["contact_wechat"] = author.wechat_id
         elif str(author.id) == str(viewer.id):
             data["user"]["real_name"] = author.real_name
-        elif viewer.role == "student":
+            data["contact_wechat"] = author.wechat_id
+        elif viewer.role == "student" and is_trade:
             data["contact_wechat"] = author.wechat_id
         # 当前用户的互动视角
         liked = (await db.execute(
@@ -301,7 +316,7 @@ async def report_post(
     return report
 
 
-def _post_to_dict(post: Post, nickname: str) -> dict:
+def _post_to_dict(post: Post, author: User) -> dict:
     return {
         "id": post.id,
         "post_type": post.post_type,
@@ -312,7 +327,7 @@ def _post_to_dict(post: Post, nickname: str) -> dict:
         "status": post.status,
         "is_pinned": bool(post.is_pinned),
         "is_featured": bool(post.is_featured),
-        "user": {"nickname": nickname},
+        "user": {"nickname": author.nickname, "avatar_url": author.avatar_url},
         "like_count": post.like_count or 0,
         "comment_count": post.comment_count or 0,
         "view_count": post.view_count or 0,
@@ -326,7 +341,7 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
     """十大热帖：近 7 天、正常、非广告，按 like*3 + comment*2 + view 加权倒序。"""
     score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(
             Post.status == 1,
@@ -337,7 +352,7 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
         .limit(limit)
     )
     rows = (await db.execute(stmt)).all()
-    return [_post_to_dict(p, nick) for p, nick in rows]
+    return [_post_to_dict(p, u) for p, u in rows]
 
 
 async def featured_posts(
@@ -353,7 +368,7 @@ async def featured_posts(
         ).where(cur.id == cursor).scalar_subquery()
         conds.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conds)
         .order_by(score.desc(), Post.id.desc())
@@ -362,7 +377,7 @@ async def featured_posts(
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-    items = [_post_to_dict(p, nick) for p, nick in rows]
+    items = [_post_to_dict(p, u) for p, u in rows]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
@@ -371,7 +386,7 @@ async def feature_candidates(db: AsyncSession, limit: int = 20) -> list[dict]:
     """精华候选：未设精的正常帖里互动最高的（运营一键采纳）。"""
     score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(
             Post.is_featured.is_(False),
@@ -383,7 +398,7 @@ async def feature_candidates(db: AsyncSession, limit: int = 20) -> list[dict]:
         .limit(limit)
     )
     rows = (await db.execute(stmt)).all()
-    return [_post_to_dict(p, nick) for p, nick in rows]
+    return [_post_to_dict(p, u) for p, u in rows]
 
 
 async def set_post_featured(db: AsyncSession, post_id: int, featured: bool) -> Post | None:
@@ -406,14 +421,14 @@ async def search_posts(
     db: AsyncSession, q: str, cursor: int | None = None, limit: int = 20
 ) -> tuple[list[dict], int | None, bool]:
     """全文搜索（PostgreSQL ILIKE），仅正常非广告帖；精华帖置顶（键集分页）。"""
-    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{q}%")]
+    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{escape_like(q)}%")]
     if cursor:
         # 精华置顶后的键集翻页：游标行的 (is_featured, id) 之后再取
         cur = aliased(Post)
         cur_featured = select(cur.is_featured).where(cur.id == cursor).scalar_subquery()
         conds.append(tuple_(Post.is_featured, Post.id) < tuple_(cur_featured, literal(cursor)))
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conds)
         .order_by(Post.is_featured.desc(), Post.id.desc())
@@ -422,7 +437,7 @@ async def search_posts(
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-    items = [_post_to_dict(p, nick) for p, nick in rows]
+    items = [_post_to_dict(p, u) for p, u in rows]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
@@ -438,7 +453,7 @@ async def following_feed(
     if cursor:
         conds.append(Post.id < cursor)
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conds)
         .order_by(Post.id.desc())
@@ -448,7 +463,7 @@ async def following_feed(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [_post_to_dict(p, nick) for p, nick in rows]
+    items = [_post_to_dict(p, u) for p, u in rows]
     if items:
         ids = [it["id"] for it in items]
         liked_ids = set((await db.execute(
@@ -474,7 +489,7 @@ async def user_posts(
     if cursor:
         conds.append(Post.id < cursor)
     stmt = (
-        select(Post, User.nickname)
+        select(Post, User)
         .join(User, Post.user_id == User.id)
         .where(*conds)
         .order_by(Post.id.desc())
@@ -484,7 +499,7 @@ async def user_posts(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [_post_to_dict(p, nick) for p, nick in rows]
+    items = [_post_to_dict(p, u) for p, u in rows]
     if viewer and items:
         ids = [it["id"] for it in items]
         liked_ids = set((await db.execute(

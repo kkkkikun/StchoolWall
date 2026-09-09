@@ -2,7 +2,7 @@
 
 挂在 /api/v1 下，与 posts 路由并存（路径不重叠）。
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,6 +13,7 @@ from app.services import interaction as svc
 from app.services import follow as follow_svc
 from app.services import profile as profile_svc
 from app.services.post import user_posts
+from app.utils.rate_limit import RATE_COMMENT, check_rate_limit
 
 router = APIRouter()
 
@@ -54,7 +55,11 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
-    data = await svc.create_comment(db, user, post_id, body.content)
+    await check_rate_limit(f"rl:u:{user.id}:comments", *RATE_COMMENT)
+    try:
+        data = await svc.create_comment(db, user, post_id, body.content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if data is None:
         raise HTTPException(status_code=404, detail="帖子不存在")
     return {"code": 0, "data": data}
@@ -66,6 +71,9 @@ async def list_comments(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    # 目标帖必须是公开可见状态（封禁/待审帖的评论不可读）
+    if not await svc._get_post(db, post_id):
+        raise HTTPException(status_code=404, detail="帖子不存在")
     items, next_cursor, has_more = await svc.list_comments(db, post_id, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
@@ -168,7 +176,7 @@ async def my_stats(
 
 @router.post("/users/{user_id}/follow")
 async def follow_user(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
@@ -179,7 +187,7 @@ async def follow_user(
 
 @router.delete("/users/{user_id}/follow")
 async def unfollow_user(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
@@ -198,7 +206,7 @@ def _to_uuid(user_id: str):
 
 @router.get("/users/{user_id}/profile")
 async def get_user_profile(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
     viewer: User | None = Depends(get_optional_user),
 ):
@@ -210,7 +218,7 @@ async def get_user_profile(
 
 @router.get("/users/{user_id}/following")
 async def get_user_following(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
     viewer: User | None = Depends(get_optional_user),
 ):
@@ -220,7 +228,7 @@ async def get_user_following(
 
 @router.get("/users/{user_id}/followers")
 async def get_user_followers(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
     viewer: User | None = Depends(get_optional_user),
 ):
@@ -230,7 +238,7 @@ async def get_user_followers(
 
 @router.get("/users/{user_id}/posts")
 async def get_user_posts(
-    user_id: str,
+    user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     viewer: User | None = Depends(get_optional_user),

@@ -12,10 +12,16 @@ def add_moderation_record(
     source: str,
     result: ModerationResult,
     matched: list[str] | None = None,
+    comment_id: int | None = None,
 ) -> ModerationRecord:
-    """只 add 不 commit，随调用方事务落库（同 log_admin_action 约定）。"""
+    """只 add 不 commit，随调用方事务落库（同 log_admin_action 约定）。
+
+    帖审核：post_id=被审帖；评论审核：post_id=被评帖 + comment_id=被审评论
+    （评论被硬词直接拒时评论未创建，comment_id 为空）。
+    """
     record = ModerationRecord(
         post_id=post_id,
+        comment_id=comment_id,
         source=source,
         verdict=result.verdict,
         matched=matched,

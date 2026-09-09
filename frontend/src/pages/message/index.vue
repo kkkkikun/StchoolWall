@@ -20,7 +20,8 @@
           @tap="goProfile(u.id)"
         >
           <text class="crown">{{ i < 3 ? '👑' : '' }}</text>
-          <view class="rank-avatar" :style="{ background: colorOf(u.nickname) }">
+          <image v-if="u.avatar_url" class="rank-avatar" :src="u.avatar_url" mode="aspectFill" />
+          <view v-else class="rank-avatar" :style="{ background: colorOf(u.nickname) }">
             <text>{{ (u.nickname || '?').slice(0, 1) }}</text>
           </view>
           <text class="rank-badge" :class="{ dim: i >= 3 }">TOP{{ i + 1 }}</text>

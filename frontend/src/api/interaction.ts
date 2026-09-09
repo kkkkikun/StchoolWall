@@ -18,7 +18,9 @@ export interface CommentItem {
   post_id: number
   user_id: string
   content: string
-  user: { nickname: string }
+  /** 0=待审（本地可见性后端控制，前端仅用于提交后提示） 1=正常 */
+  status?: number
+  user: { nickname: string; avatar_url?: string | null }
   created_at: string
   comment_count?: number
 }

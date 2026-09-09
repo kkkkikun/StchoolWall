@@ -13,14 +13,14 @@ async def hot_users(db: AsyncSession, limit: int = 5) -> list[dict]:
     """
     heat = func.coalesce(func.sum(Post.like_count), 0)
     stmt = (
-        select(User.id, User.nickname, heat.label("heat"))
+        select(User.id, User.nickname, User.avatar_url, heat.label("heat"))
         .join(Post, (Post.user_id == User.id) & (Post.status == 1) & (Post.post_type != "advertisement"))
-        .group_by(User.id, User.nickname)
+        .group_by(User.id, User.nickname, User.avatar_url)
         .order_by(heat.desc(), User.id.asc())
         .limit(limit)
     )
     rows = (await db.execute(stmt)).all()
     return [
-        {"id": str(uid), "nickname": nick, "heat": int(h or 0)}
-        for uid, nick, h in rows
+        {"id": str(uid), "nickname": nick, "avatar_url": avatar, "heat": int(h or 0)}
+        for uid, nick, avatar, h in rows
     ]

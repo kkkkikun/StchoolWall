@@ -18,7 +18,8 @@ from app.services.notification import create_notification
 
 
 async def _get_post(db: AsyncSession, post_id: int) -> Post | None:
-    r = await db.execute(select(Post).where(Post.id == post_id))
+    """互动目标帖：必须存在且 status==1（封禁/待审帖不可被点赞评论收藏）。"""
+    r = await db.execute(select(Post).where(Post.id == post_id, Post.status == 1))
     return r.scalar_one_or_none()
 
 
@@ -68,13 +69,15 @@ async def unlike_post(db: AsyncSession, user: User, post_id: int) -> dict | None
 # ---- 评论 ----
 
 
-def _comment_dict(c: Comment, nickname: str, comment_count: int | None = None) -> dict:
+def _comment_dict(c: Comment, nickname: str, avatar_url: str | None = None,
+                  comment_count: int | None = None) -> dict:
     d = {
         "id": c.id,
         "post_id": c.post_id,
         "user_id": str(c.user_id),
         "content": c.content,
-        "user": {"nickname": nickname},
+        "status": c.status,
+        "user": {"nickname": nickname, "avatar_url": avatar_url},
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }
     if comment_count is not None:
@@ -83,19 +86,43 @@ def _comment_dict(c: Comment, nickname: str, comment_count: int | None = None) -
 
 
 async def create_comment(db: AsyncSession, user: User, post_id: int, content: str) -> dict | None:
+    """发评论（同步本地词检：hard 拒 / gray 待审 / clean 即见）。
+
+    - hard：抛 ValueError（路由转 400），评论不创建，审核记录 post_id=被评帖
+    - gray：status=0 待审——不计数不通知，过审（admin）时补计数与通知
+    - clean：status=1 即见，计数 + 通知帖子作者（不通知自己）
+    """
     post = await _get_post(db, post_id)
     if not post:
         return None
-    c = Comment(post_id=post_id, user_id=user.id, content=content)
+
+    from app.services.moderation_record import add_moderation_record
+    from app.services.sensitive_word import load_active_words
+    from app.utils.local_rules import check_text_local
+
+    local_r, matched = check_text_local(content, await load_active_words(db))
+    if local_r.verdict == "reject":
+        add_moderation_record(db, post_id, "rule", local_r, matched=matched or None)
+        await db.commit()
+        raise ValueError("评论包含违规内容，无法提交")
+
+    status = 0 if local_r.verdict == "review" else 1
+    c = Comment(post_id=post_id, user_id=user.id, content=content, status=status)
     db.add(c)
     await db.flush()
-    post.comment_count = (post.comment_count or 0) + 1
-    await db.commit()
-    await db.refresh(c)
-    await db.refresh(post)
-    # 通知帖子作者（不通知自己）
-    await create_notification(db, post.user_id, user.id, "comment", post_id=post.id, comment_id=c.id)
-    return _comment_dict(c, user.nickname, post.comment_count)
+    add_moderation_record(db, post_id, "rule", local_r, matched=matched or None, comment_id=c.id)
+
+    if status == 1:
+        post.comment_count = (post.comment_count or 0) + 1
+        await db.commit()
+        await db.refresh(c)
+        await db.refresh(post)
+        # 通知帖子作者（不通知自己）
+        await create_notification(db, post.user_id, user.id, "comment", post_id=post.id, comment_id=c.id)
+    else:
+        await db.commit()
+        await db.refresh(c)
+    return _comment_dict(c, user.nickname, user.avatar_url, post.comment_count)
 
 
 async def list_comments(
@@ -105,7 +132,7 @@ async def list_comments(
     if cursor:
         conds.append(Comment.id < cursor)
     stmt = (
-        select(Comment, User.nickname)
+        select(Comment, User)
         .join(User, Comment.user_id == User.id)
         .where(*conds)
         .order_by(Comment.id.desc())
@@ -114,7 +141,7 @@ async def list_comments(
     rows = (await db.execute(stmt)).all()
     has_more = len(rows) > limit
     rows = rows[:limit]
-    items = [_comment_dict(c, nick) for c, nick in rows]
+    items = [_comment_dict(c, u.nickname, u.avatar_url) for c, u in rows]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 

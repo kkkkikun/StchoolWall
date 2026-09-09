@@ -61,6 +61,7 @@ export type { PostBrief }
 export interface HotUser {
   id: string
   nickname: string
+  avatar_url?: string | null
   heat: number
 }
 export function getHotRanking(limit = 5) {

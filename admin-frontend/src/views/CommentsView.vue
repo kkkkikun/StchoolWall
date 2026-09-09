@@ -6,6 +6,7 @@
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="filters.status" clearable placeholder="全部" style="width: 120px">
+          <el-option label="待审核" :value="0" />
           <el-option label="正常" :value="1" />
           <el-option label="已删除" :value="-1" />
         </el-select>
@@ -30,16 +31,16 @@
       </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-            {{ row.status === 1 ? '正常' : '已删除' }}
-          </el-tag>
+          <el-tag :type="STATUS_TAG[row.status] || 'info'" size="small">{{ STATUS[row.status] || row.status }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="时间" width="160">
         <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="90" fixed="right">
+      <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
+          <el-button v-if="row.status === 0" link type="success" size="small" @click="onStatus(row, 1)">过审</el-button>
+          <el-button v-if="row.status === 0" link type="danger" size="small" @click="onStatus(row, -1)">拒审</el-button>
           <el-button v-if="row.status === 1" link type="danger" size="small" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -53,7 +54,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getComments, deleteComment, type AdminComment } from '@/api/operations'
+import { getComments, deleteComment, updateCommentStatus, type AdminComment } from '@/api/operations'
 
 const filters = reactive<{ q?: string; status?: number }>({})
 const items = ref<AdminComment[]>([])
@@ -61,6 +62,17 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 20
 const loading = ref(false)
+
+const STATUS: Record<number, string> = { 0: '待审核', 1: '正常', '-1': '已删除' }
+const STATUS_TAG: Record<number, string> = { 0: 'warning', 1: 'success', '-1': 'info' }
+
+const onStatus = async (row: any, status: number) => {
+  const label = status === 1 ? '通过' : '拒绝'
+  await ElMessageBox.confirm(`确定${label}这条评论吗？`, '确认', { type: 'warning' })
+  await updateCommentStatus(row.id, status)
+  ElMessage.success(`已${label}`)
+  load()
+}
 
 const fmtTime = (t: string) => (t ? t.slice(0, 16).replace('T', ' ') : '')
 

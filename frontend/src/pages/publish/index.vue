@@ -47,15 +47,26 @@
       </view>
     </view>
 
-    <!-- 4. 媒体上传 -->
+    <!-- 4. 图片上传（≤6 张，服务端落 /static/posts/） -->
     <view class="media-upload-section">
-      <view class="upload-box" @tap="onUpload('image')">
+      <view v-for="(img, i) in images" :key="img.local" class="img-cell">
+        <image class="img-thumb" :src="img.local" mode="aspectFill" />
+        <!-- 上传中遮罩 / 失败态 -->
+        <view v-if="img.status === 'uploading'" class="img-mask">
+          <text>…</text>
+        </view>
+        <view v-else-if="img.status === 'failed'" class="img-mask failed" @tap="retryUpload(i)">
+          <text>↑</text>
+          <text class="fail-text">重试</text>
+        </view>
+        <view class="img-del" @tap="removeImage(i)">
+          <text>✕</text>
+        </view>
+      </view>
+      <view v-if="images.length < MAX_IMAGES" class="upload-box" @tap="onAddImage">
         <text class="upload-icon">🖼️</text>
         <text class="upload-text">添加照片</text>
-      </view>
-      <view class="upload-box" @tap="onUpload('video')">
-        <text class="upload-icon">🎬</text>
-        <text class="upload-text">添加视频</text>
+        <text class="upload-count">{{ images.length }}/{{ MAX_IMAGES }}</text>
       </view>
     </view>
 
@@ -84,6 +95,7 @@ import TabBar from '@/components/tab-bar.vue'
 import { PUBLISH_HOT_TAGS, POST_CATEGORIES } from '@/utils/mock'
 import { createPost } from '@/api/posts'
 import { tokenStorage } from '@/utils/storage'
+import { uploadFile } from '@/utils/request'
 
 const hotTags = PUBLISH_HOT_TAGS
 const tools = [
@@ -126,8 +138,52 @@ const onTool = (type: string) => {
   uni.showToast({ title: `工具：${type}`, icon: 'none' })
 }
 
-const onUpload = (type: 'image' | 'video') => {
-  uni.showToast({ title: `添加${type === 'image' ? '照片' : '视频'}（开发中）`, icon: 'none' })
+// ===== 图片上传（≤6 张；后端仅收 /static/posts/ 相对路径）=====
+interface PendingImage {
+  local: string      // chooseImage 的本地临时路径（网格预览用）
+  url: string        // 上传完成后的 /static/posts/…（发布用）
+  status: 'uploading' | 'done' | 'failed'
+}
+
+const MAX_IMAGES = 6
+const images = ref<PendingImage[]>([])
+
+const onAddImage = () => {
+  const remain = MAX_IMAGES - images.value.length
+  if (remain <= 0) {
+    uni.showToast({ title: `最多 ${MAX_IMAGES} 张图片`, icon: 'none' })
+    return
+  }
+  uni.chooseImage({
+    count: remain,
+    sizeType: ['compressed'],
+    success: (res) => {
+      for (const p of res.tempFilePaths) {
+        if (images.value.length >= MAX_IMAGES) break
+        images.value.push({ local: p, url: '', status: 'uploading' })
+        uploadOne(images.value.length - 1)
+      }
+    },
+  })
+}
+
+const uploadOne = async (idx: number) => {
+  const img = images.value[idx]
+  if (!img) return
+  img.status = 'uploading'
+  try {
+    img.url = await uploadFile(img.local, 'posts')
+    img.status = 'done'
+  } catch (e) {
+    img.status = 'failed'
+    uni.showToast({ title: `图片上传失败：${(e as Error).message || '请重试'}`, icon: 'none' })
+  }
+}
+
+const retryUpload = (idx: number) => uploadOne(idx)
+
+const removeImage = (idx: number) => {
+  images.value.splice(idx, 1)
 }
 
 const onAiChange = (e: { detail: { value: boolean } } | Event) => {
@@ -153,14 +209,25 @@ const onSubmit = async () => {
     uni.showToast({ title: '请填写一点内容吧', icon: 'none' })
     return
   }
+  // 图片未就绪禁止提交：上传中的等待，失败的引导处理
+  if (images.value.some((i) => i.status === 'uploading')) {
+    uni.showToast({ title: '图片还在上传中，稍等一下', icon: 'none' })
+    return
+  }
+  if (images.value.some((i) => i.status === 'failed')) {
+    uni.showToast({ title: '有图片上传失败，请重试或删除', icon: 'none' })
+    return
+  }
   submitting.value = true
   try {
-    await createPost({ post_type: 'general', content: text, category: section.value })
+    const uploaded = images.value.filter((i) => i.status === 'done').map((i) => i.url)
+    await createPost({ post_type: 'general', content: text, category: section.value, images: uploaded })
     uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
     setTimeout(() => {
       content.value = ''
       section.value = ''
       aiEnabled.value = false
+      images.value = []
       uni.switchTab({ url: '/pages/index/index' })
     }, 1200)
   } catch (e) {
@@ -306,12 +373,13 @@ const onSubmit = async () => {
   background-color: #ffffff;
   padding: 0 24rpx 40rpx;
   display: flex;
-  gap: 24rpx;
+  flex-wrap: wrap;
+  gap: 20rpx;
 }
 
 .upload-box {
-  width: 210rpx;
-  height: 210rpx;
+  width: 200rpx;
+  height: 200rpx;
   border: 2rpx dashed #dcdee0;
   border-radius: 16rpx;
   display: flex;
@@ -329,6 +397,62 @@ const onSubmit = async () => {
 .upload-text {
   font-size: 24rpx;
   color: #969799;
+}
+
+.upload-count {
+  font-size: 20rpx;
+  color: #c8c9cc;
+  margin-top: 6rpx;
+}
+
+/* 已选图片网格 */
+.img-cell {
+  position: relative;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.img-thumb {
+  width: 100%;
+  height: 100%;
+}
+
+.img-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 32rpx;
+}
+
+.img-mask.failed {
+  background: rgba(247, 59, 67, 0.55);
+}
+
+.fail-text {
+  font-size: 22rpx;
+  margin-top: 6rpx;
+}
+
+.img-del {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  font-size: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 5. AI 协助 */

@@ -3,7 +3,8 @@
     <!-- 头部 -->
     <view class="feed-header">
       <view class="user-info" @tap="onDetail">
-        <view class="avatar" :style="{ background: avatarColor }">
+        <image v-if="post.author.avatar_url" class="avatar" :src="post.author.avatar_url" mode="aspectFill" />
+        <view v-else class="avatar" :style="{ background: avatarColor }">
           <text class="avatar-letter">{{ avatarLetter }}</text>
         </view>
         <view class="user-meta">
@@ -22,12 +23,13 @@
     <view class="feed-body" @tap="onDetail">
       <text class="feed-text">{{ post.content }}</text>
       <view v-if="post.images && post.images.length > 0" class="feed-images">
+        <!-- 单图：widthFix 自适应铺开；多图：1:1 缩略排开（最多展示 3 张） -->
         <image
           v-for="(img, i) in post.images.slice(0, 3)"
           :key="i"
-          class="img-ph"
+          :class="post.images.length === 1 ? 'img-single' : 'img-ph'"
           :src="img"
-          mode="aspectFill"
+          :mode="post.images.length === 1 ? 'widthFix' : 'aspectFill'"
         />
       </view>
     </view>
@@ -207,6 +209,7 @@ const onFavorite = async () => {
 .feed-text { font-size: 29rpx; color: var(--text-1); line-height: 1.6; white-space: pre-wrap; }
 .feed-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .img-ph { width: 200rpx; height: 200rpx; border-radius: 16rpx; background: #f2f3f5; }
+.img-single { width: 100%; border-radius: 16rpx; background: #f2f3f5; }
 .feed-actions {
   display: flex; margin-top: 28rpx; border-top: 1rpx solid #f5f5f5;
   padding-top: 24rpx; justify-content: space-between;

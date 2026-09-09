@@ -1,9 +1,13 @@
 <template>
   <view class="post-card" @tap="goDetail">
     <view class="card-header">
-      <image class="avatar" :src="post.author.avatar_url || '/static/default-avatar.png'" />
+      <!-- 无头像：昵称首字符色块兜底（不再引用不存在的 default-avatar.png，防 EISDIR） -->
+      <image v-if="author.avatar_url" class="avatar" :src="author.avatar_url" mode="aspectFill" />
+      <view v-else class="avatar avatar-fallback" :style="{ background: fallbackColor }">
+        <text class="avatar-letter">{{ (author.nickname || '?').slice(0, 1) }}</text>
+      </view>
       <view class="author-info">
-        <text class="nickname">{{ post.author.nickname }}</text>
+        <text class="nickname">{{ author.nickname }}</text>
         <text class="post-type">{{ POST_TYPE_MAP[post.post_type] }}</text>
       </view>
       <text v-if="post.is_pinned" class="pinned-badge">置顶</text>
@@ -12,12 +16,13 @@
     <view class="card-content">
       <text class="content-text">{{ post.content }}</text>
       <view v-if="post.images && post.images.length > 0" class="images-grid">
+        <!-- 单图：widthFix 自适应铺开；多图：1:1 排开（最多 3 张 + 计数） -->
         <image
           v-for="(img, idx) in displayImages"
           :key="idx"
-          class="post-image"
+          :class="post.images.length === 1 ? 'post-image-single' : 'post-image'"
           :src="img"
-          mode="aspectFill"
+          :mode="post.images.length === 1 ? 'widthFix' : 'aspectFill'"
         />
         <text v-if="post.images.length > 3" class="more-images">+{{ post.images.length - 3 }}</text>
       </view>
@@ -44,6 +49,22 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+// 作者信息归一化：/posts/my 返回 user.nickname，信息流返回 author.*——两头兼容
+// （修复：此前 my-posts 页头像/昵称区因字段不匹配从未渲染过）
+const author = computed(() => {
+  const p = props.post as PostBrief & { user?: { nickname?: string; avatar_url?: string | null } }
+  return p.author ?? p.user ?? { nickname: '同学', avatar_url: null }
+})
+
+// 无头像兜底色：昵称哈希取色（与个人主页 colorOf 同款思路）
+const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
+const fallbackColor = computed(() => {
+  const s = author.value?.nickname || ''
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+})
 
 const displayImages = computed(() => {
   return props.post.images?.slice(0, 3) || []
@@ -89,6 +110,18 @@ const goDetail = () => {
   height: 64rpx;
   border-radius: 50%;
   margin-right: 16rpx;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-letter {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #ffffff;
 }
 
 .author-info {
@@ -139,6 +172,11 @@ const goDetail = () => {
 .post-image {
   width: 200rpx;
   height: 200rpx;
+  border-radius: 12rpx;
+}
+
+.post-image-single {
+  width: 100%;
   border-radius: 12rpx;
 }
 

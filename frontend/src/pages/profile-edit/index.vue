@@ -123,7 +123,7 @@ const changeImage = (kind: 'avatars' | 'banners') => {
       if (!filePath) return
       uni.showLoading({ title: '上传中…' })
       try {
-        const url = await uploadFile(filePath, `${kind}/${Date.now()}.jpg`)
+        const url = await uploadFile(filePath, kind)
         const field = kind === 'avatars' ? 'avatar_url' : 'banner_url'
         await put('/user/profile', { [field]: url })
         if (kind === 'avatars') form.value.avatar_url = url

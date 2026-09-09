@@ -37,8 +37,16 @@
         <text v-if="!user.bio">在校园里发现美好，记录点滴日常 ✨</text>
       </view>
 
-      <!-- 未登录：演示登录入口（H5 联调用） -->
+      <!-- 未登录：网页版登录入口（H5 部署用，注册/登录合一） -->
+      <!-- #ifdef H5 -->
       <view v-if="!loggedIn" class="dev-login-row">
+        <view class="dev-capsule" @tap="showWebLogin = true">
+          <text>🔑 登录 / 注册</text>
+        </view>
+      </view>
+      <!-- #endif -->
+      <!-- 未登录：本地联调演示入口（仅 VITE_DEV_LOGIN=true 的构建渲染，生产构建自动隐藏） -->
+      <view v-if="!loggedIn && DEV_LOGIN_ON" class="dev-login-row">
         <view class="dev-capsule" @tap="doDevLogin(false)">
           <text>一键登录（演示学生）</text>
         </view>
@@ -132,6 +140,23 @@
     </view>
 
     <TabBar :current="4" />
+
+    <!-- 网页版登录弹窗（H5） -->
+    <!-- #ifdef H5 -->
+    <view v-if="showWebLogin" class="wl-mask" @tap="showWebLogin = false">
+      <view class="wl-card" @tap.stop>
+        <text class="wl-title">登录 / 注册</text>
+        <text class="wl-sub">昵称即用户名，首次输入自动注册</text>
+        <input v-model="wlForm.username" class="wl-input" :maxlength="20" placeholder="用户名（2-20 字）"
+               placeholder-class="ph" />
+        <input v-model="wlForm.password" class="wl-input" :maxlength="64" password placeholder="密码（至少 6 位）"
+               placeholder-class="ph" />
+        <view class="wl-btn" :class="{ saving: wlSaving }" @tap="doWebLogin">
+          <text>{{ wlSaving ? '登录中…' : '进入鄂应墙' }}</text>
+        </view>
+      </view>
+    </view>
+    <!-- #endif -->
   </view>
 </template>
 
@@ -140,7 +165,7 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
-import { devLogin } from '@/api/auth'
+import { devLogin, webLogin } from '@/api/auth'
 import { getProfile } from '@/api/profile'
 import { get, put, uploadFile } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
@@ -319,6 +344,42 @@ const doDevLogin = async (asAdmin: boolean) => {
   }
 }
 
+// ===== 网页版登录（H5）：注册/登录合一，与 devLogin 共用落地流程 =====
+const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
+const showWebLogin = ref(false)
+const wlSaving = ref(false)
+const wlForm = ref({ username: '', password: '' })
+
+const doWebLogin = async () => {
+  const username = wlForm.value.username.trim()
+  const password = wlForm.value.password
+  if (username.length < 2 || password.length < 6) {
+    uni.showToast({ title: '用户名≥2字，密码≥6位', icon: 'none' })
+    return
+  }
+  wlSaving.value = true
+  try {
+    const res = await webLogin(username, password)
+    tokenStorage.setToken(res.access_token)
+    userStorage.setUserInfo({
+      id: res.user_info.id,
+      nickname: res.user_info.nickname,
+      role: res.role,
+      is_verified: res.user_info.is_verified,
+    })
+    showWebLogin.value = false
+    loggedIn.value = true
+    isVerified.value = !!res.user_info.is_verified
+    uni.showToast({ title: `欢迎，${res.user_info.nickname}`, icon: 'success' })
+    loadedTabs.value.clear()
+    await loadProfile()
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || '登录失败', icon: 'none' })
+  } finally {
+    wlSaving.value = false
+  }
+}
+
 onShow(() => loadProfile())
 
 /** QQ式点击更换：选图 → 上传 → 持久化（kind: avatars | banners） */
@@ -335,7 +396,7 @@ const changeImage = (kind: 'avatars' | 'banners') => {
       if (!filePath) return
       uni.showLoading({ title: '上传中…' })
       try {
-        const url = await uploadFile(filePath, `${kind}/${Date.now()}.jpg`)
+        const url = await uploadFile(filePath, kind)
         const field = kind === 'avatars' ? 'avatar_url' : 'banner_url'
         await put('/user/profile', { [field]: url })
         if (kind === 'avatars') avatarUrl.value = url
@@ -464,6 +525,46 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   border-radius: 30rpx;
 }
 .dev-capsule.admin { background: #8a5cf5; }
+
+/* 网页版登录弹窗（H5） */
+.wl-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.wl-card {
+  width: 580rpx;
+  background: #ffffff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+}
+.wl-title { font-size: 36rpx; font-weight: bold; color: var(--text-1); text-align: center; }
+.wl-sub { font-size: 22rpx; color: var(--text-3); text-align: center; margin-top: 10rpx; }
+.wl-input {
+  margin-top: 28rpx;
+  background: var(--bg-page);
+  border-radius: 16rpx;
+  padding: 22rpx 26rpx;
+  font-size: 28rpx;
+  color: var(--text-1);
+}
+.wl-btn {
+  margin-top: 36rpx;
+  background: var(--brand-red-dark);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 40rpx;
+}
+.wl-btn.saving { opacity: 0.6; }
 
 .slim-tip {
   margin-top: 20rpx;

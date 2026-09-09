@@ -25,6 +25,14 @@ export function devLogin(asAdmin = false) {
 }
 
 /**
+ * 网页版登录（账号不存在即注册，昵称即用户名）。
+ * H5 部署用；与微信登录共存（openid 命名空间 web:*）。
+ */
+export function webLogin(username: string, password: string) {
+  return post<LoginResponse>('/auth/web-login', { username, password })
+}
+
+/**
  * 微信小程序：静默登录（uni.login 换 code → 后端 /auth/login 换 token → 落地存储）。
  * 真机/小程序环境用；H5 预览请用 devLogin。
  * 返回是否登录成功（失败不应阻塞应用启动，按游客态继续）。

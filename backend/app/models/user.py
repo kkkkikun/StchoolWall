@@ -20,6 +20,8 @@ class User(Base):
     banner_url: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 我的主页横幅照片
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
     bio: Mapped[str | None] = mapped_column(String(200), nullable=True)  # 个人简介
+    # 网页版登录密码（bcrypt）；微信小程序用户为空，两套登录互不干扰
+    web_password_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="guest")
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[int] = mapped_column(SmallInteger, default=1)

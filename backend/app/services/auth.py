@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import User
+from app.utils.password import hash_password, verify_password
 from app.utils.security import create_access_token
 from app.utils.zhengfang import verify_student
 
@@ -133,4 +134,48 @@ async def student_verify(
         "code": 0,
         "message": "认证成功",
         "data": {"access_token": token, "role": "student"},
+    }
+
+
+async def web_login(db: AsyncSession, username: str, password: str) -> dict:
+    """网页版登录：账号不存在即注册（昵称即用户名），存在则校验密码。
+
+    - openid 命名空间 web:{username}，与微信用户互不冲突
+    - role=student 直发（测试版妥协：网页用户可发帖互动）；is_verified=False
+      ——正式小程序上线后可收紧为 guest+学籍认证
+    - 冻结用户拒登；密码 bcrypt 存储，绝不落明文
+    """
+    openid = f"web:{username}"
+    user = (await db.execute(select(User).where(User.openid == openid))).scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            openid=openid,
+            nickname=username,
+            role="student",
+            is_verified=False,
+            web_password_hash=hash_password(password),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+    else:
+        if user.status == 0:
+            return {"code": 403, "message": "账号已被冻结", "data": None}
+        if not user.web_password_hash or not verify_password(password, user.web_password_hash):
+            return {"code": 401, "message": "用户名或密码错误", "data": None}
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "access_token": token,
+            "role": user.role,
+            "user_info": {
+                "id": str(user.id),
+                "nickname": user.nickname,
+                "is_verified": user.is_verified,
+            },
+        },
     }

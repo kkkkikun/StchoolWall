@@ -1,4 +1,5 @@
 from sqlalchemy import select, func, and_, text
+from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.interaction import Comment, Like
@@ -128,7 +129,7 @@ async def list_posts_admin(
     if status is not None:
         conditions.append(Post.status == status)
     if q:
-        conditions.append(Post.content.ilike(f"%{q}%"))
+        conditions.append(Post.content.ilike(f"%{escape_like(q)}%"))
     if post_type:
         conditions.append(Post.post_type == post_type)
     if category:
@@ -290,7 +291,7 @@ async def list_users(
     """
     conditions = []
     if q:
-        like = f"%{q}%"
+        like = f"%{escape_like(q)}%"
         conditions.append(
             (User.nickname.ilike(like))
             | (User.student_id.ilike(like))

@@ -113,10 +113,11 @@ export { request }
  * 文件上传（uni.uploadFile 封装）：带 Bearer token，解析统一 {code,data} 壳。
  * 返回后端 public_url。供头像/横幅/发帖图片等直接上传使用。
  */
-export function uploadFile(filePath: string, path: string): Promise<string> {
+/** kind: 上传类别（avatars|banners|posts|parties）；落盘路径由服务端生成。 */
+export function uploadFile(filePath: string, kind: string): Promise<string> {
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: `${BASE_URL}/upload/direct?path=${encodeURIComponent(path)}`,
+      url: `${BASE_URL}/upload/direct?kind=${encodeURIComponent(kind)}`,
       filePath,
       name: 'file',
       header: { Authorization: `Bearer ${getToken()}` },

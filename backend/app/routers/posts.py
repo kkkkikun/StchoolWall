@@ -9,6 +9,7 @@ from app.models.interaction import Favorite, Like
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
 from app.services.moderation import check_post_moderation
+from app.utils.rate_limit import RATE_POST_CREATE, RATE_REPORT, check_rate_limit
 from app.services.post import (
     create_post,
     featured_posts,
@@ -62,6 +63,9 @@ async def new_post(
     if body.post_type == "advertisement" and user.role != "admin":
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="仅管理员可发布广告")
+
+    # 按用户限流：防灌水（审核频率风控之外的第一道闸）
+    await check_rate_limit(f"rl:u:{user.id}:posts", *RATE_POST_CREATE)
 
     post = await create_post(
         db, user, body.post_type, body.content,
@@ -176,7 +180,8 @@ async def submit_report(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
-    """举报帖子（不影响帖子状态，仅记录）"""
+    """举报帖子（不影响帖子状态，仅记录；按用户限流防举报轰炸）"""
+    await check_rate_limit(f"rl:u:{user.id}:reports", *RATE_REPORT)
     report = await report_post(db, post_id, user, body.reason, body.description)
     if not report:
         from fastapi import HTTPException

@@ -27,10 +27,10 @@ class LocalStorage(StorageBackend):
         self.base_url = "/static"
 
     def _safe_path(self, path: str) -> Path:
-        """拼接并校验路径，防 ../ 穿越。"""
+        """拼接并校验路径，防 ../ 穿越与同前缀兄弟目录逃逸（路径包含语义，非字符串前缀）。"""
         full = (self.base_dir / path).resolve()
         base = self.base_dir.resolve()
-        if not str(full).startswith(str(base)):
+        if not full.is_relative_to(base):
             raise ValueError("非法路径")
         return full
 

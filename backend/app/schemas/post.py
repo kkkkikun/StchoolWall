@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PostCreate(BaseModel):
@@ -8,8 +8,17 @@ class PostCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
     category: str | None = Field(None, max_length=20)
     images: list[str] = Field(default_factory=list, max_length=6)
-    price: float | None = Field(None, ge=0)
-    tag_ids: list[int] = Field(default_factory=list)
+    price: float | None = Field(None, ge=0, le=10_000_000)
+    tag_ids: list[int] = Field(default_factory=list, max_length=10)
+
+    @field_validator("images")
+    @classmethod
+    def images_must_be_local_static(cls, v: list[str]) -> list[str]:
+        """仅允许本站 /static/ 相对路径：外部 URL 会进入审核管线的服务端取回链路（SSRF）。"""
+        for url in v:
+            if not url.startswith("/static/") or len(url) > 200:
+                raise ValueError("images 仅允许 /static/ 开头的相对路径（≤200 字符）")
+        return v
 
 
 class PostBrief(BaseModel):
@@ -32,4 +41,4 @@ class PostListResponse(BaseModel):
 
 class ReportRequest(BaseModel):
     reason: str = Field(..., min_length=1, max_length=100)
-    description: str | None = None
+    description: str | None = Field(None, max_length=1000)

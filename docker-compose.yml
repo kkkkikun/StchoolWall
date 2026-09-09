@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-eywall123}
       POSTGRES_DB: ey_wall
     ports:
-      - "5432:5432"
+      # 仅本机可达；生产必须改强密码（并考虑完全不发布端口，走内部网络）
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +21,8 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379"
+      # 仅本机可达；生产建议加 --requirepass 并同样只绑 127.0.0.1
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

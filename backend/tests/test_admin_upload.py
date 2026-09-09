@@ -62,15 +62,21 @@ class TestStaticFiles:
 
 
 class TestSafePath:
-    async def test_reject_path_traversal(self, client: AsyncClient, student_token: str):
-        """LocalStorage._safe_path 防 ../ 穿越（走 /upload/direct 传恶意 path）。"""
+    async def test_client_path_is_ignored(self, client: AsyncClient, student_token: str):
+        """安全收紧后客户端只能传 kind：恶意 path 参数不再被接受（缺 kind → 422），
+        携带 kind 时文件也只落在服务端生成的 kind 目录下。"""
         files = _jpg()
         r = await client.post(
             "/api/v1/upload/direct?path=../etc/pwned.jpg",
             files=files, headers=auth_header(student_token),
         )
-        assert r.status_code == 400  # ValueError → 400
-        assert "非法路径" in r.json()["detail"]
+        assert r.status_code == 422  # 无 kind 参数
+        r2 = await client.post(
+            "/api/v1/upload/direct?kind=banners&path=../etc/pwned.jpg",
+            files=files, headers=auth_header(student_token),
+        )
+        assert r2.status_code == 200
+        assert r2.json()["data"]["public_url"].startswith("/static/banners/")
 
     def test_safe_path_unit(self):
         from app.utils.storage import LocalStorage

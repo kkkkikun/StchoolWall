@@ -1,5 +1,6 @@
 """敏感词库服务：审核用加载器 + 管理端 CRUD。"""
 from sqlalchemy import func, select
+from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.sensitive_word import SensitiveWord
@@ -26,7 +27,7 @@ async def list_sensitive_words(
     """管理端列表：词/级别筛选 + 分页，id 倒序。"""
     conditions = []
     if q:
-        conditions.append(SensitiveWord.word.ilike(f"%{q}%"))
+        conditions.append(SensitiveWord.word.ilike(f"%{escape_like(q)}%"))
     if level:
         conditions.append(SensitiveWord.level == level)
     base = select(SensitiveWord).where(*conditions)

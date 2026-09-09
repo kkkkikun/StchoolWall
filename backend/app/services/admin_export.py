@@ -4,6 +4,7 @@ import io
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import select
+from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import AdminActor
@@ -21,8 +22,14 @@ BOM = "﻿"
 def _csv_chunk(rows: list[list]) -> str:
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerows(rows)
+    writer.writerows([[_csv_safe_cell(c) for c in row] for row in rows])
     return buf.getvalue()
+
+
+def _csv_safe_cell(value) -> str:
+    """CSV 公式注入防护：= + - @ 开头的单元格加 ' 前缀（Excel/WPS 打开导出文件时防执行）。"""
+    s = str(value)
+    return "'" + s if s[:1] in ("=", "+", "-", "@") else s
 
 
 async def iter_posts_csv(
@@ -39,7 +46,7 @@ async def iter_posts_csv(
         conditions.append(Post.status == status)
     if q:
         from sqlalchemy import or_
-        conditions.append(or_(Post.content.ilike(f"%{q}%")))
+        conditions.append(or_(Post.content.ilike(f"%{escape_like(q)}%")))
 
     last_id = 0
     while True:

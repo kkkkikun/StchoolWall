@@ -10,6 +10,7 @@ from app.config import settings
 async def test_dev_login_returns_token(client: AsyncClient):
     """development 环境返回 student token"""
     settings.ENVIRONMENT = "development"
+    settings.DEV_LOGIN_ENABLED = True
     try:
         r = await client.post("/api/v1/auth/dev-login")
         assert r.status_code == 200
@@ -19,6 +20,7 @@ async def test_dev_login_returns_token(client: AsyncClient):
         assert data["user_info"]["nickname"]
     finally:
         settings.ENVIRONMENT = "test"
+        settings.DEV_LOGIN_ENABLED = False
 
 
 @pytest.mark.asyncio
@@ -32,18 +34,21 @@ async def test_dev_login_blocked_in_non_dev(client: AsyncClient):
 async def test_dev_login_is_idempotent(client: AsyncClient):
     """重复 dev-login 复用同一演示账号（openid 固定）"""
     settings.ENVIRONMENT = "development"
+    settings.DEV_LOGIN_ENABLED = True
     try:
         r1 = await client.post("/api/v1/auth/dev-login")
         r2 = await client.post("/api/v1/auth/dev-login")
         assert r1.json()["data"]["user_info"]["id"] == r2.json()["data"]["user_info"]["id"]
     finally:
         settings.ENVIRONMENT = "test"
+        settings.DEV_LOGIN_ENABLED = False
 
 
 @pytest.mark.asyncio
 async def test_dev_login_admin_role(client: AsyncClient):
     """?as_admin=true 登演示管理员（管理后台联调）"""
     settings.ENVIRONMENT = "development"
+    settings.DEV_LOGIN_ENABLED = True
     try:
         r = await client.post("/api/v1/auth/dev-login?as_admin=true")
         assert r.status_code == 200
@@ -60,3 +65,4 @@ async def test_dev_login_admin_role(client: AsyncClient):
         assert student.json()["data"]["user_info"]["id"] != data["user_info"]["id"]
     finally:
         settings.ENVIRONMENT = "test"
+        settings.DEV_LOGIN_ENABLED = False

@@ -66,7 +66,7 @@ class TestModerationIntegration:
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         r = await client.post(
             "/api/v1/posts",
-            json={"post_type": "general", "content": "测试帖", "images": ["https://img.test.com/1.jpg"]},
+            json={"post_type": "general", "content": "测试帖", "images": ["/static/posts/2026/1.jpg"]},
             headers=auth_header(token),
         )
         assert r.status_code == 200

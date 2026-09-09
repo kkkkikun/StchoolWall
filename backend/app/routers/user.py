@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -54,7 +54,7 @@ async def update_profile(
 
 @router.get("/hot-ranking")
 async def get_hot_ranking(
-    limit: int = 5,
+    limit: int = Query(5, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
     """Top 用户（按帖子获赞总数）；公开接口无需登录。"""

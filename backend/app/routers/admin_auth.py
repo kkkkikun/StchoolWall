@@ -11,7 +11,7 @@ from app.services.admin_auth import (
     get_admin_by_id,
     issue_console_token,
 )
-from app.utils.rate_limit import check_rate_limit
+from app.utils.rate_limit import LOGIN_USER_RATE, check_rate_limit, clear_rate, get_rate, incr_rate
 
 router = APIRouter()
 
@@ -22,14 +22,22 @@ LOGIN_RATE_WINDOW = 60
 
 @router.post("/auth/login")
 async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    """账号密码登录（限流防爆破），返回 console 专用 token。"""
+    """账号密码登录（IP 限流 + 按用户名失败退避），返回 console 专用 token。"""
     ip = request.client.host if request.client else "unknown"
     # 超限直接抛 429
     await check_rate_limit(f"rl:admin_login:ip:{ip}", LOGIN_RATE_MAX, LOGIN_RATE_WINDOW)
 
+    # 按用户名退避：连续失败超阈值后，窗口内正确密码也拒（防换 IP 在线爆破）
+    username_key = f"rl:admin_login:user:{body.username}"
+    max_fails, window = LOGIN_USER_RATE
+    if await get_rate(username_key) >= max_fails:
+        raise HTTPException(status_code=429, detail="失败次数过多，请稍后再试")
+
     admin = await authenticate_admin(db, body.username, body.password)
     if admin is None:
+        await incr_rate(username_key, window)
         raise HTTPException(status_code=401, detail="用户名或密码错误")
+    await clear_rate(username_key)  # 成功清零
 
     return {
         "code": 0,

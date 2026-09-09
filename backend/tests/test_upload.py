@@ -139,13 +139,13 @@ class TestDirectUpload:
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         files = {"file": ("test.jpg", io.BytesIO(b"fake image data"), "image/jpeg")}
         r = await client.post(
-            "/api/v1/upload/direct?path=posts/2026/test.jpg",
+            "/api/v1/upload/direct?kind=posts",
             files=files,
             headers=auth_header(token),
         )
         assert r.status_code == 200
         data = r.json()["data"]
-        assert data["public_url"].startswith("/static/posts/2026/test.jpg")
+        assert data["public_url"].startswith("/static/posts/")
 
     @pytest.mark.asyncio
     async def test_upload_png(self, client: AsyncClient, student_user: User):
@@ -153,7 +153,7 @@ class TestDirectUpload:
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         files = {"file": ("img.png", io.BytesIO(b"\x89PNG\r\n"), "image/png")}
         r = await client.post(
-            "/api/v1/upload/direct?path=posts/2026/img.png",
+            "/api/v1/upload/direct?kind=posts",
             files=files,
             headers=auth_header(token),
         )
@@ -165,7 +165,7 @@ class TestDirectUpload:
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         files = {"file": ("doc.pdf", io.BytesIO(b"pdf content"), "application/pdf")}
         r = await client.post(
-            "/api/v1/upload/direct?path=posts/2026/doc.pdf",
+            "/api/v1/upload/direct?kind=posts",
             files=files,
             headers=auth_header(token),
         )
@@ -177,7 +177,7 @@ class TestDirectUpload:
         token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
         files = {"file": ("test.jpg", io.BytesIO(b"data"), "image/jpeg")}
         r = await client.post(
-            "/api/v1/upload/direct?path=posts/2026/test.jpg",
+            "/api/v1/upload/direct?kind=posts",
             files=files,
             headers=auth_header(token),
         )
@@ -188,14 +188,14 @@ class TestDirectUpload:
         """无 Token 上传被拒绝"""
         files = {"file": ("test.jpg", io.BytesIO(b"data"), "image/jpeg")}
         r = await client.post(
-            "/api/v1/upload/direct?path=posts/2026/test.jpg",
+            "/api/v1/upload/direct?kind=posts",
             files=files,
         )
         assert r.status_code == 403
 
     @pytest.mark.asyncio
     async def test_upload_missing_path_rejected(self, client: AsyncClient, student_user: User):
-        """缺少 path 参数返回 422"""
+        """缺少 kind 参数返回 422"""
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         files = {"file": ("test.jpg", io.BytesIO(b"data"), "image/jpeg")}
         r = await client.post(

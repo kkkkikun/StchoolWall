@@ -11,7 +11,7 @@ alembic==1.14.0
 redis[hiredis]==5.2.1
 
 # Auth & JWT
-python-jose[cryptography]==3.3.0
+pyjwt==2.10.1
 
 # Settings
 pydantic-settings==2.7.1

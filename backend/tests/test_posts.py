@@ -81,7 +81,7 @@ class TestCreatePost:
         r = await client.post("/api/v1/posts", json={
             "post_type": "second_hand",
             "content": "出算法导论",
-            "images": ["https://img.test.com/1.jpg"],
+            "images": ["/static/posts/2026/1.jpg"],
             "price": 25.0,
         }, headers=auth_header(token))
         assert r.status_code == 200

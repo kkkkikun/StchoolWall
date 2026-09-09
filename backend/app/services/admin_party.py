@@ -1,5 +1,6 @@
 """管理后台组局管理：列表 + 关闭/恢复。"""
 from sqlalchemy import func, select
+from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.party import Party
@@ -38,7 +39,7 @@ async def list_parties_admin(
 ) -> tuple[list[dict], int]:
     conditions = []
     if q:
-        like = f"%{q}%"
+        like = f"%{escape_like(q)}%"
         conditions.append(Party.title.ilike(like) | Party.content.ilike(like))
     if status is not None:
         conditions.append(Party.status == status)

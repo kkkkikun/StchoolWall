@@ -1,0 +1,57 @@
+# 生产部署 compose：db + redis + backend（宿主机 nginx 负责 TLS/静态/分流）
+# 用法：cd deploy && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+name: schoolwall
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-eywall}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?请在 .env.prod 设置强密码}
+      POSTGRES_DB: ey_wall
+    ports:
+      # 仅本机可达（nginx/后端经宿主机网络访问）；生产也可去掉 ports 走内部网络
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-eywall}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+    restart: always
+    env_file: .env.prod
+    environment:
+      # 容器同走 compose 默认网络，用服务名直连 db/redis
+      # （注：不能走 host.docker.internal——Linux 引擎下容器经 bridge 网关连不到只绑 127.0.0.1 的端口）
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-eywall}:${DB_PASSWORD}@db:5432/ey_wall
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - static_uploads:/data/static
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  static_uploads:

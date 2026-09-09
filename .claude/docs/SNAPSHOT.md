@@ -151,7 +151,9 @@ SchoolWall/
 ## 当前工作 / 下一步
 
 - 2026-08-31：独立管理后台 8 批次全部完成，307 tests passed，双端 type-check 0 错。
-- 2026-09-03：自动审核系统激活（本地规则层 + 审核记录，366 tests passed）；dev 库已可用——学生帖现在会真实经过敏感词/频率判定。9-03 早些时候完成：编辑资料页、个人主页"我的"风格重做、check-in/精华/热榜/消息页改版（均未提交）。
-- 待办：生产部署（Nginx/HTTPS/密钥管理）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后微信审核层才真实生效，本地规则层已独立生效）、发布页图片上传（后端 /upload/direct 已就绪，前端 uni.uploadFile 未接）。
+- 2026-09-03：自动审核系统激活（本地规则层 + 审核记录，366 tests passed）；dev 库已可用——学生帖现在会真实经过敏感词/频率判定。9-03 早些时候完成：编辑资料页、个人主页"我的"风格重做、check-in/精华/热榜/消息页改版（均已提交 bec3ae..c438c20）。
+- 2026-09-05：**发布页图片全流程**（openspec/changes/post-images）：添加照片真实可用——多选≤6张/压缩/服务端 uuid 落盘/网格预览删除重试/未完成阻止提交；隐藏视频假按钮。修复两个存量 bug：post-card 引用不存在的 default-avatar.png（EISDIR 隐患，改首字符色块兜底）、my-posts 头像昵称区因 author/user 字段不匹配从未渲染（组件内归一化）。E2E 实证带图发布闭环；后端 420 tests 零改动零影响。同日完成：网页登录（web:{username} 命名空间 + bcrypt + 双限流，420 tests）与部署产物（backend/Dockerfile、deploy/{compose.prod,nginx.conf,README}，容器/构建均验证）。
+- 2026-09-04：**安全加固 5 批全部完成**（openspec/changes/security-hardening，412 tests passed）：JWT 密钥轮换+生产 fail-fast；ENVIRONMENT 默认 production + dev-login 双闸（.env 需 DEV_LOGIN_ENABLED=true）；上传 kind 白名单+服务端 uuid 路径（前端 uploadFile 同步改 kind）；封禁/待审帖详情与互动 status==1 门禁；images 限 /static/ 杀 SSRF；发帖/评论/举报/上传按用户限流+管理台按用户名退避；pyjwt 替换 python-jose；escape_like/CSV 公式注入/body 上限/join 行锁/wechat_id 收敛至交易帖型；compose 端口绑 127.0.0.1。遗留 backlog：7 天用户 token 无撤销、上传魔数嗅探、管理台 httpOnly cookie 化。
+- 待办：服务器部署执行（产物已就绪，等用户提供 IP/SSH/域名）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后微信审核层才真实生效，本地规则层已独立生效）。
 - 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。`frontend/src/static/default-avatar.png` 是目录不是文件（post-card 引用会触发 dev server EISDIR 崩溃，待修）。
 - 本地开发环境：backend :8000（uvicorn --reload）、frontend H5 :5173（/tmp/schoolwall-h5.sh 自愈包装）、admin-frontend :5174；测试管理员账号 boss（2026-08-31 建）。

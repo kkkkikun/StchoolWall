@@ -65,6 +65,16 @@
 - **WHEN** 想给敏感词库这类配置表加进程级/TTL 缓存（含 Redis pubsub 失效）
 - **THEN** 根因：测试环境每个用例 TRUNCATE 全部表，进程缓存会跨用例读到脏词库，测试随机漂移；解法：低 QPS 场景直接每次审核读库（"热加载"天然成立），把 loader 做成模块级函数留作未来缓存 seam；预防：凡是注册进 `models/__init__.py` 的表都会被 TRUNCATE，任何缓存测试都要想清楚失效来源
 
+#### Scenario: 字符串锚点补丁器毁坏 import 行
+
+- **WHEN** 用 Python replace 批量给多文件插 import，锚点取的是既有 import 行的**前缀**（如 `from sqlalchemy import`）
+- **THEN** 根因：replace 把锚点替换成"锚点+换行+新 import"，而锚点本身是更长 import 行的前缀，导致原行被截成语法错误（`from sqlalchemy import\n... func, select` 漂到新行上）；解法：锚点必须取完整行（含行尾逗号名单），插入后立即 `ast.parse` 逐文件验证；预防：批量脚本化改动后必须全文件语法检查 + 相关测试，绝不裸信"anchor in src" 断言
+
+#### Scenario: ILIKE 转义与通配包装的顺序
+
+- **WHEN** 给已包装成 `%{q}%` 的变量再做 escape_like
+- **THEN** 根因：把 `%` 一并转义成字面量，搜索退化为精确含 % 字符的匹配、结果全空；解法：永远对**原始 q** 转义后再包装（`f"%{escape_like(q)}%"`），包装变量只包装一次；预防：引入 escape_like 时全仓 grep `ilike(`，统一"先转义后包装"单一形态
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

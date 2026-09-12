@@ -1,6 +1,6 @@
 # SNAPSHOT — SchoolWall 项目状态快照
 
-> 最后更新：2026-08-31 ｜ 分支：main ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-09-11 ｜ 分支：main ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：新会话进入项目时的第一份"现在在哪"快照。规则全文见 `openspec/specs/`，本文件只记状态。
 
 ---
@@ -20,7 +20,7 @@ SchoolWall（鄂应墙）—— 校园匿名墙 / 信息撮合平台，微信小
 | ORM / DB | SQLAlchemy 2.0 async + asyncpg + Alembic | 2.0.36 / 0.30.0 / 1.14.0 |
 | 数据库 | PostgreSQL | 15-alpine |
 | 缓存/队列 | Redis（hiredis） | 7-alpine / 5.2.1 |
-| 认证 | python-jose JWT + 正方爬虫（rsa + bs4 + httpx） | 3.3.0 |
+| 认证 | PyJWT + 正方爬虫（rsa + bs4 + httpx） | 2.10.1 |
 | 存储 | boto3 适配器（local / R2 / aliyun） | 1.36.2 |
 | 前端 | uni-app (Vue 3 + Vite 5 + TS 4.9) | dcloudio 3.0.0-408 |
 | 基础设施 | Docker Compose；生产 Nginx + HTTPS | — |
@@ -74,6 +74,8 @@ SchoolWall/
 │   ├── docs/                  # SNAPSHOT.md / tasks.md（本目录）
 │   ├── skills/                # openspec-*-change / explore / propose / sync-specs
 │   └── commands/opsx/         # /opsx:propose|explore|apply|archive|sync
+├── deploy/                    # 生产部署产物（Dockerfile/compose.prod/nginx）+ ci/（CI 管线）
+│   └── ci/                    # 全 Docker 化 CI：ci.sh 编排 + compose.ci 测试栈 + systemd timer 接入件
 ├── ref/                       # 前端设计参考稿（页面 md + svg 图标）
 ├── 原型导出/                   # 页面截图 PNG + 自包含 HTML（给设计工具导入）
 ├── SchoolWall.md              # MVP 技术实现文档（原始需求）
@@ -153,6 +155,10 @@ SchoolWall/
 - 2026-08-31：独立管理后台 8 批次全部完成，307 tests passed，双端 type-check 0 错。
 - 2026-09-03：自动审核系统激活（本地规则层 + 审核记录，366 tests passed）；dev 库已可用——学生帖现在会真实经过敏感词/频率判定。9-03 早些时候完成：编辑资料页、个人主页"我的"风格重做、check-in/精华/热榜/消息页改版（均已提交 bec3ae..c438c20）。
 - 2026-09-05：**发布页图片全流程**（openspec/changes/post-images）：添加照片真实可用——多选≤6张/压缩/服务端 uuid 落盘/网格预览删除重试/未完成阻止提交；隐藏视频假按钮。修复两个存量 bug：post-card 引用不存在的 default-avatar.png（EISDIR 隐患，改首字符色块兜底）、my-posts 头像昵称区因 author/user 字段不匹配从未渲染（组件内归一化）。E2E 实证带图发布闭环；后端 420 tests 零改动零影响。同日完成：网页登录（web:{username} 命名空间 + bcrypt + 双限流，420 tests）与部署产物（backend/Dockerfile、deploy/{compose.prod,nginx.conf,README}，容器/构建均验证）。
+- 2026-09-11：**服务器端 CI 管线 + 微信小程序兼容准备**（openspec/changes/{server-ci,mp-weixin-compat}）：
+  - `deploy/ci/`：全 Docker 化 CI（服务器只需 docker）——隔离测试栈 ci-db:5433/ci-redis:6380 仅绑本机、跑完 down -v；ci.sh 五阶段（起栈/后端镜像/pytest/前端 type-check+H5+MP 构建/admin 构建）→ report.html + mp-weixin 产物留档；run-ci.sh + systemd timer（hourly，origin/main 无新提交则跳过）+ install.sh 一键安装。本地 WSL 全量验证：425 passed + 3 skipped + 三构建绿，exit 0。
+  - 小程序兼容：静态审计零 H5-only API 泄漏；build:mp-weixin 通过（19 页产物完整，touristappid + urlCheck:false）；`frontend/README-MP.md` devtools 手册。待用户：申请微信测试号配 WECHAT_APP_ID/SECRET 跑通登录链路、devtools 实测。
+  - CI 环境要点：容器需传 ZHENGFANG_BASE_URL 非空值（/auth/verify 配置门禁，空则 4 个认证测试 400）；WSL 首跑需 mirror 预热 python:3.10-slim（docker.io 被墙）。
 - 2026-09-04：**安全加固 5 批全部完成**（openspec/changes/security-hardening，412 tests passed）：JWT 密钥轮换+生产 fail-fast；ENVIRONMENT 默认 production + dev-login 双闸（.env 需 DEV_LOGIN_ENABLED=true）；上传 kind 白名单+服务端 uuid 路径（前端 uploadFile 同步改 kind）；封禁/待审帖详情与互动 status==1 门禁；images 限 /static/ 杀 SSRF；发帖/评论/举报/上传按用户限流+管理台按用户名退避；pyjwt 替换 python-jose；escape_like/CSV 公式注入/body 上限/join 行锁/wechat_id 收敛至交易帖型；compose 端口绑 127.0.0.1。遗留 backlog：7 天用户 token 无撤销、上传魔数嗅探、管理台 httpOnly cookie 化。
 - 待办：服务器部署执行（产物已就绪，等用户提供 IP/SSH/域名）、真机 mp-weixin 联调（需配 WECHAT_APP_ID/SECRET 后微信审核层才真实生效，本地规则层已独立生效）。
 - 已知技术债：游标分页排序键已统一为 id DESC（修复 created_at/id 交叉导致的翻页重复）；admin 列表路由含 Report/User 的 created_at 排序仍有同样隐患（量小暂未修）。`frontend/src/static/default-avatar.png` 是目录不是文件（post-card 引用会触发 dev server EISDIR 崩溃，待修）。

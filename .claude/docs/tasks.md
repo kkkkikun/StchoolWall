@@ -33,7 +33,7 @@
 ### 工程质量
 
 - [ ] 前端补测试（当前测试集中在后端 `backend/tests/`，前端无测试体系）
-- [ ] CI：后端 `pytest` + 前端 `type-check` 自动化
+- [x] CI：后端 `pytest` + 前端 `type-check` 自动化（2026-09-11：deploy/ci/ 全 Docker 化管线，本地全量绿 425 passed；服务器安装执行待用户 → openspec/changes/server-ci/ T8）
 - [ ] 前端页面与后端 API 的契约校验（可考虑 OpenAPI 自动生成类型）
 
 ### 业务（按 SchoolWall.md MVP 蓝图）

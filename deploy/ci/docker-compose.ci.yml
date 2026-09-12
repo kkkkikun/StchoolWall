@@ -1,0 +1,39 @@
+# SchoolWall CI 测试栈：隔离的 PostgreSQL + Redis，仅供 ci.sh 使用。
+# - 端口仅绑 127.0.0.1（5433/6380），不暴露公网
+# - 与生产容器/生产库/8080 完全无关；跑完由 ci.sh 的 trap down -v 销毁
+name: schoolwall-ci
+
+networks:
+  ci-net:
+    name: schoolwall-ci-net
+
+services:
+  ci-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # conftest 把 DATABASE_URL 的 /ey_wall 替换为 /ey_wall_test 后连接，
+      # 因此初始库直接建 ey_wall_test（表由 conftest create_all 创建）
+      POSTGRES_DB: ey_wall_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - ci-net
+
+  ci-redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - ci-net

@@ -1,0 +1,16 @@
+# SchoolWall 后端 CI 镜像：只装依赖跑 pytest，不运行服务。
+# 依赖层（requirements.txt）单独 COPY 以命中构建缓存——代码改动不重装依赖。
+# 构建上下文必须是 backend/ 目录：
+#   docker build -f deploy/ci/Dockerfile.backend-ci backend
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# .env / static 上传物 / 缓存一律不进镜像（密钥红线），由 backend/.dockerignore 排除
+COPY . .
+
+# pytest.ini: testpaths=tests, asyncio_mode=auto
+CMD ["python", "-m", "pytest", "-q"]

@@ -1,0 +1,9 @@
+# CI/生产镜像构建排除项（构建上下文 = backend/）
+.env
+.env.*
+static/
+**/__pycache__/
+.pytest_cache/
+htmlcov/
+.coverage*
+tests/__pycache__/

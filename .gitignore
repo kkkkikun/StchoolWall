@@ -55,3 +55,6 @@ backend/static/
 SchoolWall原型*.zip
 *.rar
 /static/
+
+# CI 产物（deploy/ci/ci.sh 输出）
+ci-artifacts/

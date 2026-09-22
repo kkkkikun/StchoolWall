@@ -118,8 +118,8 @@ const goBack = () =>
 /* 头部：粉色沉浸式，与首页/互动页统一 */
 .header { background-color: var(--brand-red); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-1); }
+.back-btn { font-size: 56rpx; color: #ffffff; line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #ffffff; }
 .header-right { width: 100rpx; }
 
 .intro-bar { padding: 20rpx 32rpx 4rpx; }

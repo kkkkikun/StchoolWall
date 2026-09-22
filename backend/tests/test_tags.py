@@ -60,7 +60,7 @@ class TestCreateTag:
     async def test_admin_create_tag(self, client: AsyncClient, admin_user: User):
         """admin 创建标签成功"""
         token = create_access_token({"sub": str(admin_user.id), "role": "admin"})
-        r = await client.post("/api/v1/tags", json={"name": "求职辅导"}, headers=auth_header(token))
+        r = await client.post("/api/v1/admin/tags", json={"name": "求职辅导"}, headers=auth_header(token))
         assert r.status_code == 200
         assert r.json()["data"]["name"] == "求职辅导"
 
@@ -69,27 +69,27 @@ class TestCreateTag:
         """重复标签名被拒绝"""
         await _seed_tag("已存在")
         token = create_access_token({"sub": str(admin_user.id), "role": "admin"})
-        r = await client.post("/api/v1/tags", json={"name": "已存在"}, headers=auth_header(token))
+        r = await client.post("/api/v1/admin/tags", json={"name": "已存在"}, headers=auth_header(token))
         assert r.status_code == 409
 
     @pytest.mark.asyncio
     async def test_student_cannot_create(self, client: AsyncClient, student_user: User):
         """student 不能创建标签"""
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
-        r = await client.post("/api/v1/tags", json={"name": "试试"}, headers=auth_header(token))
+        r = await client.post("/api/v1/admin/tags", json={"name": "试试"}, headers=auth_header(token))
         assert r.status_code == 403
 
     @pytest.mark.asyncio
     async def test_no_token_cannot_create(self, client: AsyncClient):
         """无 Token 不能创建"""
-        r = await client.post("/api/v1/tags", json={"name": "试试"})
+        r = await client.post("/api/v1/admin/tags", json={"name": "试试"})
         assert r.status_code == 403
 
     @pytest.mark.asyncio
     async def test_empty_name_rejected(self, client: AsyncClient, admin_user: User):
         """空标签名被拒绝"""
         token = create_access_token({"sub": str(admin_user.id), "role": "admin"})
-        r = await client.post("/api/v1/tags", json={"name": ""}, headers=auth_header(token))
+        r = await client.post("/api/v1/admin/tags", json={"name": ""}, headers=auth_header(token))
         assert r.status_code == 422
 
 
@@ -105,12 +105,12 @@ class TestDeleteTag:
         """admin 删除标签成功"""
         tag = await _seed_tag("待删除")
         token = create_access_token({"sub": str(admin_user.id), "role": "admin"})
-        r = await client.delete(f"/api/v1/tags/{tag.id}", headers=auth_header(token))
+        r = await client.delete(f"/api/v1/admin/tags/{tag.id}", headers=auth_header(token))
         assert r.status_code == 200
 
         # 确认已删除
-        r2 = await client.get("/api/v1/tags")
-        names = [t["name"] for t in r2.json()["data"]]
+        r2 = await client.get("/api/v1/admin/tags", headers=auth_header(token))
+        names = [t["name"] for t in r2.json()["data"]["items"]]
         assert "待删除" not in names
 
     @pytest.mark.asyncio
@@ -125,5 +125,5 @@ class TestDeleteTag:
         """student 不能删除标签"""
         tag = await _seed_tag("受保护")
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
-        r = await client.delete(f"/api/v1/tags/{tag.id}", headers=auth_header(token))
+        r = await client.delete(f"/api/v1/admin/tags/{tag.id}", headers=auth_header(token))
         assert r.status_code == 403

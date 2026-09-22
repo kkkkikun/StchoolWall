@@ -33,6 +33,8 @@ IMAGE_UPLOAD = "image.upload"
 ADMIN_CREATE = "admin.create"
 ADMIN_STATUS = "admin.status"
 ADMIN_PASSWORD_RESET = "admin.password_reset"
+TAG_CREATE = "tag.create"
+TAG_DELETE = "tag.delete"
 
 
 async def log_admin_action(

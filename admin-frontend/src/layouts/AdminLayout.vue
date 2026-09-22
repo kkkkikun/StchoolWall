@@ -69,6 +69,7 @@ const menus = [
   { path: '/announcements', title: '公告群发', icon: '📢' },
   { path: '/logs', title: '操作日志', icon: '📋' },
   { path: '/admins', title: '管理员账号', icon: '🔐' },
+  { path: '/tags', title: '标签管理', icon: '🏷️' },
 ]
 
 const activeMenu = computed(() => route.path)

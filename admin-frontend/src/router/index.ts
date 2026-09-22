@@ -21,6 +21,7 @@ const routes = [
       { path: 'announcements', name: 'announcements', component: () => import('@/views/AnnouncementsView.vue'), meta: { title: '公告群发', icon: '📢' } },
       { path: 'logs', name: 'logs', component: () => import('@/views/LogsView.vue'), meta: { title: '操作日志', icon: '📋' } },
       { path: 'admins', name: 'admins', component: () => import('@/views/AdminAccountsView.vue'), meta: { title: '管理员账号', icon: '🔐' } },
+      { path: 'tags', name: 'tags', component: () => import('@/views/TagsView.vue'), meta: { title: '标签管理', icon: '🏷️' } },
     ],
   },
 ]

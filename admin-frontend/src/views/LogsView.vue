@@ -81,6 +81,8 @@ const ACTIONS = [
   { value: 'admin.create', label: '建管理员' },
   { value: 'admin.status', label: '启停管理员' },
   { value: 'admin.password_reset', label: '重置管理员密码' },
+  { value: 'tag.create', label: '建标签' },
+  { value: 'tag.delete', label: '删标签' },
 ]
 
 const actionLabel = (action: string) => ACTIONS.find(a => a.value === action)?.label || action

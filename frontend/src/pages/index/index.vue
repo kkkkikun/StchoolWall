@@ -134,9 +134,9 @@
 
     <!-- 7. 信息流 -->
     <view class="feed-list">
-      <view v-if="loadingFeeds && posts.length === 0" class="feed-tip"
-        ><text>加载中…</text></view
-      >
+      <view v-if="loadingFeeds && posts.length === 0" class="skeleton-list">
+        <SkeletonCard v-for="i in 4" :key="i" />
+      </view>
       <view v-else-if="posts.length === 0" class="feed-tip"
         ><text>暂无内容，下拉刷新或去发布</text></view
       >

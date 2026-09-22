@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET: str = "your_super_secret_key_change_me"
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 10080  # 7 days
+    JWT_EXPIRE_MINUTES: int = 43200  # 30 days（网页端免登录持久化）
 
     # WeChat Mini Program
     WECHAT_APP_ID: str = ""

@@ -42,7 +42,9 @@
 
     <!-- 4. 组局列表 -->
     <view class="party-list">
-      <view v-if="loading && parties.length === 0" class="tip"><text>加载中…</text></view>
+      <view v-if="loading && parties.length === 0" class="skeleton-list">
+        <SkeletonCard v-for="i in 4" :key="i" />
+      </view>
       <view v-else-if="parties.length === 0" class="tip"><text>{{ mode === 'mine' ? '还没有加入任何局' : '暂无组局，去发起一个吧' }}</text></view>
 
       <view v-for="p in parties" :key="p.id" class="party-card">
@@ -88,6 +90,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
+import SkeletonCard from '@/components/skeleton-card.vue'
 import { listParties, partiesSummary, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
 

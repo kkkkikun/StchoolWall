@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import { post, put } from '@/utils/request'
@@ -263,7 +263,7 @@ const onDeleteAccount = async () => {
   }
 }
 
-onShow(() => {
+const refreshAuth = () => {
   loggedIn.value = tokenStorage.isLoggedIn()
   const info = userStorage.getUserInfo()
   user.value = {
@@ -271,6 +271,23 @@ onShow(() => {
     is_verified: !!info?.is_verified,
   }
   calcCache()
+}
+
+onShow(refreshAuth)
+
+onMounted(() => {
+  // H5 多标签页场景：切回该页时 onShow 不一定触发，补 focus/visibility 刷新登录态
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', refreshAuth)
+    document.addEventListener('visibilitychange', refreshAuth)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('focus', refreshAuth)
+    document.removeEventListener('visibilitychange', refreshAuth)
+  }
 })
 </script>
 

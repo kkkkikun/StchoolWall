@@ -145,7 +145,7 @@ const goDetail = () => {
 .pinned-badge {
   font-size: 20rpx;
   color: #fff;
-  background: #ff6b6b;
+  background: var(--brand-red-dark);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
 }
@@ -209,7 +209,7 @@ const goDetail = () => {
 .price {
   font-size: 32rpx;
   font-weight: 600;
-  color: #ff6b6b;
+  color: var(--brand-red-dark);
   display: block;
   margin-top: 12rpx;
 }

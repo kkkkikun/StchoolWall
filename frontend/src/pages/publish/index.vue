@@ -76,7 +76,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { PUBLISH_HOT_TAGS, POST_CATEGORIES } from '@/utils/mock'
 import { createPost } from '@/api/posts'
@@ -87,8 +86,6 @@ const hotTags = PUBLISH_HOT_TAGS
 
 const content = ref('')
 const section = ref('')
-
-onShow(() => {})
 
 const onContentInput = (e: { detail: { value: string } } | Event) => {
   content.value = (e as { detail: { value: string } }).detail.value

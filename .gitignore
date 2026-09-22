@@ -53,6 +53,7 @@ backend/static/
 # 原型导出产物（设计工具用，不入库）
 原型导出/
 SchoolWall原型*.zip
+project.zip
 *.rar
 /static/
 

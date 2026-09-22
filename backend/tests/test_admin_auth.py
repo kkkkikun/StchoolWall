@@ -8,7 +8,6 @@ from app.services.admin_auth import issue_console_token
 from app.utils.password import hash_password, verify_password
 from tests.conftest import TestSession, auth_header
 
-pytestmark = pytest.mark.asyncio
 
 PASSWORD = "Admin12345"
 

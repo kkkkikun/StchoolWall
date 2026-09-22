@@ -81,11 +81,11 @@
 
         <!-- 帖子 / 收藏 / 点赞：紧凑内容卡（标题+摘要+日期+浏览+评论+缩略图） -->
         <template v-if="contentTab !== 'comments'">
-          <view v-if="!posts.length" class="empty">
+          <view v-if="!activePosts.length" class="empty">
             <text>{{ emptyText }}</text>
           </view>
           <view
-            v-for="p in posts"
+            v-for="p in activePosts"
             :key="`${contentTab}-${p.id}`"
             class="post-card"
             @tap="goDetail(p.id)"
@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
@@ -196,7 +196,16 @@ const loggedIn = ref(tokenStorage.isLoggedIn())
 const isVerified = ref(!!userStorage.getUserInfo()?.is_verified)
 const isAdmin = computed(() => userStorage.getUserInfo()?.role === 'admin')
 
-const posts = ref<PostBrief[]>([])
+// 每个 Tab 独立缓存：三个帖子类 Tab 不再共用同一份数组，避免切回时串数据
+const postLists = reactive<{ posts: PostBrief[]; favorites: PostBrief[]; likes: PostBrief[] }>({
+  posts: [],
+  favorites: [],
+  likes: [],
+})
+const activePosts = computed<PostBrief[]>(() => {
+  if (contentTab.value === 'comments') return []
+  return postLists[contentTab.value]
+})
 const myCommentList = ref<
   Array<{ id: number; post_id: number; content: string; post_excerpt: string; post_author: string; created_at: string }>
 >([])
@@ -298,7 +307,7 @@ const switchTab = async (t: ContentTab) => {
     if (t === 'comments') {
       myCommentList.value = items as MyCommentItem[]
     } else {
-      posts.value = items as PostBrief[]
+      postLists[t] = items as PostBrief[]
     }
     loadedTabs.value.add(t)
   } catch (e) {
@@ -342,13 +351,15 @@ const loadProfile = async () => {
     try {
       const items = await fetchMyPosts()
       if (contentTab.value === 'posts') {
-        posts.value = items
+        postLists.posts = items
         loadedTabs.value.add('posts')
       }
     } catch { /* 忽略 */ }
   } else if (!loggedIn.value) {
     // 退出登录后清空内容，避免上一个账号的帖子/评论残留在页面
-    posts.value = []
+    postLists.posts = []
+    postLists.favorites = []
+    postLists.likes = []
     myCommentList.value = []
     loadedTabs.value.clear()
   }

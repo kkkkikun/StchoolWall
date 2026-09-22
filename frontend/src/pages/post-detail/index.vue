@@ -348,7 +348,7 @@ const copyContact = () => {
 .avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; }
 .avatar-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
 .author-meta { flex: 1; display: flex; flex-direction: column; }
-.nickname { font-size: 30rpx; font-weight: bold; color: #333; }
+.nickname { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 .name-row { display: flex; align-items: center; }
 .featured-chip { margin-left: 12rpx; font-size: 18rpx; color: var(--brand-red-dark); background: var(--brand-red-soft); border: 1rpx solid var(--brand-red); padding: 1rpx 10rpx; border-radius: 6rpx; }
 .sub { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
@@ -369,12 +369,12 @@ const copyContact = () => {
 .dot { margin: 0 12rpx; }
 
 .action-bar { display: flex; border-top: 1rpx solid #f5f5f5; border-bottom: 16rpx solid var(--bg-page); padding: 20rpx 24rpx; justify-content: space-around; }
-.act { display: flex; align-items: center; color: #666; font-size: 26rpx; }
+.act { display: flex; align-items: center; color: var(--text-2); font-size: 26rpx; }
 .act.on { color: var(--brand-red); }
 .act-icon { font-size: 34rpx; margin-right: 8rpx; }
 
 .comments { padding: 24rpx; }
-.comments-title { font-size: 30rpx; font-weight: bold; color: #222; margin-bottom: 20rpx; }
+.comments-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); margin-bottom: 20rpx; }
 .empty-comment { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 40rpx 0; }
 .comment { display: flex; padding: 20rpx 0; border-bottom: 1rpx solid #f7f7f7; }
 /* 评论者头像/昵称与楼主同规格（X 式层级：作者一致，正文小一号） */
@@ -382,9 +382,9 @@ const copyContact = () => {
 .c-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
 .c-main { flex: 1; }
 .c-top { display: flex; align-items: center; justify-content: space-between; }
-.c-name { font-size: 30rpx; color: #333; font-weight: bold; }
+.c-name { font-size: 30rpx; color: var(--text-1); font-weight: bold; }
 .c-del { font-size: 22rpx; color: var(--text-3); }
-.c-text { font-size: 25rpx; color: #555; margin-top: 8rpx; display: block; line-height: 1.5; }
+.c-text { font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; display: block; line-height: 1.5; }
 
 .comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: #fff; border-top: 1rpx solid #eee; padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
 .comment-input { flex: 1; height: 72rpx; background: var(--bg-page); border-radius: 36rpx; padding: 0 28rpx; font-size: 28rpx; }

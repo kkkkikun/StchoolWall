@@ -225,7 +225,7 @@ const goCreate = () => {
 .page-header { background-color: var(--brand-red); margin: -20rpx -24rpx 0; }
 .page-title { display: block; padding: 30rpx 40rpx; text-align: center; color: #ffffff; font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
 
-.header-stats { display: flex; align-items: center; justify-content: space-between; font-size: 26rpx; color: #666; padding: 10rpx; }
+.header-stats { display: flex; align-items: center; justify-content: space-between; font-size: 26rpx; color: var(--text-2); padding: 10rpx; }
 .highlight-num { color: var(--brand-red-dark); font-weight: bold; font-size: 32rpx; margin: 0 4rpx; }
 .back-all { color: var(--brand-red); font-size: 24rpx; }
 
@@ -252,7 +252,7 @@ const goCreate = () => {
 .party-title { font-size: 28rpx; color: var(--text-1); font-weight: 500; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .owner-info { display: flex; align-items: center; margin-top: 16rpx; font-size: 24rpx; color: #888; flex-wrap: wrap; }
 .owner-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; margin-right: 12rpx; display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: #fff; font-weight: bold; }
-.owner-name { color: #555; }
+.owner-name { color: var(--text-2); }
 .divider { margin: 0 8rpx; }
 .post-date { color: #aaa; }
 

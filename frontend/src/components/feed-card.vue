@@ -184,7 +184,7 @@ const onFavorite = async () => {
 .avatar-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
-.username { font-size: 28rpx; color: #333; font-weight: bold; }
+.username { font-size: 28rpx; color: var(--text-1); font-weight: bold; }
 .pinned-badge {
   margin-left: 10rpx;
   font-size: 18rpx;
@@ -214,8 +214,8 @@ const onFavorite = async () => {
   display: flex; margin-top: 28rpx; border-top: 1rpx solid #f5f5f5;
   padding-top: 24rpx; justify-content: space-between;
 }
-.action-item { display: flex; align-items: center; gap: 10rpx; color: #666; }
+.action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); }
 .action-item.on .act-num { color: var(--brand-red-dark); }
 .act-icon { width: 36rpx; height: 36rpx; }
-.act-num { font-size: 24rpx; color: #666; }
+.act-num { font-size: 24rpx; color: var(--text-2); }
 </style>

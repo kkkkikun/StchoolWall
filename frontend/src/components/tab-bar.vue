@@ -107,7 +107,7 @@ const onTap = (path: string) => {
 }
 
 .tab-label.active {
-  color: #111111;
+  color: var(--text-1);
   font-weight: bold;
 }
 </style>

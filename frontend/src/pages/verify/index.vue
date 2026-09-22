@@ -121,7 +121,7 @@ const submit = async () => {
 
 .label {
   font-size: 26rpx;
-  color: #666;
+  color: var(--text-2);
   display: block;
   margin-bottom: 16rpx;
 }
@@ -151,7 +151,7 @@ const submit = async () => {
 
 .tips-text {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-3);
   display: block;
   line-height: 1.8;
 }

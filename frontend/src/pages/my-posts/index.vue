@@ -92,12 +92,12 @@ onMounted(() => {
 
 .tab {
   font-size: 28rpx;
-  color: #666666;
+  color: var(--text-2);
   padding-bottom: 12rpx;
 }
 
 .tab.active {
-  color: #111111;
+  color: var(--text-1);
   font-weight: bold;
   border-bottom: 6rpx solid var(--brand-red);
 }
@@ -109,7 +109,7 @@ onMounted(() => {
 .loading, .empty {
   text-align: center;
   padding: 80rpx 0;
-  color: #999;
+  color: var(--text-3);
   font-size: 26rpx;
 }
 </style>

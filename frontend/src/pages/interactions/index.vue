@@ -206,8 +206,8 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: #ffffff; }
-.chip { position: relative; font-size: 28rpx; color: #666666; padding-bottom: 12rpx; line-height: 1.4; }
-.chip.on { color: #111111; font-weight: bold; border-bottom: 6rpx solid var(--brand-red); }
+.chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-bottom: 12rpx; line-height: 1.4; }
+.chip.on { color: var(--text-1); font-weight: bold; border-bottom: 6rpx solid var(--brand-red); }
 .chip-badge { margin-left: 8rpx; font-size: 20rpx; font-weight: normal; color: var(--brand-red-dark); }
 
 .list-area { flex: 1; padding: 16rpx 24rpx 0; box-sizing: border-box; }

@@ -63,6 +63,6 @@ onMounted(async () => {
 
 .tag-name {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-1);
 }
 </style>

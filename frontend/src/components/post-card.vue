@@ -133,12 +133,12 @@ const goDetail = () => {
 .nickname {
   font-size: 28rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--text-1);
 }
 
 .post-type {
   font-size: 22rpx;
-  color: #999;
+  color: var(--text-3);
   margin-top: 4rpx;
 }
 
@@ -156,7 +156,7 @@ const goDetail = () => {
 
 .content-text {
   font-size: 28rpx;
-  color: #333;
+  color: var(--text-1);
   line-height: 1.6;
   display: block;
   margin-bottom: 12rpx;
@@ -222,7 +222,7 @@ const goDetail = () => {
 
 .time {
   font-size: 22rpx;
-  color: #999;
+  color: var(--text-3);
 }
 
 .my-badge {

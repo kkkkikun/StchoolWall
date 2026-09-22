@@ -268,6 +268,8 @@ const onSubmit = async () => {
 }
 
 .tags-scroll {
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
   flex: 1;
 }

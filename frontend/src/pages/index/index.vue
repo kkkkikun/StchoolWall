@@ -683,6 +683,9 @@ const switchTab = (idx: number) => {
 }
 
 .tab-scroll {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   white-space: nowrap;
   padding: 16rpx 24rpx;
 }
@@ -690,13 +693,13 @@ const switchTab = (idx: number) => {
 .tab-item {
   display: inline-block;
   font-size: 28rpx;
-  color: #666666;
+  color: var(--text-2);
   margin-right: 36rpx;
   padding-bottom: 12rpx;
 }
 
 .tab-item.active {
-  color: #111111;
+  color: var(--text-1);
   font-weight: bold;
   border-bottom: 6rpx solid var(--brand-red);
 }

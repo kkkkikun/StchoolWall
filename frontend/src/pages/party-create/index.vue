@@ -104,17 +104,17 @@ const onSubmit = async () => {
 .form-card { background: #fff; border-radius: var(--radius-card); padding: 8rpx 28rpx; }
 .form-item { padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f5; display: flex; align-items: center; }
 .form-card .form-item:last-child { border-bottom: none; }
-.label { width: 160rpx; font-size: 28rpx; color: #333; flex-shrink: 0; }
-.input { flex: 1; font-size: 28rpx; color: #333; }
-.textarea { flex: 1; font-size: 28rpx; color: #333; min-height: 120rpx; }
+.label { width: 160rpx; font-size: 28rpx; color: var(--text-1); flex-shrink: 0; }
+.input { flex: 1; font-size: 28rpx; color: var(--text-1); }
+.textarea { flex: 1; font-size: 28rpx; color: var(--text-1); min-height: 120rpx; }
 .num { width: 120rpx; flex: none; }
 
 .type-toggle { display: flex; gap: 16rpx; }
-.type-opt { padding: 12rpx 32rpx; border-radius: 32rpx; background: #f5f5f5; font-size: 26rpx; color: #666; }
+.type-opt { padding: 12rpx 32rpx; border-radius: 32rpx; background: #f5f5f5; font-size: 26rpx; color: var(--text-2); }
 .type-opt.on { background: var(--brand-red); color: #fff; }
 
 .picker-row { flex: 1; display: flex; align-items: center; justify-content: space-between; }
-.picker-val { font-size: 28rpx; color: #333; }
+.picker-val { font-size: 28rpx; color: var(--text-1); }
 .picker-ph { font-size: 28rpx; color: #bbb; }
 .arrow { color: #ccc; font-size: 32rpx; }
 

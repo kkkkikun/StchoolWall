@@ -33,6 +33,13 @@ export function webLogin(username: string, password: string) {
 }
 
 /**
+ * 公众号网页授权登录（H5 经公众号入口）：OAuth 回调 code → 后端 /auth/mp-login。
+ */
+export function mpLogin(code: string) {
+  return post<LoginResponse>('/auth/mp-login', { code })
+}
+
+/**
  * 微信小程序：静默登录（uni.login 换 code → 后端 /auth/login 换 token → 落地存储）。
  * 真机/小程序环境用；H5 预览请用 devLogin。
  * 返回是否登录成功（失败不应阻塞应用启动，按游客态继续）。

@@ -95,6 +95,12 @@
 			}
 		},
 		{
+			"path": "pages/oauth-callback/index",
+			"style": {
+				"navigationBarTitleText": "微信登录"
+			}
+		},
+		{
 			"path": "pages/verify/index",
 			"style": {
 				"navigationBarTitleText": "学籍认证"

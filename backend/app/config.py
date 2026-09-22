@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # WeChat Mini Program
     WECHAT_APP_ID: str = ""
     WECHAT_APP_SECRET: str = ""
+
+    # WeChat Official Account 网页授权（H5 经公众号入口免密登录）
+    WECHAT_MP_APP_ID: str = ""
+    WECHAT_MP_APP_SECRET: str = ""
     # 内容审核降级策略：True=微信故障时放行（可用性优先），False=保持待审等人工（合规优先）
     MODERATION_FAIL_OPEN: bool = False
     # dev-login 双闸之二：即使 ENVIRONMENT=development 也需显式 true 才暴露一键登录

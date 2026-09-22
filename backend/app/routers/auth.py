@@ -5,8 +5,8 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginResponse, VerifyRequest, WebLoginRequest, WxLoginRequest
-from app.services.auth import dev_login, student_verify, web_login, wx_login
+from app.schemas.auth import LoginResponse, MpLoginRequest, VerifyRequest, WebLoginRequest, WxLoginRequest
+from app.services.auth import dev_login, mp_oauth_login, student_verify, web_login, wx_login
 from app.utils.rate_limit import LOGIN_USER_RATE, check_rate_limit, clear_rate, get_rate, incr_rate
 
 router = APIRouter()
@@ -21,6 +21,21 @@ WEB_LOGIN_IP_RATE = (60, 60)
 async def login(body: WxLoginRequest, db: AsyncSession = Depends(get_db)):
     """微信静默登录"""
     return await wx_login(body.code, db)
+
+
+@router.post("/mp-login")
+async def mp_login_route(
+    body: MpLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """公众号网页授权登录（code 换 openid）。"""
+    client_ip = request.client.host if request.client else "unknown"
+    await check_rate_limit(f"rl:mp_login:ip:{client_ip}", max_requests=60, window_seconds=60)
+    result = await mp_oauth_login(db, body.code)
+    if result.get("code") == 400:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
 
 
 @router.post("/dev-login")

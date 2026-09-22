@@ -154,6 +154,9 @@
         <view class="wl-btn" :class="{ saving: wlSaving }" @tap="doWebLogin">
           <text>{{ wlSaving ? '登录中…' : '进入鄂应墙' }}</text>
         </view>
+        <view v-if="WECHAT_MP_APP_ID" class="wl-wechat" @tap="beginMpOAuth">
+          <text>微信登录（公众号）</text>
+        </view>
       </view>
     </view>
     <!-- #endif -->
@@ -346,6 +349,7 @@ const doDevLogin = async (asAdmin: boolean) => {
 
 // ===== 网页版登录（H5）：注册/登录合一，与 devLogin 共用落地流程 =====
 const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
+const WECHAT_MP_APP_ID = import.meta.env.VITE_WECHAT_MP_APP_ID || ''
 const showWebLogin = ref(false)
 const wlSaving = ref(false)
 const wlForm = ref({ username: '', password: '' })
@@ -378,6 +382,19 @@ const doWebLogin = async () => {
   } finally {
     wlSaving.value = false
   }
+}
+
+// 公众号网页授权：跳转微信换取 code，回跳 oauth-callback 页完成登录
+const beginMpOAuth = () => {
+  if (!WECHAT_MP_APP_ID) {
+    uni.showToast({ title: '未配置公众号登录', icon: 'none' })
+    return
+  }
+  const redirect = window.location.origin + '/#/pages/oauth-callback/index'
+  const url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + WECHAT_MP_APP_ID +
+    '&redirect_uri=' + encodeURIComponent(redirect) +
+    '&response_type=code&scope=snsapi_base&state=eywall#wechat_redirect'
+  window.location.href = url
 }
 
 onShow(() => loadProfile())
@@ -644,4 +661,16 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
+.wl-wechat {
+  margin-top: 20rpx;
+  padding: 24rpx 0;
+  border: 2rpx solid #07c160;
+  border-radius: var(--radius-btn);
+  text-align: center;
+}
+.wl-wechat text {
+  color: #07c160;
+  font-size: 30rpx;
+  font-weight: 600;
+}
 </style>

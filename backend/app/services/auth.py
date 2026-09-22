@@ -63,6 +63,64 @@ async def wx_login(code: str, db: AsyncSession) -> dict:
     }
 
 
+async def mp_oauth_login(db: AsyncSession, code: str) -> dict:
+    """公众号网页授权登录：code 换 openid，然后与现有用户体系打通。
+
+    - openid 命名空间 mp:{openid}，与小程序 / 网页账号互不冲突
+    - 新用户 role=guest，发帖互动需走学籍认证升级
+    """
+    if not settings.WECHAT_MP_APP_ID or not settings.WECHAT_MP_APP_SECRET:
+        return {"code": 400, "message": "公众号登录未配置，请联系管理员", "data": None}
+
+    url = (
+        "https://api.weixin.qq.com/sns/oauth2/access_token"
+        f"?appid={settings.WECHAT_MP_APP_ID}"
+        f"&secret={settings.WECHAT_MP_APP_SECRET}"
+        f"&code={code}"
+        "&grant_type=authorization_code"
+    )
+    try:
+        async with httpx.AsyncClient(trust_env=False) as client:
+            resp = await client.get(url, timeout=10)
+        data = resp.json()
+    except httpx.HTTPError:
+        return {"code": 400, "message": "微信授权请求失败，请重试", "data": None}
+
+    mp_openid = data.get("openid")
+    if not mp_openid:
+        return {"code": 400, "message": "微信授权失败，请重试", "data": None}
+
+    openid = f"mp:{mp_openid}"
+    result = await db.execute(select(User).where(User.openid == openid))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            openid=openid,
+            nickname=_generate_nickname(),
+            role="guest",
+            is_verified=False,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "access_token": token,
+            "role": user.role,
+            "user_info": {
+                "id": str(user.id),
+                "nickname": user.nickname,
+                "is_verified": user.is_verified,
+            },
+        },
+    }
+
+
 async def dev_login(db: AsyncSession, as_admin: bool = False) -> dict:
     """开发环境一键登录（演示身份），仅 ENVIRONMENT=development 暴露路由。
 

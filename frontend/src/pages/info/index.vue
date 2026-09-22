@@ -17,7 +17,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
-type InfoType = 'community' | 'invite' | 'about' | 'contact'
+type InfoType = 'community' | 'invite' | 'about' | 'contact' | 'privacy' | 'agreement'
 
 const INFO_MAP: Record<InfoType, { title: string; paras: string[] }> = {
   community: {
@@ -62,6 +62,30 @@ const INFO_MAP: Record<InfoType, { title: string; paras: string[] }> = {
       '· 邮箱：admin@eywall.cn',
       '',
       '处理时间：工作日 9:00 - 18:00',
+    ],
+  },
+  privacy: {
+    title: '隐私政策',
+    paras: [
+      '我们非常重视你的个人信息安全。本应用仅收集提供服务所必需的信息。',
+      '',
+      '1. 登录注册：使用网页账号登录时，我们会保存经过加密的密码，不会保存明文密码。',
+      '2. 学籍认证：认证时填写的学号与密码仅用于向教务系统核验身份，核验通过后只保存学号与姓名，绝不保存教务密码。',
+      '3. 发布内容：你发布的帖子、评论会公开展示；请勿在正文中公开真实姓名、电话、住址等隐私信息。',
+      '4. 联系方式：帖子详情仅在交易/拼车等必要场景向认证用户展示微信号，游客不可见。',
+      '5. 注销账号：你可以在「设置 → 注销账号」中注销，我们会清理你的学号、姓名、微信号、头像等隐私字段。',
+    ],
+  },
+  agreement: {
+    title: '用户协议',
+    paras: [
+      '欢迎使用鄂应墙。使用本服务即表示你已阅读并同意本协议。',
+      '',
+      '1. 请遵守国家法律法规，不发布违法违规、色情低俗、赌博诈骗等信息。',
+      '2. 不进行人身攻击、地域歧视或泄露他人隐私。',
+      '3. 二手交易、拼车、组局等线下行为请自行甄别风险，注意人身与财产安全。',
+      '4. 管理团队有权对违规内容进行删除、对违规账号进行冻结或封禁。',
+      '5. 如发现违规内容，请通过举报或「联系我们」反馈。',
     ],
   },
 }

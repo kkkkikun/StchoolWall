@@ -83,3 +83,38 @@ async def _decorate(db: AsyncSession, users: list[User], viewer: User | None) ->
         }
         for u in users
     ]
+
+
+async def change_password(db: AsyncSession, user: User, old_password: str, new_password: str) -> None:
+    """网页账号修改密码。微信登录用户没有 web_password_hash。"""
+    from app.utils.password import hash_password, verify_password
+
+    if not user.web_password_hash:
+        raise ValueError("当前账号未设置网页密码，无需修改")
+    if not verify_password(old_password, user.web_password_hash):
+        raise ValueError("原密码错误")
+    user.web_password_hash = hash_password(new_password)
+    await db.commit()
+
+
+async def delete_account(db: AsyncSession, user: User, password: str | None = None) -> None:
+    """注销账号：软删除（status=-2）+ 清理个人隐私字段，保留 openid 防重复注册。
+
+    帖子/评论等历史内容保留，展示名统一为「已注销用户」。
+    """
+    from app.utils.password import verify_password
+
+    if user.web_password_hash:
+        if not password or not verify_password(password, user.web_password_hash):
+            raise ValueError("密码错误，无法注销")
+
+    user.status = -2
+    user.nickname = "已注销用户"
+    user.real_name = None
+    user.student_id = None
+    user.wechat_id = None
+    user.web_password_hash = None
+    user.avatar_url = None
+    user.banner_url = None
+    user.bio = None
+    await db.commit()

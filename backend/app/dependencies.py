@@ -42,8 +42,8 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
-    if user.status == 0:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被冻结")
+    if user.status != 1:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被冻结或已注销")
 
     return user
 
@@ -65,7 +65,7 @@ async def get_optional_user(
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None or user.status == 0:
+    if user is None or user.status != 1:
         return None
 
     return user
@@ -114,8 +114,8 @@ async def require_admin_console(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token 缺少标识")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None or user.status == 0:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已冻结")
+    if user is None or user.status != 1:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在、已冻结或已注销")
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
     return AdminActor(id=str(user.id), display_name=user.nickname, source="legacy")

@@ -47,6 +47,9 @@ async def wx_login(code: str, db: AsyncSession) -> dict:
         await db.commit()
         await db.refresh(user)
 
+    if user.status != 1:
+        return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
+
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return {
         "code": 0,
@@ -104,6 +107,9 @@ async def mp_oauth_login(db: AsyncSession, code: str) -> dict:
         db.add(user)
         await db.commit()
         await db.refresh(user)
+
+    if user.status != 1:
+        return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return {
@@ -217,8 +223,8 @@ async def web_login(db: AsyncSession, username: str, password: str) -> dict:
         await db.commit()
         await db.refresh(user)
     else:
-        if user.status == 0:
-            return {"code": 403, "message": "账号已被冻结", "data": None}
+        if user.status != 1:
+            return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
         if not user.web_password_hash or not verify_password(password, user.web_password_hash):
             return {"code": 401, "message": "用户名或密码错误", "data": None}
 

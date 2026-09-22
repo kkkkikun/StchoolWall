@@ -31,6 +31,20 @@
         </view>
         <text class="arrow">›</text>
       </view>
+      <view class="cell" @tap="goInfo('privacy')">
+        <view class="cell-left">
+          <text class="cell-icon">🔒</text>
+          <text class="cell-title">隐私政策</text>
+        </view>
+        <text class="arrow">›</text>
+      </view>
+      <view class="cell" @tap="goInfo('agreement')">
+        <view class="cell-left">
+          <text class="cell-icon">📄</text>
+          <text class="cell-title">用户协议</text>
+        </view>
+        <text class="arrow">›</text>
+      </view>
       <view class="cell" @tap="goInfo('invite')">
         <view class="cell-left">
           <text class="cell-icon">🎁</text>
@@ -57,6 +71,20 @@
     <!-- 账号操作 -->
     <view class="group-card">
       <view class="group-title"><text>账号</text></view>
+      <view v-if="loggedIn" class="cell" @tap="onChangePassword">
+        <view class="cell-left">
+          <text class="cell-icon">🔑</text>
+          <text class="cell-title">修改密码</text>
+        </view>
+        <text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell danger-cell" @tap="onDeleteAccount">
+        <view class="cell-left">
+          <text class="cell-icon">🗑️</text>
+          <text class="cell-title danger-text">注销账号</text>
+        </view>
+        <text class="arrow">›</text>
+      </view>
       <view v-if="loggedIn" class="cell danger-cell" @tap="onLogout">
         <view class="cell-left">
           <text class="cell-icon">🚪</text>
@@ -81,6 +109,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { post, put } from '@/utils/request'
 
 const loggedIn = ref(tokenStorage.isLoggedIn())
 const user = ref({
@@ -158,10 +187,81 @@ const goLogin = () => {
   uni.showToast({ title: '请到「我的」页登录', icon: 'none' })
 }
 
-const goInfo = (type: 'community' | 'invite' | 'about' | 'contact') => {
+const goInfo = (type: 'community' | 'invite' | 'about' | 'contact' | 'privacy' | 'agreement') => {
   uni.navigateTo({ url: `/pages/info/index?type=${type}` })
 }
 
+
+const promptText = (title: string, placeholder: string): Promise<string | null> => {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title,
+      editable: true,
+      placeholderText: placeholder,
+      success: (r) => {
+        if (!r.confirm) return resolve(null)
+        resolve((r as any).content || '')
+      },
+      fail: () => resolve(null),
+    })
+  })
+}
+
+const onChangePassword = async () => {
+  if (!loggedIn.value) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  const oldPwd = await promptText('修改密码', '请输入原密码')
+  if (oldPwd === null) return
+  const newPwd = await promptText('修改密码', '请输入新密码（至少 6 位）')
+  if (newPwd === null) return
+  if (newPwd.length < 6) {
+    uni.showToast({ title: '新密码至少 6 位', icon: 'none' })
+    return
+  }
+  try {
+    await put('/user/password', { old_password: oldPwd, new_password: newPwd })
+    uni.showToast({ title: '密码已更新，请重新登录', icon: 'success' })
+    tokenStorage.removeToken()
+    userStorage.removeUserInfo()
+    loggedIn.value = false
+    setTimeout(() => uni.navigateBack(), 700)
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || '修改失败', icon: 'none' })
+  }
+}
+
+const onDeleteAccount = async () => {
+  if (!loggedIn.value) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  const r = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '注销账号',
+      content: '注销后无法恢复，历史帖子将显示为「已注销用户」。确定继续吗？',
+      confirmText: '确认注销',
+      confirmColor: '#f73b43',
+      success: (res) => resolve(!!res.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!r) return
+
+  const pwd = await promptText('注销账号', '网页账号请输入密码；微信用户可留空')
+  if (pwd === null) return
+  try {
+    await post('/user/account/deactivate', { password: pwd || null })
+    uni.showToast({ title: '账号已注销', icon: 'success' })
+    tokenStorage.removeToken()
+    userStorage.removeUserInfo()
+    loggedIn.value = false
+    setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 700)
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message || '注销失败', icon: 'none' })
+  }
+}
 
 onShow(() => {
   loggedIn.value = tokenStorage.isLoggedIn()

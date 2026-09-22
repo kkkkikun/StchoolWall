@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User
-from app.schemas.user import ProfileResponse, ProfileUpdateRequest
+from app.schemas.user import ChangePasswordRequest, DeleteAccountRequest, ProfileResponse, ProfileUpdateRequest
 from app.services.checkin import check_in, checkin_status
+from app.services.profile import change_password, delete_account
 from app.services.ranking import hot_users
 
 router = APIRouter()
@@ -47,6 +48,34 @@ async def update_profile(
         user.bio = body.bio
     await db.commit()
     return {"code": 0, "message": "success"}
+
+
+@router.put("/password")
+async def change_password_route(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """修改网页账号密码。"""
+    try:
+        await change_password(db, user, body.old_password, body.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"code": 0, "message": "密码已更新"}
+
+
+@router.post("/account/deactivate")
+async def deactivate_account_route(
+    body: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """注销账号：软删除并清理隐私字段。"""
+    try:
+        await delete_account(db, user, body.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"code": 0, "message": "账号已注销"}
 
 
 # ---- 热门用户榜（公开，消息页横滑） ----

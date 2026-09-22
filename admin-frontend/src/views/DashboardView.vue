@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import * as echarts from 'echarts'
+import type { ECharts } from 'echarts'
 import { getStats, getTrends, type AdminStats, type TrendPoint } from '@/api/stats'
 
 const stats = ref<AdminStats | null>(null)
@@ -49,14 +49,22 @@ const cards = computed(() => {
 })
 
 const chartEl = ref<HTMLDivElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
+let echartsPromise: Promise<typeof import('echarts')> | null = null
+
+const getECharts = () => {
+  // 按需异步加载 echarts：登录页/其他页面不承担图表体积
+  if (!echartsPromise) echartsPromise = import('echarts')
+  return echartsPromise
+}
 
 const loadStats = async () => {
   try { stats.value = await getStats() } catch { /* 拦截器已提示 */ }
 }
 
-const renderChart = () => {
+const renderChart = async () => {
   if (!chartEl.value) return
+  const echarts = await getECharts()
   if (!chart) chart = echarts.init(chartEl.value)
   const dates = series.value.map(p => p.date.slice(5))
   chart.setOption({
@@ -79,7 +87,7 @@ const loadTrends = async () => {
   try {
     const res = await getTrends(days.value)
     series.value = res.series
-    renderChart()
+    await renderChart()
   } catch { /* 拦截器已提示 */ }
 }
 

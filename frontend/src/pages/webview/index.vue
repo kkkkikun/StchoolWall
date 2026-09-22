@@ -13,6 +13,8 @@
     <web-view v-if="url" :src="url" />
     <!-- #endif -->
 
+    <view v-if="url" class="hint">若上方页面空白，说明对方网站禁止被嵌入，请点「在浏览器打开」</view>
+
     <view class="toolbar">
       <view class="tool-btn" @tap="copyLink">
         <text>复制链接</text>
@@ -58,6 +60,7 @@ const openExternal = () => {
 
 <style scoped>
 .page-webview {
+  height: 100vh;
   min-height: 100vh;
   background: var(--bg-page);
   display: flex;
@@ -66,6 +69,7 @@ const openExternal = () => {
 
 .web-frame {
   flex: 1;
+  min-height: 0;
   width: 100%;
   border: 0;
   display: block;
@@ -80,6 +84,14 @@ const openExternal = () => {
 }
 .invalid-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 .invalid-text { font-size: 28rpx; color: var(--text-3); }
+
+.hint {
+  padding: 14rpx 24rpx;
+  font-size: 22rpx;
+  color: var(--text-3);
+  background: #fffbe6;
+  flex-shrink: 0;
+}
 
 .toolbar {
   height: 100rpx;

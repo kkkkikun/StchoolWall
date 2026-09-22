@@ -341,13 +341,23 @@ const onSearch = () => {
       : "/pages/search/index",
   });
 };
+const toHttp = (u: string) => (/^https?:\/\//i.test(u) ? u : `https://${u}`)
+
 const onAd = (ad: BannerItem) => {
   if (ad.post_id) {
     uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` });
-  } else if (ad.link_url) {
-    uni.navigateTo({
-      url: `/pages/webview/index?url=${encodeURIComponent(ad.link_url)}`,
-    });
+    return
+  }
+  if (ad.link_url) {
+    const link = toHttp(ad.link_url)
+    // #ifdef H5
+    // 外链直接交给系统浏览器打开：第三方站点若禁止 iframe 嵌入，网页端无法强制内嵌显示
+    const win = window.open(link, '_blank', 'noopener,noreferrer')
+    if (!win) window.location.href = link
+    // #endif
+    // #ifndef H5
+    uni.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(link)}` })
+    // #endif
   }
 };
 

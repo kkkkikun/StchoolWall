@@ -20,6 +20,7 @@ const routes = [
       { path: 'banners', name: 'banners', component: () => import('@/views/BannersView.vue'), meta: { title: '轮播广告', icon: '🖼️' } },
       { path: 'announcements', name: 'announcements', component: () => import('@/views/AnnouncementsView.vue'), meta: { title: '公告群发', icon: '📢' } },
       { path: 'logs', name: 'logs', component: () => import('@/views/LogsView.vue'), meta: { title: '操作日志', icon: '📋' } },
+      { path: 'admins', name: 'admins', component: () => import('@/views/AdminAccountsView.vue'), meta: { title: '管理员账号', icon: '🔐' } },
     ],
   },
 ]

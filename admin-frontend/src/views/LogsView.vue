@@ -73,6 +73,14 @@ const ACTIONS = [
   { value: 'export.posts', label: '导出帖子' },
   { value: 'export.users', label: '导出用户' },
   { value: 'image.upload', label: '传图片' },
+  { value: 'post.featured', label: '设精华' },
+  { value: 'comment.status', label: '评论审核' },
+  { value: 'sensitive_word.create', label: '加敏感词' },
+  { value: 'sensitive_word.update', label: '改敏感词' },
+  { value: 'sensitive_word.delete', label: '删敏感词' },
+  { value: 'admin.create', label: '建管理员' },
+  { value: 'admin.status', label: '启停管理员' },
+  { value: 'admin.password_reset', label: '重置管理员密码' },
 ]
 
 const actionLabel = (action: string) => ACTIONS.find(a => a.value === action)?.label || action

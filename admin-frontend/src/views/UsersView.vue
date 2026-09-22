@@ -23,6 +23,7 @@
           <el-select v-model="filters.status" clearable placeholder="全部" style="width: 110px">
             <el-option label="正常" :value="1" />
             <el-option label="已冻结" :value="0" />
+            <el-option label="已注销" :value="-2" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -35,7 +36,7 @@
         <el-table-column label="昵称" prop="nickname" width="130" />
         <el-table-column label="角色" width="100">
           <template #default="{ row }">
-            <el-select :model-value="row.role" size="small" style="width: 90px" @change="(v: string) => onRole(row, v)">
+            <el-select :model-value="row.role" size="small" style="width: 90px" :disabled="row.status === -2" @change="(v: string) => onRole(row, v)">
               <el-option label="游客" value="guest" />
               <el-option label="学生" value="student" />
               <el-option label="管理员" value="admin" />
@@ -57,8 +58,8 @@
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '正常' : '已冻结' }}
+            <el-tag :type="USER_STATUS_TAG[row.status] || 'info'" size="small">
+              {{ USER_STATUS_TEXT[row.status] || row.status }}
             </el-tag>
           </template>
         </el-table-column>
@@ -69,7 +70,8 @@
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
             <el-button v-if="row.status === 1" link type="danger" size="small" @click="onFreeze(row)">冻结</el-button>
-            <el-button v-else link type="success" size="small" @click="onUnfreeze(row)">解冻</el-button>
+            <el-button v-else-if="row.status === 0" link type="success" size="small" @click="onUnfreeze(row)">解冻</el-button>
+            <span v-else class="muted">—</span>
           </template>
         </el-table-column>
       </el-table>
@@ -124,6 +126,9 @@ const loading = ref(false)
 
 const showDetail = ref(false)
 const detail = ref<UserDetail | null>(null)
+
+const USER_STATUS_TEXT: Record<number, string> = { 1: '正常', 0: '已冻结', '-2': '已注销' }
+const USER_STATUS_TAG: Record<number, string> = { 1: 'success', 0: 'danger', '-2': 'info' }
 
 const fmtTime = (t: string) => (t ? t.slice(0, 16).replace('T', ' ') : '')
 
@@ -210,4 +215,6 @@ onMounted(() => load())
   padding: 10px 12px; background: #f5f7fa; border-radius: 6px; margin-bottom: 8px;
 }
 .rp-content { font-size: 13px; color: #606266; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.muted { color: #c0c4cc; }
 </style>

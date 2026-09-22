@@ -260,40 +260,54 @@ interface MyCommentItem {
 
 const fetchMyPosts = async () => {
   const res = await get<{ items: PostBrief[] }>('/posts/my')
-  posts.value = res.items || []
+  return res.items || []
 }
 const fetchFavorites = async () => {
   const res = await get<{ items: PostBrief[] }>('/me/favorites')
-  posts.value = res.items || []
+  return res.items || []
 }
 const fetchLikes = async () => {
   const res = await get<{ items: PostBrief[] }>('/me/likes')
-  posts.value = res.items || []
+  return res.items || []
 }
 const fetchComments = async () => {
   const res = await get<{ items: MyCommentItem[] }>('/me/comments')
-  myCommentList.value = res.items || []
+  return res.items || []
 }
 
-const LOADERS: Record<ContentTab, () => Promise<void>> = {
+type ContentItems = PostBrief[] | MyCommentItem[]
+const LOADERS: Record<ContentTab, () => Promise<ContentItems>> = {
   posts: fetchMyPosts,
   comments: fetchComments,
   favorites: fetchFavorites,
   likes: fetchLikes,
 }
 
+// 请求序号：快速切换 Tab 时，只允许最后一次点击的结果落到页面，避免串数据
+let contentReqId = 0
+
 const switchTab = async (t: ContentTab) => {
+  const reqId = ++contentReqId
   contentTab.value = t
   if (!loggedIn.value || loadedTabs.value.has(t)) return
   loading.value = true
   try {
-    await LOADERS[t]()
+    const items = await LOADERS[t]()
+    // 期间又切走了，丢弃这次过期结果
+    if (reqId !== contentReqId || contentTab.value !== t) return
+    if (t === 'comments') {
+      myCommentList.value = items as MyCommentItem[]
+    } else {
+      posts.value = items as PostBrief[]
+    }
     loadedTabs.value.add(t)
   } catch (e) {
-    loadedTabs.value.delete(t)
-    uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
+    if (reqId === contentReqId) {
+      loadedTabs.value.delete(t)
+      uni.showToast({ title: (e as Error).message || '加载失败', icon: 'none' })
+    }
   } finally {
-    loading.value = false
+    if (reqId === contentReqId) loading.value = false
   }
 }
 
@@ -326,9 +340,17 @@ const loadProfile = async () => {
   }
   if (loggedIn.value && !loadedTabs.value.has('posts')) {
     try {
-      await fetchMyPosts()
-      loadedTabs.value.add('posts')
+      const items = await fetchMyPosts()
+      if (contentTab.value === 'posts') {
+        posts.value = items
+        loadedTabs.value.add('posts')
+      }
     } catch { /* 忽略 */ }
+  } else if (!loggedIn.value) {
+    // 退出登录后清空内容，避免上一个账号的帖子/评论残留在页面
+    posts.value = []
+    myCommentList.value = []
+    loadedTabs.value.clear()
   }
 }
 

@@ -76,6 +76,27 @@ def validate_security_config() -> None:
             "生成随机密钥：openssl rand -hex 32"
         )
 
+    db_url = settings.DATABASE_URL
+    if not db_url or "CHANGE_ME" in db_url or ":eywall123@" in db_url:
+        raise RuntimeError(
+            "DATABASE_URL 未配置或仍为默认/占位密码，生产环境拒绝启动。"
+            "请通过 deploy/.env.prod 设置强数据库密码。"
+        )
+
+    redis_url = settings.REDIS_URL
+    if not redis_url or "CHANGE_ME" in redis_url or redis_url.rstrip("/") == "redis://localhost:6379/0":
+        raise RuntimeError(
+            "REDIS_URL 未配置或未设置鉴权密码，生产环境拒绝启动。"
+            "请通过 deploy/.env.prod 设置 REDIS_PASSWORD。"
+        )
+
+    cors = settings.CORS_ORIGINS
+    if not cors or "localhost" in cors:
+        raise RuntimeError(
+            "CORS_ORIGINS 未配置或仍含 localhost，生产环境拒绝启动。"
+            "请填写正式部署域名（逗号分隔）。"
+        )
+
 
 def docs_url() -> str | None:
     """交互式 API 文档地址：生产关闭（防 admin 路由/模型枚举）。"""

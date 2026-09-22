@@ -45,8 +45,47 @@ class TestValidateSecurityConfig:
     def test_production_strong_secret_passes(self):
         settings.ENVIRONMENT = "production"
         settings.JWT_SECRET = "a" * 48
+        settings.DATABASE_URL = "postgresql+asyncpg://u:strongpass@db:5432/ey_wall"
+        settings.REDIS_URL = "redis://:strongpass@redis:6379/0"
+        settings.CORS_ORIGINS = "https://example.edu.cn"
         try:
             self._validate()  # 不抛即通过
+        finally:
+            settings.ENVIRONMENT = "test"
+            settings.JWT_SECRET = "test_secret_for_unit_tests_only_not_used_in_ci"
+            settings.DATABASE_URL = "postgresql+asyncpg://eywall:eywall123@localhost:5432/ey_wall"
+            settings.REDIS_URL = "redis://localhost:6379/0"
+            settings.CORS_ORIGINS = "http://localhost:5173,http://localhost:5174"
+
+    def test_production_default_db_rejected(self):
+        settings.ENVIRONMENT = "production"
+        settings.JWT_SECRET = "a" * 48
+        settings.DATABASE_URL = "postgresql+asyncpg://eywall:eywall123@localhost:5432/ey_wall"
+        try:
+            with pytest.raises(RuntimeError):
+                self._validate()
+        finally:
+            settings.ENVIRONMENT = "test"
+            settings.JWT_SECRET = "test_secret_for_unit_tests_only_not_used_in_ci"
+
+    def test_production_default_redis_rejected(self):
+        settings.ENVIRONMENT = "production"
+        settings.JWT_SECRET = "a" * 48
+        settings.REDIS_URL = "redis://localhost:6379/0"
+        try:
+            with pytest.raises(RuntimeError):
+                self._validate()
+        finally:
+            settings.ENVIRONMENT = "test"
+            settings.JWT_SECRET = "test_secret_for_unit_tests_only_not_used_in_ci"
+
+    def test_production_localhost_cors_rejected(self):
+        settings.ENVIRONMENT = "production"
+        settings.JWT_SECRET = "a" * 48
+        settings.CORS_ORIGINS = "http://localhost:5173"
+        try:
+            with pytest.raises(RuntimeError):
+                self._validate()
         finally:
             settings.ENVIRONMENT = "test"
             settings.JWT_SECRET = "test_secret_for_unit_tests_only_not_used_in_ci"

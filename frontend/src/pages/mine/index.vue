@@ -2,19 +2,18 @@
   <view class="page-mine">
     <!-- 1. 粉色校园横幅（照片位：BANNER_IMG 配置，空则渐变兜底） -->
     <!-- 点击横幅直接更换（QQ式）；BANNER_IMG 为静态兜底图位 -->
-    <view class="banner" @tap="changeBanner">
+    <view class="banner">
       <image v-if="bannerUrl || BANNER_IMG" class="banner-img" :src="bannerUrl || BANNER_IMG" mode="aspectFill" />
     </view>
 
     <!-- 2. 白色圆角面板（上浮盖住横幅底部） -->
     <view class="sheet">
       <view class="avatar-row">
-        <view class="avatar-ring" @tap.stop="changeAvatar">
+        <view class="avatar-ring">
           <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
           <view v-else class="avatar" :style="{ background: avatarColor }">
             <text class="avatar-letter">{{ avatarLetter }}</text>
           </view>
-          <view class="avatar-cam"><text>📷</text></view>
         </view>
       </view>
 
@@ -170,7 +169,7 @@ import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
 import { devLogin, webLogin } from '@/api/auth'
 import { getProfile } from '@/api/profile'
-import { get, put, uploadFile } from '@/utils/request'
+import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
 
@@ -404,37 +403,6 @@ const beginMpOAuth = () => {
 }
 
 onShow(() => loadProfile())
-
-/** QQ式点击更换：选图 → 上传 → 持久化（kind: avatars | banners） */
-const changeImage = (kind: 'avatars' | 'banners') => {
-  if (!loggedIn.value) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
-    return
-  }
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    success: async (res) => {
-      const filePath = res.tempFilePaths[0]
-      if (!filePath) return
-      uni.showLoading({ title: '上传中…' })
-      try {
-        const url = await uploadFile(filePath, kind)
-        const field = kind === 'avatars' ? 'avatar_url' : 'banner_url'
-        await put('/user/profile', { [field]: url })
-        if (kind === 'avatars') avatarUrl.value = url
-        else bannerUrl.value = url
-        uni.hideLoading()
-        uni.showToast({ title: kind === 'avatars' ? '头像已更新' : '横幅已更新', icon: 'success' })
-      } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: (e as Error).message || '更换失败', icon: 'none' })
-      }
-    },
-  })
-}
-const changeAvatar = () => changeImage('avatars')
-const changeBanner = () => changeImage('banners')
 
 const goEditProfile = () => {
   if (!loggedIn.value) {

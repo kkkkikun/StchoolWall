@@ -40,11 +40,6 @@
         :value="content"
         @input="onContentInput"
       />
-      <view class="vertical-toolbar">
-        <view v-for="t in tools" :key="t.type" class="toolbar-item" @tap="onTool(t.type)">
-          <text>{{ t.icon }}</text>
-        </view>
-      </view>
     </view>
 
     <!-- 4. 图片上传（≤6 张，服务端落 /static/posts/） -->
@@ -70,15 +65,6 @@
       </view>
     </view>
 
-    <!-- 5. AI 协助 -->
-    <view class="ai-assist-card">
-      <view class="ai-meta">
-        <text class="ai-title">AI 协助</text>
-        <text class="ai-desc">帮你优化内容，让表达更出色</text>
-      </view>
-      <switch color="#f73b43" :checked="aiEnabled" @change="onAiChange" />
-    </view>
-
     <!-- 6. 发布按钮 -->
     <view class="submit-bar">
       <button class="publish-btn" @tap="onSubmit">发 布</button>
@@ -98,18 +84,9 @@ import { tokenStorage } from '@/utils/storage'
 import { uploadFile } from '@/utils/request'
 
 const hotTags = PUBLISH_HOT_TAGS
-const tools = [
-  { type: 'expand', icon: '∨' },
-  { type: 'location', icon: '📍' },
-  { type: 'list', icon: '☰' },
-  { type: 'emoji', icon: '😀' },
-  { type: 'folder', icon: '📁' },
-  { type: 'mic', icon: '🎤' },
-] as const
 
 const content = ref('')
 const section = ref('')
-const aiEnabled = ref(false)
 
 onShow(() => {})
 
@@ -128,14 +105,6 @@ const onSelectSection = () => {
       section.value = POST_CATEGORIES[res.tapIndex]
     },
   })
-}
-
-const onTool = (type: string) => {
-  if (type === 'location') {
-    uni.showToast({ title: '获取定位（开发中）', icon: 'none' })
-    return
-  }
-  uni.showToast({ title: `工具：${type}`, icon: 'none' })
 }
 
 // ===== 图片上传（≤6 张；后端仅收 /static/posts/ 相对路径）=====
@@ -186,12 +155,6 @@ const removeImage = (idx: number) => {
   images.value.splice(idx, 1)
 }
 
-const onAiChange = (e: { detail: { value: boolean } } | Event) => {
-  const val = (e as { detail: { value: boolean } }).detail.value
-  aiEnabled.value = val
-  if (val) uni.showToast({ title: 'AI 协助已开启（mock）', icon: 'none' })
-}
-
 const submitting = ref(false)
 
 const onSubmit = async () => {
@@ -226,7 +189,6 @@ const onSubmit = async () => {
     setTimeout(() => {
       content.value = ''
       section.value = ''
-      aiEnabled.value = false
       images.value = []
       uni.switchTab({ url: '/pages/index/index' })
     }, 1200)
@@ -249,7 +211,8 @@ const onSubmit = async () => {
 .hot-search-section {
   background-color: #ffffff;
   padding: 24rpx;
-  border-bottom: 1rpx solid #f2f3f5;
+  margin: 20rpx 24rpx 0;
+  border-radius: var(--radius-card);
   display: flex;
   align-items: center;
 }
@@ -288,7 +251,8 @@ const onSubmit = async () => {
 .section-selector {
   background-color: #ffffff;
   padding: 30rpx 24rpx;
-  margin-top: 1rpx;
+  margin: 20rpx 24rpx 0;
+  border-radius: var(--radius-card);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -330,14 +294,14 @@ const onSubmit = async () => {
 /* 3. 正文 + 工具栏 */
 .content-editor-wrapper {
   background-color: #ffffff;
-  margin-top: 20rpx;
+  margin: 20rpx 24rpx 0;
   padding: 30rpx 24rpx;
-  position: relative;
+  border-radius: var(--radius-card);
   height: 450rpx;
 }
 
 .post-textarea {
-  width: calc(100% - 90rpx);
+  width: 100%;
   height: 100%;
   font-size: 30rpx;
   color: #323233;
@@ -348,32 +312,12 @@ const onSubmit = async () => {
   color: #c8c9cc;
 }
 
-.vertical-toolbar {
-  position: absolute;
-  right: 24rpx;
-  top: 30rpx;
-  width: 70rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.toolbar-item {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background-color: var(--bg-page);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16rpx;
-  font-size: 30rpx;
-}
-
 /* 4. 媒体 */
 .media-upload-section {
   background-color: #ffffff;
-  padding: 0 24rpx 40rpx;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx;
+  border-radius: var(--radius-card);
   display: flex;
   flex-wrap: wrap;
   gap: 20rpx;
@@ -457,36 +401,9 @@ const onSubmit = async () => {
   justify-content: center;
 }
 
-/* 5. AI 协助 */
-.ai-assist-card {
-  background-color: #ffffff;
-  margin-top: 20rpx;
-  padding: 30rpx 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ai-meta {
-  display: flex;
-  flex-direction: column;
-}
-
-.ai-title {
-  font-size: 28rpx;
-  color: #323233;
-  font-weight: bold;
-}
-
-.ai-desc {
-  font-size: 24rpx;
-  color: #969799;
-  margin-top: 6rpx;
-}
-
 /* 6. 发布按钮 */
 .submit-bar {
-  margin-top: 60rpx;
+  margin-top: 48rpx;
   padding: 0 32rpx;
 }
 

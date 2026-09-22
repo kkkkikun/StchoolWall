@@ -25,18 +25,20 @@
     </view>
 
     <!-- 3. 分类筛选（mode=all 时显示） -->
-    <view v-if="mode === 'all'" class="filter-grid">
-      <view
-        v-for="c in categories"
-        :key="c.id"
-        class="tag-pill"
-        :class="{ active: activeFilter === c.id }"
-        @tap="onFilter(c)"
-      >
-        <text class="tag-icon">{{ c.icon }}</text>
-        <text class="tag-name">{{ c.name }}</text>
+    <scroll-view v-if="mode === 'all'" class="filter-scroll" scroll-x :show-scrollbar="false">
+      <view class="filter-row">
+        <view
+          v-for="c in categories"
+          :key="c.id"
+          class="tag-pill"
+          :class="{ active: activeFilter === c.id }"
+          @tap="onFilter(c)"
+        >
+          <text class="tag-icon">{{ c.icon }}</text>
+          <text class="tag-name">{{ c.name }}</text>
+        </view>
       </view>
-    </view>
+    </scroll-view>
 
     <!-- 4. 组局列表 -->
     <view class="party-list">
@@ -219,7 +221,7 @@ const goCreate = () => {
 </script>
 
 <style scoped>
-.page-group { background-color: var(--bg-group); padding: 20rpx 24rpx 40rpx; min-height: 100vh; }
+.page-group { background-color: var(--bg-page); padding: 20rpx 24rpx 48rpx; min-height: 100vh; }
 
 /* 0. 标题栏（全宽出血：负 margin 抵消页面根 padding，与消息页同款） */
 .page-header { background-color: var(--brand-red); margin: -20rpx -24rpx 0; }
@@ -229,40 +231,40 @@ const goCreate = () => {
 .highlight-num { color: var(--brand-red-dark); font-weight: bold; font-size: 32rpx; margin: 0 4rpx; }
 .back-all { color: var(--brand-red); font-size: 24rpx; }
 
-.action-cards { display: flex; justify-content: space-between; margin-top: 16rpx; }
-.action-card { width: 48%; height: 120rpx; border-radius: 20rpx; padding: 0 24rpx; display: flex; align-items: center; justify-content: space-between; color: #fff; }
-.card-blue { background: linear-gradient(135deg, #69c0ff, #1890ff); }
-.card-orange { background: linear-gradient(135deg, #ff9c6e, #ff4d4f); }
+.action-cards { display: flex; justify-content: space-between; gap: 20rpx; margin-top: 20rpx; }
+.action-card { flex: 1; height: 132rpx; border-radius: var(--radius-card); padding: 0 28rpx; display: flex; align-items: center; justify-content: space-between; color: #fff; box-shadow: 0 10rpx 26rpx rgba(239, 138, 151, 0.24); }
+.card-blue { background: linear-gradient(135deg, var(--brand-red), var(--brand-orange)); }
+.card-orange { background: linear-gradient(135deg, #f6b8c0, #e26d7d); }
 .card-title { font-size: 30rpx; font-weight: bold; }
 .card-icon { font-size: 44rpx; }
 
-.filter-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14rpx; margin-top: 24rpx; padding: 10rpx 0; }
-.tag-pill { background-color: #fff; border: 1rpx solid #f0f0f0; border-radius: 12rpx; padding: 12rpx 4rpx; display: flex; align-items: center; justify-content: center; font-size: 20rpx; color: #777; white-space: nowrap; }
-.tag-pill.active { border-color: var(--brand-red-dark); color: var(--brand-red-dark); background-color: #fff1f0; }
-.tag-icon { margin-right: 4rpx; font-size: 22rpx; }
+.filter-scroll { width: 100%; margin-top: 24rpx; white-space: nowrap; }
+.filter-row { display: inline-flex; padding: 4rpx 0; } .tag-pill { display: inline-flex; align-items: center; background-color: #fff; border: 1rpx solid #f2e7ea; border-radius: 32rpx; padding: 14rpx 22rpx; margin-right: 16rpx; font-size: 24rpx; color: var(--text-2); white-space: nowrap; }
+.tag-pill.active { border-color: var(--brand-red-dark); color: var(--brand-red-dark); background-color: var(--brand-red-soft); font-weight: 600; }
+.tag-icon { margin-right: 6rpx; font-size: 24rpx; }
 
 .tip { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 80rpx 0; }
 
 .party-list { margin-top: 16rpx; }
 .party-card { background-color: #fff; border-radius: var(--radius-card); margin-bottom: 24rpx; display: flex; overflow: hidden; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); }
 .type-badge { width: 50rpx; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24rpx; font-weight: bold; }
-.bg-red { background-color: #ff5e52; }
-.bg-orange { background-color: #ff9f43; }
+.bg-red { background: linear-gradient(180deg, var(--brand-red), var(--brand-red-dark)); }
+.bg-orange { background: linear-gradient(180deg, var(--brand-orange), #f2a091); }
 .card-main { flex: 1; padding: 24rpx; }
 .party-title { font-size: 28rpx; color: var(--text-1); font-weight: 500; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.owner-info { display: flex; align-items: center; margin-top: 16rpx; font-size: 24rpx; color: #888; flex-wrap: wrap; }
+.owner-info { display: flex; align-items: center; margin-top: 16rpx; font-size: 24rpx; color: var(--text-3); flex-wrap: wrap; }
 .owner-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; margin-right: 12rpx; display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: #fff; font-weight: bold; }
 .owner-name { color: var(--text-2); }
 .divider { margin: 0 8rpx; }
-.post-date { color: #aaa; }
+.post-date { color: var(--text-3); }
 
 .progress-section { margin-top: 20rpx; }
 .progress-bar-bg { height: 12rpx; background-color: #f5f5f5; border-radius: 6rpx; overflow: hidden; }
-.progress-bar-active { height: 100%; background: linear-gradient(90deg, #ff7875, #ff4d4f); border-radius: 6rpx; }
+.progress-bar-active { height: 100%; background: linear-gradient(90deg, var(--brand-red), var(--brand-orange)); border-radius: 6rpx; }
 .progress-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12rpx; }
 .count-text { font-size: 24rpx; color: var(--text-3); }
 .current-num { color: var(--brand-red-dark); font-weight: bold; font-size: 26rpx; }
-.join-btn { padding: 8rpx 28rpx; border-radius: 28rpx; background: var(--brand-red); color: #fff; font-size: 24rpx; }
+.join-btn { padding: 10rpx 30rpx; border-radius: 28rpx; background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark)); color: #fff; font-size: 24rpx; box-shadow: 0 6rpx 16rpx rgba(239, 138, 151, 0.22); }
 .join-btn.joined { background: #f0f0f0; color: #888; }
 .join-btn.full { background: #f0f0f0; color: #aaa; }
 </style>

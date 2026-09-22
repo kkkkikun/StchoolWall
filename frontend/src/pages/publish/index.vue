@@ -203,7 +203,7 @@ const onSubmit = async () => {
 <style scoped>
 .page-publish {
   background-color: var(--bg-page);
-  padding: 0 0 40rpx;
+  padding: 0 0 60rpx;
   min-height: 100vh;
 }
 
@@ -215,6 +215,7 @@ const onSubmit = async () => {
   border-radius: var(--radius-card);
   display: flex;
   align-items: center;
+  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
 }
 
 .hot-label {
@@ -256,6 +257,7 @@ const onSubmit = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
 }
 
 .selector-left {
@@ -276,18 +278,18 @@ const onSubmit = async () => {
 
 .selector-title {
   font-size: 30rpx;
-  color: #323233;
-  font-weight: 500;
+  color: var(--text-1);
+  font-weight: 600;
 }
 
 .selector-desc {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--text-3);
   margin-top: 6rpx;
 }
 
 .arrow-right {
-  color: #c8c9cc;
+  color: var(--text-3);
   font-size: 32rpx;
 }
 
@@ -298,18 +300,19 @@ const onSubmit = async () => {
   padding: 30rpx 24rpx;
   border-radius: var(--radius-card);
   height: 450rpx;
+  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
 }
 
 .post-textarea {
   width: 100%;
   height: 100%;
   font-size: 30rpx;
-  color: #323233;
+  color: var(--text-1);
   line-height: 1.6;
 }
 
 .textarea-placeholder {
-  color: #c8c9cc;
+  color: var(--text-3);
 }
 
 /* 4. 媒体 */
@@ -321,18 +324,19 @@ const onSubmit = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 20rpx;
+  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
 }
 
 .upload-box {
   width: 200rpx;
   height: 200rpx;
-  border: 2rpx dashed #dcdee0;
+  border: 2rpx dashed #f1c7ce;
   border-radius: 16rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-page);
+  background-color: var(--brand-red-soft);
 }
 
 .upload-icon {
@@ -342,12 +346,12 @@ const onSubmit = async () => {
 
 .upload-text {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--text-2);
 }
 
 .upload-count {
   font-size: 20rpx;
-  color: #c8c9cc;
+  color: var(--text-3);
   margin-top: 6rpx;
 }
 
@@ -378,7 +382,7 @@ const onSubmit = async () => {
 }
 
 .img-mask.failed {
-  background: rgba(247, 59, 67, 0.55);
+  background: rgba(226, 109, 125, 0.55);
 }
 
 .fail-text {
@@ -410,7 +414,7 @@ const onSubmit = async () => {
 .publish-btn {
   width: 100%;
   height: 88rpx;
-  background: var(--brand-red);
+  background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark));
   color: #ffffff;
   border-radius: var(--radius-btn);
   font-size: 32rpx;
@@ -418,7 +422,7 @@ const onSubmit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(247, 59, 67, 0.3);
+  box-shadow: 0 10rpx 26rpx rgba(226, 109, 125, 0.28);
   line-height: 88rpx;
 }
 </style>

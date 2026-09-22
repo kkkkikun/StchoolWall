@@ -30,6 +30,18 @@ async def unread_summary(
     return {"code": 0, "data": data}
 
 
+@router.get("/notifications/{notif_id}")
+async def get_notification_detail(
+    notif_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("student", "admin")),
+):
+    data = await svc.get_notification(db, user, notif_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    return {"code": 0, "data": data}
+
+
 @router.post("/notifications/read-all")
 async def read_all(
     db: AsyncSession = Depends(get_db),

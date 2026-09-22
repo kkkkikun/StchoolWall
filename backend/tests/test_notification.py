@@ -103,6 +103,23 @@ class TestReadAndList:
         assert items[0]["is_read"] is True
 
     @pytest.mark.asyncio
+    async def test_get_one_detail_and_owner_only(self, client: AsyncClient, admin_user: User, student_user: User):
+        post = await _seed_post(admin_user.id)
+        await client.post(f"/api/v1/posts/{post.id}/like", headers=auth_header(_token(student_user)))
+        nid = (await client.get("/api/v1/notifications", headers=auth_header(_token(admin_user)))).json()["data"]["items"][0]["id"]
+
+        r = await client.get(f"/api/v1/notifications/{nid}", headers=auth_header(_token(admin_user)))
+        assert r.status_code == 200
+        assert r.json()["data"]["type"] == "like"
+
+        # 非接收者不可读
+        r = await client.get(f"/api/v1/notifications/{nid}", headers=auth_header(_token(student_user)))
+        assert r.status_code == 404
+
+        r = await client.get("/api/v1/notifications/999999", headers=auth_header(_token(admin_user)))
+        assert r.status_code == 404
+
+    @pytest.mark.asyncio
     async def test_list_unread_first(self, client: AsyncClient, admin_user: User, student_user: User):
         """未读排在已读前面"""
         post = await _seed_post(admin_user.id)

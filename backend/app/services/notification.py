@@ -60,6 +60,20 @@ def _notif_dict(n: Notification, actor_nick: str) -> dict:
     return d
 
 
+async def get_notification(db: AsyncSession, user: User, notif_id: int) -> dict | None:
+    """单条通知详情（仅接收者本人可读），供公告详情页使用。"""
+    result = await db.execute(
+        select(Notification, User.nickname)
+        .join(User, Notification.actor_id == User.id)
+        .where(Notification.id == notif_id, Notification.user_id == user.id)
+    )
+    row = result.first()
+    if not row:
+        return None
+    n, nick = row
+    return _notif_dict(n, nick)
+
+
 async def list_notifications(
     db: AsyncSession, user: User, type: str | None = None,
     cursor: int | None = None, limit: int = 20,

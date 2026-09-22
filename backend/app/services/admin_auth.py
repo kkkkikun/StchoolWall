@@ -129,6 +129,8 @@ async def create_admin_user(
 ) -> tuple[AdminUser | None, str | None]:
     """新建管理后台账号；用户名冲突返回错误信息。"""
     username = username.strip()
+    if len(username) < 3:
+        return None, "用户名至少 3 位"
     nickname = (nickname or "").strip() or username
     result = await db.execute(select(AdminUser).where(AdminUser.username == username))
     if result.scalar_one_or_none() is not None:

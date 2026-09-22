@@ -46,6 +46,15 @@ class TestAdminAccountCreate:
         })
         assert r.status_code == 400
 
+    async def test_create_strips_username_and_rejects_too_short(
+        self, client: AsyncClient, console_headers: dict
+    ):
+        # "  ab  " 长度 6 能过 schema，但 strip 后不足 3 位应被业务层拒绝
+        r = await client.post("/api/v1/admin/admins", headers=console_headers, json={
+            "username": "  ab  ", "nickname": "短名", "password": "NewPass67890",
+        })
+        assert r.status_code == 400
+
     async def test_create_writes_audit(self, client: AsyncClient, console_headers: dict):
         from app.models.admin_log import AdminLog
         await client.post("/api/v1/admin/admins", headers=console_headers, json={

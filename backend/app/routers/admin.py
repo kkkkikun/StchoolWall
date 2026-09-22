@@ -108,7 +108,7 @@ async def get_users(
     q: str | None = Query(None, max_length=50),
     role: str | None = Query(None, max_length=20),
     is_verified: bool | None = Query(None),
-    status: int | None = Query(None, ge=0, le=1),
+    status: int | None = Query(None, ge=-2, le=1),
     time_start: datetime | None = Query(None),
     time_end: datetime | None = Query(None),
     page: int | None = Query(None, ge=1),

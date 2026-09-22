@@ -55,6 +55,12 @@ class TestUserList:
         r = await client.get("/api/v1/admin/users?status=0", headers=console_headers)
         assert [u["nickname"] for u in r.json()["data"]["items"]] == ["冻结的"]
 
+    async def test_filter_by_status_deleted(self, client: AsyncClient, console_headers: dict):
+        await _mk_user(nickname="注销的", status=-2)
+        r = await client.get("/api/v1/admin/users?status=-2", headers=console_headers)
+        assert r.status_code == 200
+        assert [u["nickname"] for u in r.json()["data"]["items"]] == ["注销的"]
+
     async def test_page_pagination_returns_total(self, client: AsyncClient, console_headers: dict):
         for i in range(15):
             await _mk_user(nickname=f"分页{i:02d}")

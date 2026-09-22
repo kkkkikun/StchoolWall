@@ -52,6 +52,12 @@
 			}
 		},
 		{
+			"path": "pages/announcement-detail/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/mine/index",
 			"style": {
 				"navigationStyle": "custom"

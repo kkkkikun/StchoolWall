@@ -73,12 +73,18 @@
         :class="{ unread: !m.is_read }"
         @tap="onMessage(m)"
       >
-        <view class="sender-avatar" :style="{ background: colorOf(m.nickname) }">
-          <text>{{ (m.nickname || '?').slice(0, 1) }}</text>
+        <view class="sender-avatar" :class="{ sys: m._system }" :style="{ background: m._system ? '#fdf0f2' : colorOf(m.nickname) }">
+          <text v-if="m._type === 'announcement'">📢</text>
+          <text v-else-if="m._type === 'moderation'">🛡️</text>
+          <text v-else>{{ (m.nickname || '?').slice(0, 1) }}</text>
         </view>
         <view class="msg-main">
-          <text class="msg-name">{{ m.nickname }}</text>
+          <view class="msg-title-row">
+            <text class="msg-name">{{ m.nickname }}</text>
+            <text v-if="m._type === 'announcement'" class="sys-tag">公告</text>
+          </view>
           <text class="msg-text">{{ m.brief }}</text>
+          <text v-if="m.sub" class="msg-sub">{{ m.sub }}</text>
         </view>
         <view class="msg-right">
           <text class="msg-time">{{ m.time }}</text>
@@ -112,9 +118,11 @@ interface MsgRow {
   nickname: string
   time: string
   brief: string
+  sub: string
   post_id: number | null
   is_read: boolean
   _type: NotificationType
+  _system: boolean
 }
 const messages = ref<MsgRow[]>([])
 
@@ -189,15 +197,21 @@ const loadMessages = async () => {
   try {
     const [res, sum] = await Promise.all([listNotifications(), unreadSummary()])
     summary.value = sum
-    messages.value = res.items.map((n) => ({
-      id: n.id,
-      _type: n.type,
-      nickname: n.type === 'moderation' || n.type === 'announcement' ? '系统' : n.actor.nickname,
-      time: fmtTime(n.created_at),
-      brief: briefOf(n),
-      post_id: n.post_id,
-      is_read: n.is_read,
-    }))
+    messages.value = res.items.map((n) => {
+      const payload = (n as { payload?: { title?: string; content?: string } }).payload
+      const system = n.type === 'moderation' || n.type === 'announcement'
+      return {
+        id: n.id,
+        _type: n.type,
+        nickname: system ? '系统' : n.actor.nickname,
+        time: fmtTime(n.created_at),
+        brief: n.type === 'announcement' ? (payload?.title || '系统公告') : briefOf(n),
+        sub: n.type === 'announcement' ? (payload?.content ? payload.content.slice(0, 48) : '') : '',
+        post_id: n.post_id,
+        is_read: n.is_read,
+        _system: system,
+      }
+    })
   } catch { /* 忽略 */ }
 }
 
@@ -226,6 +240,10 @@ const onMessage = async (m: MsgRow) => {
       await readNotification(m.id)
       m.is_read = true
     } catch { /* 忽略 */ }
+  }
+  if (m._type === 'announcement') {
+    uni.navigateTo({ url: `/pages/announcement-detail/index?id=${m.id}` })
+    return
   }
   if (m.post_id) {
     uni.navigateTo({ url: `/pages/post-detail/index?id=${m.post_id}` })
@@ -269,12 +287,17 @@ const onMessage = async (m: MsgRow) => {
 
 /* 动态列表 */
 .list-panel { padding-bottom: 8rpx; margin-bottom: 24rpx; }
-.msg-row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f6; }
+.msg-row { display: flex; align-items: center; padding: 24rpx 4rpx; border-bottom: 1rpx solid #f5f5f6; }
 .msg-row:last-child { border-bottom: none; }
+.msg-row.unread { background: linear-gradient(90deg, #fff7f8, #ffffff); border-radius: 16rpx; padding-left: 12rpx; padding-right: 12rpx; }
 .sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #fff; font-weight: bold; flex-shrink: 0; }
+.sender-avatar.sys { color: var(--brand-red-dark); font-size: 40rpx; }
 .msg-main { flex: 1; min-width: 0; margin-left: 20rpx; }
+.msg-title-row { display: flex; align-items: center; gap: 12rpx; }
 .msg-name { font-size: 28rpx; font-weight: bold; color: var(--text-1); }
-.msg-text { display: block; font-size: 24rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sys-tag { font-size: 20rpx; color: var(--brand-red-dark); background: #fdf0f2; border: 1rpx solid #ef8a97; padding: 2rpx 10rpx; border-radius: 999rpx; }
+.msg-text { display: block; font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-sub { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-right { display: flex; flex-direction: column; align-items: flex-end; margin-left: 16rpx; gap: 12rpx; }
 .msg-time { font-size: 22rpx; color: var(--text-3); }
 .unread-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--brand-red-dark); }

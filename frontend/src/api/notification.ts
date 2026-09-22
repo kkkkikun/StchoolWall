@@ -41,3 +41,7 @@ export function readAllNotifications() {
 export function readNotification(id: number) {
   return post(`/notifications/${id}/read`)
 }
+
+export function getNotificationDetail(id: number) {
+  return get<NotificationItem>(`/notifications/${id}`)
+}

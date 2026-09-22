@@ -75,9 +75,15 @@ const onCreate = async () => {
 }
 
 const onDelete = async (row: AdminTag) => {
-  await ElMessageBox.confirm(`确定删除标签「#${row.name}」吗？关联帖子会同步解除绑定。`, '确认', { type: 'warning' })
-  await deleteAdminTag(row.id)
-  ElMessage.success('已删除')
+  try {
+    await ElMessageBox.confirm(`确定删除标签「#${row.name}」吗？关联帖子会同步解除绑定。`, '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteAdminTag(row.id)
+    ElMessage.success('已删除')
+  } catch { /* 拦截器已提示 */ }
   load()
 }
 

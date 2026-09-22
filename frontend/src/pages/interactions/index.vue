@@ -200,9 +200,9 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 
 .header { background-color: var(--brand-red); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-1); }
-.header-right { font-size: 24rpx; color: var(--text-1); opacity: 0.75; }
+.back-btn { font-size: 56rpx; color: #ffffff; line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #ffffff; }
+.header-right { font-size: 24rpx; color: #ffffff; opacity: 0.85; }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: #ffffff; }

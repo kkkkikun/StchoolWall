@@ -346,6 +346,8 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
         .where(
             Post.status == 1,
             Post.post_type != "advertisement",
+            # 热帖门槛：零互动新帖不进榜（否则 tie-break 让新帖冒充热帖）
+            (Post.like_count * 3 + Post.comment_count * 2 + Post.view_count) > 0,
             Post.created_at >= func.now() - text("interval '7 days'"),
         )
         .order_by(score.desc(), Post.created_at.desc())

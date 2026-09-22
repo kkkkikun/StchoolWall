@@ -16,8 +16,7 @@
 <script setup lang="ts">
 // 旧的内嵌管理页已下线（2026-08-31），运营管理统一走独立 Web 管理后台。
 // 保留本页作为入口提示，避免旧版本用户的直达链接 404。
-const adminUrl = 'http://localhost:5174' // TODO: 部署后替换为正式域名
-
+const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || location.origin + '/admin/'
 const copyUrl = () => {
   uni.setClipboardData({ data: adminUrl })
 }

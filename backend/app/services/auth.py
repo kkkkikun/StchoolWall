@@ -141,8 +141,7 @@ async def web_login(db: AsyncSession, username: str, password: str) -> dict:
     """网页版登录：账号不存在即注册（昵称即用户名），存在则校验密码。
 
     - openid 命名空间 web:{username}，与微信用户互不冲突
-    - role=student 直发（测试版妥协：网页用户可发帖互动）；is_verified=False
-      ——正式小程序上线后可收紧为 guest+学籍认证
+    - role=guest：网页注册仅可浏览/签到，发帖互动需走学籍认证升级为 student
     - 冻结用户拒登；密码 bcrypt 存储，绝不落明文
     """
     openid = f"web:{username}"
@@ -152,7 +151,7 @@ async def web_login(db: AsyncSession, username: str, password: str) -> dict:
         user = User(
             openid=openid,
             nickname=username,
-            role="student",
+            role="guest",
             is_verified=False,
             web_password_hash=hash_password(password),
         )

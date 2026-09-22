@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://eywall:eywall123@localhost:5432/ey_wall"
 
+    # 数据库连接池（高并发读多场景，给足连接避免请求排队）
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 

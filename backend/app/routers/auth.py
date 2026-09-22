@@ -13,6 +13,8 @@ router = APIRouter()
 
 # 网页登录按用户名失败退避（同管理台语义）
 WEB_LOGIN_USER_RATE = LOGIN_USER_RATE
+# 网页登录/注册的 IP 限流（比失败退避更宽松：注册是正常流量，且高校常见 NAT 同 IP）
+WEB_LOGIN_IP_RATE = (60, 60)
 
 
 @router.post("/login")
@@ -38,9 +40,9 @@ async def web_login_route(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """网页版登录（不存在即注册）。双限流：IP 10/min + 用户名失败退避 5/10min。"""
+    """网页版登录（不存在即注册）。双限流：IP 60/min + 用户名失败退避 5/10min。"""
     client_ip = request.client.host if request.client else "unknown"
-    await check_rate_limit(f"rl:web_login:ip:{client_ip}", max_requests=10, window_seconds=60)
+    await check_rate_limit(f"rl:web_login:ip:{client_ip}", *WEB_LOGIN_IP_RATE)
 
     username_key = f"rl:web_login:user:{body.username}"
     max_fails, window = WEB_LOGIN_USER_RATE

@@ -19,18 +19,18 @@ async def _get_user(username: str) -> User | None:
 
 class TestWebLogin:
 
-    async def test_register_creates_student_user(self, client: AsyncClient):
-        """首次登录即注册：role=student（可发帖），is_verified=False。"""
+    async def test_register_creates_guest_user(self, client: AsyncClient):
+        """首次登录即注册：role=guest（不可发帖），认证后升级。"""
         r = await client.post("/api/v1/auth/web-login", json={"username": "xiaoming", "password": "pass123456"})
         assert r.status_code == 200
         data = r.json()["data"]
         assert data["access_token"]
-        assert data["role"] == "student"
+        assert data["role"] == "guest"
         assert data["user_info"]["nickname"] == "xiaoming"
 
         user = await _get_user("xiaoming")
         assert user is not None
-        assert user.role == "student"
+        assert user.role == "guest"
         assert user.is_verified is False
 
     async def test_relogin_with_correct_password(self, client: AsyncClient):
@@ -80,8 +80,8 @@ class TestWebLogin:
         r = await client.post("/api/v1/auth/web-login", json={"username": "lockme", "password": "right-pass-123"})
         assert r.status_code == 429
 
-    async def test_web_user_can_post(self, client: AsyncClient):
-        """网页用户 role=student → 可发帖（进审核）。"""
+    async def test_web_user_cannot_post_until_verified(self, client: AsyncClient):
+        """网页用户 role=guest → 发帖被 403，需先学籍认证。"""
         r = await client.post("/api/v1/auth/web-login", json={"username": "poster", "password": "pass123456"})
         token = r.json()["data"]["access_token"]
         r2 = await client.post(
@@ -89,5 +89,4 @@ class TestWebLogin:
             json={"post_type": "general", "content": "网页用户的第一帖"},
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert r2.status_code == 200
-        assert r2.json()["data"]["status"] == 0  # 待审
+        assert r2.status_code == 403

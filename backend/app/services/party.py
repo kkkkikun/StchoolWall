@@ -104,7 +104,9 @@ async def join_party(db: AsyncSession, user: User, party_id: int) -> dict | None
 
 
 async def leave_party(db: AsyncSession, user: User, party_id: int) -> dict | None:
-    p = (await db.execute(select(Party).where(Party.id == party_id))).scalar_one_or_none()
+    p = (await db.execute(
+        select(Party).where(Party.id == party_id).with_for_update()
+    )).scalar_one_or_none()
     if not p:
         return None
     m = (await db.execute(

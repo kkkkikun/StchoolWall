@@ -3,9 +3,8 @@
 计数策略：点赞/评论写操作同步维护 posts.like_count / comment_count
 （check-then-write，复合主键兜底防重复），列表页直接读冗余字段。
 """
-import uuid
-
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.interaction import Comment, Favorite, Footprint, Like
@@ -23,16 +22,6 @@ async def _get_post(db: AsyncSession, post_id: int) -> Post | None:
     return r.scalar_one_or_none()
 
 
-async def _is_liked(db: AsyncSession, user_id: uuid.UUID, post_id: int) -> bool:
-    r = await db.execute(select(Like).where(Like.user_id == user_id, Like.post_id == post_id))
-    return r.scalar_one_or_none() is not None
-
-
-async def _is_favorited(db: AsyncSession, user_id: uuid.UUID, post_id: int) -> bool:
-    r = await db.execute(select(Favorite).where(Favorite.user_id == user_id, Favorite.post_id == post_id))
-    return r.scalar_one_or_none() is not None
-
-
 # ---- 点赞（幂等） ----
 
 
@@ -40,13 +29,30 @@ async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
     post = await _get_post(db, post_id)
     if not post:
         return None
-    if not await _is_liked(db, user.id, post_id):
-        db.add(Like(user_id=user.id, post_id=post_id))
-        post.like_count = (post.like_count or 0) + 1
+
+    # 幂等插入：唯一约束兜底，避免 check-then-insert 并发撞出 IntegrityError
+    inserted = (
+        await db.execute(
+            pg_insert(Like)
+            .values(user_id=user.id, post_id=post_id)
+            .on_conflict_do_nothing(constraint="likes_pkey")
+        )
+    ).rowcount == 1
+
+    if inserted:
+        # 原子自增，避免 read-modify-write 并发丢更新
+        await db.execute(
+            update(Post)
+            .where(Post.id == post_id, Post.status == 1)
+            .values(like_count=func.coalesce(Post.like_count, 0) + 1)
+        )
         await db.commit()
+        await db.refresh(post)
         # 通知帖子作者（不通知自己）
         await create_notification(db, post.user_id, user.id, "like", post_id=post_id)
-    await db.refresh(post)
+    else:
+        await db.commit()
+        await db.refresh(post)
     return {"liked": True, "like_count": post.like_count}
 
 
@@ -54,14 +60,25 @@ async def unlike_post(db: AsyncSession, user: User, post_id: int) -> dict | None
     post = await _get_post(db, post_id)
     if not post:
         return None
-    like = (await db.execute(
-        select(Like).where(Like.user_id == user.id, Like.post_id == post_id)
-    )).scalar_one_or_none()
-    if like:
-        await db.delete(like)
-        if post.like_count and post.like_count > 0:
-            post.like_count = post.like_count - 1
-        await db.commit()
+
+    deleted = (
+        await db.execute(
+            delete(Like).where(Like.user_id == user.id, Like.post_id == post_id)
+        )
+    ).rowcount == 1
+
+    if deleted:
+        # 原子自减且不越过 0
+        await db.execute(
+            update(Post)
+            .where(
+                Post.id == post_id,
+                Post.status == 1,
+                func.coalesce(Post.like_count, 0) > 0,
+            )
+            .values(like_count=func.coalesce(Post.like_count, 0) - 1)
+        )
+    await db.commit()
     await db.refresh(post)
     return {"liked": False, "like_count": post.like_count}
 
@@ -113,7 +130,12 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
     add_moderation_record(db, post_id, "rule", local_r, matched=matched or None, comment_id=c.id)
 
     if status == 1:
-        post.comment_count = (post.comment_count or 0) + 1
+        # 原子自增，避免并发评论丢失计数
+        await db.execute(
+            update(Post)
+            .where(Post.id == post_id, Post.status == 1)
+            .values(comment_count=func.coalesce(Post.comment_count, 0) + 1)
+        )
         await db.commit()
         await db.refresh(c)
         await db.refresh(post)
@@ -154,9 +176,16 @@ async def delete_comment(db: AsyncSession, user: User, comment_id: int) -> bool 
     if str(c.user_id) != str(user.id) and user.role != "admin":
         return False
     c.status = -1  # 软删除
-    post = await _get_post(db, c.post_id)
-    if post and post.comment_count and post.comment_count > 0:
-        post.comment_count = post.comment_count - 1
+    # 原子自减且不越过 0
+    await db.execute(
+        update(Post)
+        .where(
+            Post.id == c.post_id,
+            Post.status == 1,
+            func.coalesce(Post.comment_count, 0) > 0,
+        )
+        .values(comment_count=func.coalesce(Post.comment_count, 0) - 1)
+    )
     await db.commit()
     return True
 
@@ -168,9 +197,18 @@ async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | No
     post = await _get_post(db, post_id)
     if not post:
         return None
-    if not await _is_favorited(db, user.id, post_id):
-        db.add(Favorite(user_id=user.id, post_id=post_id))
-        await db.commit()
+
+    # 幂等插入：唯一约束兜底，避免并发重复收藏
+    inserted = (
+        await db.execute(
+            pg_insert(Favorite)
+            .values(user_id=user.id, post_id=post_id)
+            .on_conflict_do_nothing(constraint="favorites_pkey")
+        )
+    ).rowcount == 1
+
+    await db.commit()
+    if inserted:
         # 通知帖子作者（不通知自己）；type=favorite，消息页互动聚合展示
         await create_notification(db, post.user_id, user.id, "favorite", post_id=post_id)
     return {"favorited": True}
@@ -180,12 +218,10 @@ async def unfavorite_post(db: AsyncSession, user: User, post_id: int) -> dict | 
     post = await _get_post(db, post_id)
     if not post:
         return None
-    fav = (await db.execute(
-        select(Favorite).where(Favorite.user_id == user.id, Favorite.post_id == post_id)
-    )).scalar_one_or_none()
-    if fav:
-        await db.delete(fav)
-        await db.commit()
+    await db.execute(
+        delete(Favorite).where(Favorite.user_id == user.id, Favorite.post_id == post_id)
+    )
+    await db.commit()
     return {"favorited": False}
 
 

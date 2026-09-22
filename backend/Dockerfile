@@ -26,4 +26,4 @@ VOLUME /data/static
 EXPOSE 8000
 
 # 启动即跑迁移再起服务（单副本场景安全；多副本时改为部署前手动 migrate）
-CMD ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+CMD ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=127.0.0.1"]

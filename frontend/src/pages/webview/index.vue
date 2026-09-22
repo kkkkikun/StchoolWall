@@ -1,9 +1,27 @@
 <template>
   <view class="page-webview">
-    <web-view :src="url" />
-    <!-- web-view 失败兜底（域名未配业务域名等场景） -->
-    <view class="fallback" @tap="copyLink">
-      <text>打不开？点此复制链接</text>
+    <view v-if="!url" class="invalid">
+      <text class="invalid-emoji">🔗</text>
+      <text class="invalid-text">链接无效</text>
+    </view>
+
+    <!-- H5 用 iframe；小程序/App 用系统 web-view -->
+    <!-- #ifdef H5 -->
+    <iframe v-if="url" class="web-frame" :src="url" />
+    <!-- #endif -->
+    <!-- #ifndef H5 -->
+    <web-view v-if="url" :src="url" />
+    <!-- #endif -->
+
+    <view class="toolbar">
+      <view class="tool-btn" @tap="copyLink">
+        <text>复制链接</text>
+      </view>
+      <!-- #ifdef H5 -->
+      <view class="tool-btn primary" @tap="openExternal">
+        <text>在浏览器打开</text>
+      </view>
+      <!-- #endif -->
     </view>
   </view>
 </template>
@@ -14,14 +32,27 @@ import { onLoad } from '@dcloudio/uni-app'
 
 const url = ref('')
 
+const normalizeUrl = (raw: string) => {
+  const t = raw.trim()
+  if (!t) return ''
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`
+}
+
 onLoad((options) => {
-  // url 参数需 encodeURIComponent 传入
-  url.value = decodeURIComponent(options?.url || '')
+  // url 参数需 encodeURIComponent 传入；兼容未带协议的链接
+  url.value = normalizeUrl(decodeURIComponent(options?.url || ''))
 })
 
 const copyLink = () => {
   if (!url.value) return
   uni.setClipboardData({ data: url.value })
+}
+
+// H5：iframe 被目标站点 X-Frame-Options/CSP 拦截时，直接跳到系统浏览器
+const openExternal = () => {
+  if (!url.value) return
+  const win = window.open(url.value, '_blank', 'noopener,noreferrer')
+  if (!win) window.location.href = url.value
 }
 </script>
 
@@ -29,21 +60,46 @@ const copyLink = () => {
 .page-webview {
   min-height: 100vh;
   background: var(--bg-page);
+  display: flex;
+  flex-direction: column;
 }
-web-view {
+
+.web-frame {
+  flex: 1;
   width: 100%;
-  height: calc(100vh - 88rpx);
+  border: 0;
+  display: block;
 }
-.fallback {
-  height: 88rpx;
+
+.invalid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.invalid-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.invalid-text { font-size: 28rpx; color: var(--text-3); }
+
+.toolbar {
+  height: 100rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  border-top: 1rpx solid #eee;
+  gap: 24rpx;
+  background: #ffffff;
+  border-top: 1rpx solid #eeeeef;
+  flex-shrink: 0;
 }
-.fallback text {
+.tool-btn {
+  padding: 14rpx 40rpx;
+  border: 2rpx solid #e5e6eb;
+  border-radius: 999rpx;
   font-size: 26rpx;
-  color: var(--text-3);
+  color: var(--text-1);
+}
+.tool-btn.primary {
+  border-color: var(--brand-red);
+  color: var(--brand-red-dark);
 }
 </style>

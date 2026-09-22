@@ -42,11 +42,28 @@
       </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" size="small" @click="openMembers(row)">报名</el-button>
           <el-button v-if="row.status !== -1" link type="danger" size="small" @click="onClose(row)">关闭</el-button>
           <el-button v-else link type="success" size="small" @click="onRestore(row)">恢复</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <el-drawer v-model="showMembers" :title="memberTitle" size="420px">
+      <el-table :data="members" v-loading="loadingMembers" size="small">
+        <el-table-column label="昵称" prop="nickname" min-width="100" />
+        <el-table-column label="学号" width="120">
+          <template #default="{ row }">{{ row.student_id || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="真名" width="100">
+          <template #default="{ row }">{{ row.real_name || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="报名时间" width="150">
+          <template #default="{ row }">{{ fmtTime(row.joined_at) }}</template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!members.length && !loadingMembers" description="暂无报名" />
+    </el-drawer>
 
     <el-pagination class="pager" layout="total, prev, pager, next" :total="total"
                    v-model:current-page="page" :page-size="pageSize" @change="load()" />
@@ -56,7 +73,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getParties, updatePartyStatus, type AdminParty } from '@/api/operations'
+import { getParties, updatePartyStatus, getPartyMembers, type AdminParty, type PartyMember } from '@/api/operations'
 
 const filters = reactive<{ q?: string; status?: number }>({})
 const items = ref<AdminParty[]>([])
@@ -66,6 +83,23 @@ const pageSize = 20
 const loading = ref(false)
 
 const fmtTime = (t: string | null) => (t ? t.slice(0, 16).replace('T', ' ') : '')
+
+const showMembers = ref(false)
+const loadingMembers = ref(false)
+const members = ref<PartyMember[]>([])
+const memberTitle = ref('报名明细')
+
+const openMembers = async (row: AdminParty) => {
+  memberTitle.value = `「${row.title}」报名明细`
+  showMembers.value = true
+  loadingMembers.value = true
+  try {
+    const data = await getPartyMembers(row.id)
+    members.value = data.items
+  } catch { /* 拦截器已提示 */ } finally {
+    loadingMembers.value = false
+  }
+}
 
 const load = async (targetPage?: number) => {
   if (targetPage) page.value = targetPage

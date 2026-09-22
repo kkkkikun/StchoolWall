@@ -1,9 +1,9 @@
-"""管理后台组局管理：列表 + 关闭/恢复。"""
+"""管理后台组局管理：列表 + 关闭/恢复 + 报名明细。"""
 from sqlalchemy import func, select
 from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.party import Party
+from app.models.party import Party, PartyMember
 from app.models.user import User
 
 # admin 允许的组局状态流转：招募中/已满 → 关闭；关闭 → 恢复
@@ -76,3 +76,38 @@ async def admin_update_party_status(db: AsyncSession, party_id: int, new_status:
     await db.commit()
     await db.refresh(party)
     return party
+
+
+async def list_party_members_admin(
+    db: AsyncSession,
+    party_id: int,
+    *,
+    page: int = 1,
+    page_size: int = 100,
+) -> tuple[list[dict] | None, int]:
+    """组局报名明细（仅 admin）。组局不存在返回 (None, 0)。"""
+    party = (await db.execute(select(Party).where(Party.id == party_id))).scalar_one_or_none()
+    if party is None:
+        return None, 0
+
+    total = await db.scalar(
+        select(func.count()).select_from(PartyMember).where(PartyMember.party_id == party_id)
+    ) or 0
+
+    stmt = (
+        select(PartyMember, User)
+        .join(User, PartyMember.user_id == User.id)
+        .where(PartyMember.party_id == party_id)
+        .order_by(PartyMember.joined_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await db.execute(stmt)).all()
+    items = [{
+        "user_id": str(u.id),
+        "nickname": u.nickname,
+        "student_id": u.student_id,
+        "real_name": u.real_name,
+        "joined_at": m.joined_at.isoformat() if m.joined_at else None,
+    } for m, u in rows]
+    return items, total

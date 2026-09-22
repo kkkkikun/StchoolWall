@@ -435,6 +435,22 @@ async def get_admin_parties(
     return {"code": 0, "data": {"items": items, "total": total, "page": page, "page_size": page_size}}
 
 
+@router.get("/parties/{party_id}/members")
+async def get_party_members(
+    party_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """组局报名明细（仅 admin）。"""
+    from app.services.admin_party import list_party_members_admin
+    items, total = await list_party_members_admin(db, party_id, page=page, page_size=page_size)
+    if items is None:
+        raise HTTPException(status_code=404, detail="组局不存在")
+    return {"code": 0, "data": {"items": items, "total": total, "page": page, "page_size": page_size}}
+
+
 @router.put("/parties/{party_id}/status")
 async def change_party_status(
     party_id: int,

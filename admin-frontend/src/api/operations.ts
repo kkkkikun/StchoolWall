@@ -51,6 +51,20 @@ export function updatePartyStatus(id: number, status: number) {
   return request.put(`/admin/parties/${id}/status`, null, { params: { status } })
 }
 
+export interface PartyMember {
+  user_id: string
+  nickname: string
+  student_id: string | null
+  real_name: string | null
+  joined_at: string
+}
+
+export function getPartyMembers(id: number) {
+  return request.get<any, { items: PartyMember[]; total: number; page: number; page_size: number }>(
+    `/admin/parties/${id}/members`,
+  )
+}
+
 // ---- 公告 ----
 
 export interface Announcement {

@@ -106,6 +106,23 @@ class TestParties:
         assert data["total"] == 1
         assert data["items"][0]["title"] == "搜我"
 
+    async def test_members_detail_and_404(self, client, console_headers, student_user):
+        from app.models.party import PartyMember
+        pid = await self._mk_party(student_user.id)
+        async with TestSession() as db:
+            db.add(PartyMember(party_id=pid, user_id=student_user.id))
+            await db.commit()
+
+        r = await client.get(f"/api/v1/admin/parties/{pid}/members", headers=console_headers)
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["total"] == 1
+        assert data["items"][0]["nickname"] == student_user.nickname
+        assert data["items"][0]["student_id"] == student_user.student_id
+
+        r = await client.get("/api/v1/admin/parties/999999/members", headers=console_headers)
+        assert r.status_code == 404
+
     async def test_close_and_restore(self, client, console_headers, student_user):
         pid = await self._mk_party(student_user.id)
         r = await client.put(f"/api/v1/admin/parties/{pid}/status?status=-1", headers=console_headers)

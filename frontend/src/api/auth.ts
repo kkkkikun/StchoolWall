@@ -9,7 +9,7 @@ export function login(code: string) {
 
 /** 学籍认证 */
 export function verifyStudent(studentId: string, password: string) {
-  return post<{ user_info: UserInfo }>('/auth/verify', {
+  return post<LoginResponse>('/auth/verify', {
     student_id: studentId,
     password,
   })

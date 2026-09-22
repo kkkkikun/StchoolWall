@@ -25,6 +25,7 @@ async def get_profile(user: User = Depends(require_role("student", "admin"))):
             "avatar_url": user.avatar_url,
             "banner_url": user.banner_url,
             "bio": user.bio,
+            "is_verified": user.is_verified,
         },
     }
 

@@ -197,7 +197,15 @@ async def student_verify(
     return {
         "code": 0,
         "message": "认证成功",
-        "data": {"access_token": token, "role": "student"},
+        "data": {
+            "access_token": token,
+            "role": "student",
+            "user_info": {
+                "id": str(user.id),
+                "nickname": user.nickname,
+                "is_verified": True,
+            },
+        },
     }
 
 

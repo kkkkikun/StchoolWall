@@ -72,7 +72,13 @@ const submit = async () => {
   submitting.value = true
   try {
     const res = await verifyStudent(formData.value.student_id, formData.value.password)
-    userStorage.setUserInfo(res.user_info)
+    tokenStorage.setToken(res.access_token)
+    userStorage.setUserInfo({
+      id: res.user_info.id,
+      nickname: res.user_info.nickname,
+      role: res.role,
+      is_verified: res.user_info.is_verified,
+    })
     uni.showToast({ title: '认证成功', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 1500)
   } catch (e) {

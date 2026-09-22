@@ -310,10 +310,16 @@ const loadProfile = async () => {
   // 拉取头像/横幅（登录后）
   if (loggedIn.value) {
     try {
-      const p = await get<{ avatar_url?: string; banner_url?: string; bio?: string; nickname?: string }>('/user/profile')
+      const p = await get<{ avatar_url?: string; banner_url?: string; bio?: string; nickname?: string; is_verified?: boolean }>('/user/profile')
       avatarUrl.value = p.avatar_url || ''
       bannerUrl.value = p.banner_url || ''
       user.value = { nickname: p.nickname || user.value.nickname, bio: p.bio || '' }
+      // 学籍认证状态以后端为准，避免认证完成后「我的」页仍显示未认证
+      isVerified.value = !!p.is_verified
+      const local = userStorage.getUserInfo()
+      if (local) {
+        userStorage.setUserInfo({ ...local, is_verified: !!p.is_verified })
+      }
     } catch { /* 忽略 */ }
   } else {
     avatarUrl.value = ''

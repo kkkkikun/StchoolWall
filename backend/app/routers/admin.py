@@ -170,9 +170,13 @@ async def change_user_status(
     actor: AdminActor = Depends(require_admin_console),
 ):
     """冻结/解冻用户（仅 admin）：status=0 冻结，status=1 解冻"""
-    target = await update_user_status(db, user_id, status)
-    if not target:
+    target = await update_user_status(db, user_id, status, actor_id=actor.id)
+    if target is None:
         raise HTTPException(status_code=404, detail="用户不存在")
+    if target == "self_freeze":
+        raise HTTPException(status_code=400, detail="不能冻结当前登录账号")
+    if target == "invalid":
+        raise HTTPException(status_code=400, detail="非法的用户状态流转（注销账号不可恢复）")
     action = admin_log.USER_FREEZE if status == 0 else admin_log.USER_UNFREEZE
     await log_admin_action(db, actor, action, target_type="user", target_id=user_id,
                            ip=_client_ip(request))

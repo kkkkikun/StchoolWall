@@ -8,6 +8,7 @@ from sqlalchemy.sql import func
 from app.config import settings
 from app.models.admin_user import AdminUser
 from app.utils.password import hash_password, verify_password
+from app.utils.query import escape_like
 from app.utils.security import create_access_token
 
 CONSOLE_SCOPE = "admin_console"
@@ -83,3 +84,115 @@ async def create_or_reset_admin(
     await db.commit()
     await db.refresh(admin)
     return admin, True
+
+
+
+async def list_admin_users(
+    db: AsyncSession,
+    *,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[dict], int]:
+    """管理后台账号列表（昵称/用户名模糊搜索 + 分页）。"""
+    conditions = []
+    if q:
+        like = f"%{escape_like(q)}%"
+        conditions.append(AdminUser.username.ilike(like) | AdminUser.nickname.ilike(like))
+
+    total = await db.scalar(
+        select(func.count()).select_from(AdminUser).where(*conditions)
+    ) or 0
+
+    stmt = (
+        select(AdminUser)
+        .where(*conditions)
+        .order_by(AdminUser.created_at.desc(), AdminUser.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    admins = (await db.execute(stmt)).scalars().all()
+    items = [{
+        "id": str(a.id),
+        "username": a.username,
+        "nickname": a.nickname,
+        "is_active": bool(a.is_active),
+        "pwd_version": a.pwd_version,
+        "last_login_at": a.last_login_at.isoformat() if a.last_login_at else None,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    } for a in admins]
+    return items, total
+
+
+async def create_admin_user(
+    db: AsyncSession, username: str, nickname: str, password: str
+) -> tuple[AdminUser | None, str | None]:
+    """新建管理后台账号；用户名冲突返回错误信息。"""
+    username = username.strip()
+    nickname = (nickname or "").strip() or username
+    result = await db.execute(select(AdminUser).where(AdminUser.username == username))
+    if result.scalar_one_or_none() is not None:
+        return None, "用户名已存在"
+
+    admin = AdminUser(
+        username=username,
+        nickname=nickname,
+        password_hash=hash_password(password),
+    )
+    db.add(admin)
+    await db.commit()
+    await db.refresh(admin)
+    return admin, None
+
+
+async def set_admin_active(
+    db: AsyncSession,
+    admin_id: str,
+    is_active: bool,
+    *,
+    actor_id: str | None = None,
+) -> tuple[AdminUser | None, str | None]:
+    """启用/停用管理后台账号；停用需保留至少一个启用账号，且不能停用自己。"""
+    result = await db.execute(select(AdminUser).where(AdminUser.id == admin_id))
+    admin = result.scalar_one_or_none()
+    if admin is None:
+        return None, "管理员不存在"
+
+    if not is_active:
+        if actor_id is not None and str(admin.id) == str(actor_id):
+            return admin, "不能停用当前登录账号"
+        active_count = await db.scalar(
+            select(func.count())
+            .select_from(AdminUser)
+            .where(AdminUser.is_active.is_(True), AdminUser.id != admin.id)
+        ) or 0
+        if active_count == 0:
+            return admin, "至少保留一个启用账号"
+
+    admin.is_active = is_active
+    await db.commit()
+    await db.refresh(admin)
+    return admin, None
+
+
+async def reset_admin_password(
+    db: AsyncSession,
+    admin_id: str,
+    new_password: str,
+    *,
+    actor_id: str | None = None,
+) -> tuple[AdminUser | None, str | None]:
+    """强制重置其他管理员密码；pwd_version+1 使其旧 token 全部失效。"""
+    result = await db.execute(select(AdminUser).where(AdminUser.id == admin_id))
+    admin = result.scalar_one_or_none()
+    if admin is None:
+        return None, "管理员不存在"
+
+    if actor_id is not None and str(admin.id) == str(actor_id):
+        return admin, "请使用右上角「修改密码」修改自己的密码"
+
+    admin.password_hash = hash_password(new_password)
+    admin.pwd_version += 1
+    await db.commit()
+    await db.refresh(admin)
+    return admin, None

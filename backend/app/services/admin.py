@@ -419,13 +419,23 @@ async def admin_user_detail(db: AsyncSession, user_id: str) -> dict | None:
     }
 
 
+# admin 允许的用户状态流转：正常 ↔ 冻结；注销账号不可通过后台改状态复活
+USER_STATUS_TRANSITIONS = {1: {0}, 0: {1}, -2: set()}
+
+
 async def update_user_status(
-    db: AsyncSession, user_id: str, new_status: int
-) -> User | None:
+    db: AsyncSession, user_id: str, new_status: int, actor_id: str | None = None
+) -> User | None | str:
+    """冻结/解冻用户。返回 User / None(不存在) / 'self_freeze' / 'invalid'。"""
+    if actor_id is not None and str(user_id) == str(actor_id):
+        return "self_freeze"
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         return None
+    allowed = USER_STATUS_TRANSITIONS.get(user.status, set())
+    if new_status not in allowed:
+        return "invalid"
 
     user.status = new_status
     await db.commit()

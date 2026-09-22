@@ -30,6 +30,9 @@ SENSITIVE_WORD_DELETE = "sensitive_word.delete"
 EXPORT_POSTS = "export.posts"
 EXPORT_USERS = "export.users"
 IMAGE_UPLOAD = "image.upload"
+ADMIN_CREATE = "admin.create"
+ADMIN_STATUS = "admin.status"
+ADMIN_PASSWORD_RESET = "admin.password_reset"
 
 
 async def log_admin_action(

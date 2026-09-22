@@ -4,6 +4,11 @@ import { ElMessage } from 'element-plus'
 
 const TOKEN_KEY = 'sw_admin_token'
 
+// 管理台可能部署在 /admin/ 子路径：401 跳登录需带 base，否则生产环境会 404
+const LOGIN_PATH = import.meta.env.BASE_URL.endsWith('/')
+  ? `${import.meta.env.BASE_URL}login`
+  : `${import.meta.env.BASE_URL}/login`
+
 export function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) || ''
 }
@@ -43,10 +48,10 @@ request.interceptors.response.use(
     const detail = err.response?.data?.detail
     if (status === 401) {
       clearToken()
-      // 避免登录页自身 401 造成循环
-      if (!location.pathname.startsWith('/login')) {
+      // 避免登录页自身 401 造成循环；跟随 BASE_URL 支持 /admin/ 子路径部署
+      if (!location.pathname.startsWith(LOGIN_PATH)) {
         ElMessage.error('登录已失效，请重新登录')
-        location.href = '/login'
+        window.location.assign(LOGIN_PATH)
       }
     } else {
       ElMessage.error(typeof detail === 'string' ? detail : err.message || '请求失败')

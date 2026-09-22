@@ -28,7 +28,7 @@ async def _daily_counts(db: AsyncSession, column, days: int) -> dict[str, int]:
     start = datetime.now(timezone.utc) - timedelta(days=days)
     stmt = (
         select(_day_expr(column).label("d"), func.count())
-        .where(column >= start, column < func.now())
+        .where(column >= start, column <= func.now())
         .group_by("d")
     )
     rows = (await db.execute(stmt)).all()
@@ -43,7 +43,7 @@ async def _daily_active_users(db: AsyncSession, days: int) -> dict[str, int]:
             _day_expr(Footprint.viewed_at).label("d"),
             func.count(func.distinct(Footprint.user_id)),
         )
-        .where(Footprint.viewed_at >= start, Footprint.viewed_at < func.now())
+        .where(Footprint.viewed_at >= start, Footprint.viewed_at <= func.now())
         .group_by("d")
     )
     rows = (await db.execute(stmt)).all()

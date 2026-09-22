@@ -109,13 +109,15 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
-import { post, put } from '@/utils/request'
+import { get, post, put } from '@/utils/request'
 
 const loggedIn = ref(tokenStorage.isLoggedIn())
+const localInfo = userStorage.getUserInfo()
 const user = ref({
-  nickname: userStorage.getUserInfo()?.nickname || '未登录',
-  is_verified: !!userStorage.getUserInfo()?.is_verified,
+  nickname: localInfo?.nickname || '未登录',
+  is_verified: !!localInfo?.is_verified,
 })
+const role = ref<'guest' | 'student' | 'admin'>((localInfo?.role as 'guest' | 'student' | 'admin') || 'guest')
 const cacheSize = ref('计算中…')
 
 const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de']
@@ -129,9 +131,8 @@ const avatarColor = computed(() => {
 
 const roleText = computed(() => {
   if (!loggedIn.value) return '游客模式 · 仅可浏览'
-  const role = userStorage.getUserInfo()?.role
-  if (role === 'admin') return '管理员'
-  if (role === 'student') return '已认证学生'
+  if (role.value === 'admin') return '管理员'
+  if (role.value === 'student') return '已认证学生'
   return '游客'
 })
 
@@ -263,14 +264,35 @@ const onDeleteAccount = async () => {
   }
 }
 
-const refreshAuth = () => {
+const syncProfile = async () => {
+  if (!tokenStorage.isLoggedIn()) return
+  try {
+    const p = await get<{ nickname?: string; is_verified?: boolean; role?: string }>('/user/profile')
+    user.value = {
+      nickname: p.nickname || user.value.nickname,
+      is_verified: !!p.is_verified,
+    }
+    role.value = (p.role as 'guest' | 'student' | 'admin') || role.value
+    const local = userStorage.getUserInfo()
+    userStorage.setUserInfo({
+      id: local?.id || '',
+      nickname: p.nickname || local?.nickname || '未登录',
+      role: (p.role as 'guest' | 'student' | 'admin') || (local?.role as 'guest' | 'student' | 'admin') || 'guest',
+      is_verified: !!p.is_verified,
+    })
+  } catch { /* 忽略：未登录或网络异常时不覆盖现有状态 */ }
+}
+
+const refreshAuth = async () => {
   loggedIn.value = tokenStorage.isLoggedIn()
   const info = userStorage.getUserInfo()
   user.value = {
     nickname: info?.nickname || '未登录',
     is_verified: !!info?.is_verified,
   }
+  role.value = info?.role || 'guest'
   calcCache()
+  if (loggedIn.value) await syncProfile()
 }
 
 onShow(refreshAuth)

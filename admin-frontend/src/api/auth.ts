@@ -16,3 +16,14 @@ export function changePassword(oldPassword: string, newPassword: string) {
     new_password: newPassword,
   })
 }
+
+
+export interface MeResult {
+  id: string
+  display_name: string
+  source: string
+}
+
+export function me() {
+  return request.get<any, MeResult>('/admin/auth/me')
+}

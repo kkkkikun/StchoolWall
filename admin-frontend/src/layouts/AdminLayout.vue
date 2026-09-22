@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UserFilled, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
@@ -75,6 +75,8 @@ const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => (route.meta.title as string) || '')
 
 const showPwd = ref(false)
+
+onMounted(() => { auth.fetchMe() })
 
 const onCommand = async (cmd: string) => {
   if (cmd === 'password') {

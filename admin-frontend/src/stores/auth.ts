@@ -35,5 +35,20 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('sw_admin_id')
   }
 
-  return { loggedIn, adminName, adminUsername, adminId, isAdmin, login, logout }
+  async function fetchMe() {
+    if (!getToken()) return
+    try {
+      const me = await authApi.me()
+      loggedIn.value = true
+      adminName.value = me.display_name
+      adminId.value = me.id
+      localStorage.setItem('sw_admin_name', me.display_name)
+      localStorage.setItem('sw_admin_id', me.id)
+    } catch {
+      // token 失效：清空并回登录页
+      logout()
+    }
+  }
+
+  return { loggedIn, adminName, adminUsername, adminId, isAdmin, login, logout, fetchMe }
 })

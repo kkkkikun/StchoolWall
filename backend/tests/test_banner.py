@@ -52,6 +52,19 @@ class TestPublicBanners:
         items = resp.json()["data"]["items"]
         assert [it["title"] for it in items] == ["边界"]
 
+    async def test_activity_id_returned(self, client: AsyncClient):
+        from app.models.activity import Activity
+        async with TestSession() as db:
+            a = Activity(title="活动页", content="正文", status=1)
+            db.add(a)
+            await db.commit()
+            await db.refresh(a)
+            aid = a.id
+        await _seed_banner(title="挂活动", activity_id=aid)
+        resp = await client.get("/api/v1/banners")
+        item = resp.json()["data"]["items"][0]
+        assert item["activity_id"] == aid
+
     async def test_no_auth_required(self, client: AsyncClient):
         """无 token 可访问，响应不含管理字段。"""
         await _seed_banner(title="公开", tag="活动", desc="副标题", image_url="http://x/y.png")

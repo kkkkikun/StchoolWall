@@ -7,6 +7,7 @@ from app.models.notification import Notification
 from app.models.party import Party, PartyMember
 from app.models.follow import UserFollow
 from app.models.banner import Banner
+from app.models.activity import Activity
 from app.models.checkin import CheckIn
 from app.models.sensitive_word import SensitiveWord
 from app.models.moderation_record import ModerationRecord

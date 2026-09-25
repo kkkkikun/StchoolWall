@@ -10,6 +10,7 @@ class BannerCreate(BaseModel):
     image_url: str | None = Field(None, max_length=500)
     link_url: str | None = Field(None, max_length=500)
     post_id: int | None = None
+    activity_id: int | None = None
     sort: int = 0
     status: int = Field(1, ge=0, le=1)
     start_at: datetime | None = None
@@ -24,8 +25,9 @@ class BannerCreate(BaseModel):
 
     @model_validator(mode="after")
     def _target_mutually_exclusive(self) -> "BannerCreate":
-        if self.link_url and self.post_id:
-            raise ValueError("link_url 与 post_id 只能二选一")
+        targets = sum(bool(x) for x in (self.link_url, self.post_id, self.activity_id))
+        if targets > 1:
+            raise ValueError("link_url / post_id / activity_id 只能三选一")
         return self
 
 
@@ -38,6 +40,7 @@ class BannerUpdate(BaseModel):
     image_url: str | None = Field(None, max_length=500)
     link_url: str | None = Field(None, max_length=500)
     post_id: int | None = None
+    activity_id: int | None = None
     sort: int | None = None
     status: int | None = Field(None, ge=0, le=1)
     start_at: datetime | None = None
@@ -52,6 +55,7 @@ class BannerUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _target_mutually_exclusive(self) -> "BannerUpdate":
-        if self.link_url and self.post_id:
-            raise ValueError("link_url 与 post_id 只能二选一")
+        targets = sum(bool(x) for x in (self.link_url, self.post_id, self.activity_id))
+        if targets > 1:
+            raise ValueError("link_url / post_id / activity_id 只能三选一")
         return self

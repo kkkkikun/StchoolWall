@@ -35,6 +35,9 @@ ADMIN_STATUS = "admin.status"
 ADMIN_PASSWORD_RESET = "admin.password_reset"
 TAG_CREATE = "tag.create"
 TAG_DELETE = "tag.delete"
+ACTIVITY_CREATE = "activity.create"
+ACTIVITY_UPDATE = "activity.update"
+ACTIVITY_DELETE = "activity.delete"
 
 
 async def log_admin_action(

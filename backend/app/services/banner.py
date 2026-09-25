@@ -20,6 +20,7 @@ def _banner_to_dict(b: Banner) -> dict:
         "image_url": b.image_url,
         "link_url": b.link_url,
         "post_id": b.post_id,
+        "activity_id": b.activity_id,
     }
 
 
@@ -92,10 +93,16 @@ async def update_banner(db: AsyncSession, banner: Banner, data: dict) -> Banner:
     """部分更新；link_url 有值时清空 post_id（反之亦然），保证跳转目标唯一。"""
     for field, value in data.items():
         setattr(banner, field, value)
+    # 三个跳转目标互斥：设置其中一个时清空另外两个
     if data.get("link_url"):
         banner.post_id = None
+        banner.activity_id = None
     elif data.get("post_id"):
         banner.link_url = None
+        banner.activity_id = None
+    elif data.get("activity_id"):
+        banner.link_url = None
+        banner.post_id = None
     await db.commit()
     await db.refresh(banner)
     return banner

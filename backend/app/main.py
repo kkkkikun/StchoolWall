@@ -40,7 +40,7 @@ _static_dir = Path(settings.STATIC_BASE_DIR).resolve()
 _static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
-from app.routers import admin, admin_auth, auth, banner, interaction, notification, party, posts, tags, upload, user  # noqa: E402
+from app.routers import activity, admin, admin_auth, auth, banner, interaction, notification, party, posts, tags, upload, user  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["User"])
@@ -50,6 +50,8 @@ app.include_router(notification.router, prefix="/api/v1", tags=["Notification"])
 app.include_router(party.router, prefix="/api/v1", tags=["Party"])
 app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
 app.include_router(tags.router, prefix="/api/v1/tags", tags=["Tags"])
+app.include_router(activity.router, prefix="/api/v1", tags=["Activity"])
+app.include_router(activity.admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(tags.admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(banner.router, prefix="/api/v1", tags=["Banner"])

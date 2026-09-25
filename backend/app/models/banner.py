@@ -22,6 +22,8 @@ class Banner(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     link_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     post_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("posts.id"), nullable=True)
+    # 站内活动页跳转（与 post_id / link_url 三选一；不建外键，删除活动时前端兜底 404）
+    activity_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # 排序权重，越大越靠前
     sort: Mapped[int] = mapped_column(Integer, default=0)
     # 1=投放中 0=已下架

@@ -9,6 +9,7 @@ export interface AdminBanner {
   image_url: string | null
   link_url: string | null
   post_id: number | null
+  activity_id: number | null
   sort: number
   status: number
   start_at: string | null

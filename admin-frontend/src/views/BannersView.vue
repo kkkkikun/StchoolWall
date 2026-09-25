@@ -27,6 +27,7 @@
       <el-table-column label="跳转" min-width="140">
         <template #default="{ row }">
           <span v-if="row.post_id">帖子 #{{ row.post_id }}</span>
+          <span v-else-if="row.activity_id">活动 #{{ activityName(row.activity_id) }}</span>
           <span v-else-if="row.link_url" class="link-text">{{ row.link_url }}</span>
           <span v-else class="muted">未设置</span>
         </template>
@@ -83,7 +84,12 @@
         </el-form-item>
         <el-form-item label="跳转帖子 ID">
           <el-input-number v-model="form.post_id" :min="1" controls-position="right" style="width: 140px" />
-          <span class="hint">与外链二选一</span>
+          <span class="hint">与活动/外链三选一</span>
+        </el-form-item>
+        <el-form-item label="站内活动">
+          <el-select v-model="form.activity_id" clearable filterable placeholder="选择活动页" style="width: 260px">
+            <el-option v-for="a in activities" :key="a.id" :label="`#${a.id} ${a.title}`" :value="a.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="外链 URL">
           <el-input v-model="form.link_url" placeholder="https://…" />
@@ -105,8 +111,10 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBanners, createBanner, updateBanner, deleteBanner, uploadImage, type AdminBanner } from '@/api/banners'
+import { getActivities, type AdminActivity } from '@/api/activities'
 
 const items = ref<AdminBanner[]>([])
+const activities = ref<AdminActivity[]>([])
 const loading = ref(false)
 
 const showForm = ref(false)
@@ -116,7 +124,7 @@ const editing = ref<AdminBanner | null>(null)
 
 const form = reactive({
   title: '', desc: '', tag: '', sort: 0,
-  image_url: '', post_id: undefined as number | undefined, link_url: '',
+  image_url: '', post_id: undefined as number | undefined, activity_id: undefined as number | undefined, link_url: '',
   range: null as [string, string] | null,
 })
 
@@ -129,8 +137,9 @@ const fmtRange = (row: AdminBanner) => {
 const load = async () => {
   loading.value = true
   try {
-    const data = await getBanners()
-    items.value = data.items
+    const [banners, acts] = await Promise.all([getBanners(), getActivities({ page: 1, page_size: 100 })])
+    items.value = banners.items
+    activities.value = acts.items
   } catch { /* 拦截器已提示 */ } finally {
     loading.value = false
   }
@@ -144,10 +153,13 @@ const openForm = (row?: AdminBanner) => {
   form.sort = row?.sort ?? 0
   form.image_url = row?.image_url || ''
   form.post_id = row?.post_id || undefined
+  form.activity_id = row?.activity_id || undefined
   form.link_url = row?.link_url || ''
   form.range = (row?.start_at && row?.end_at) ? [row.start_at, row.end_at] : null
   showForm.value = true
 }
+
+const activityName = (id: number) => activities.value.find(a => a.id === id)?.title || `#${id}`
 
 const onUpload = async (option: any) => {
   uploading.value = true
@@ -165,8 +177,9 @@ const save = async () => {
     ElMessage.warning('标题必填')
     return
   }
-  if (form.post_id && form.link_url) {
-    ElMessage.warning('跳转帖子与外链只能二选一')
+  const targetCount = [form.post_id, form.activity_id, form.link_url].filter(Boolean).length
+  if (targetCount > 1) {
+    ElMessage.warning('帖子 / 活动 / 外链只能三选一')
     return
   }
   const data: Record<string, unknown> = {
@@ -176,6 +189,7 @@ const save = async () => {
     sort: form.sort,
     image_url: form.image_url.trim() || null,
     post_id: form.post_id || null,
+    activity_id: form.activity_id || null,
     link_url: form.link_url.trim() || null,
     start_at: form.range ? form.range[0] : null,
     end_at: form.range ? form.range[1] : null,

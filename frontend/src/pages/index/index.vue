@@ -348,6 +348,10 @@ const onAd = (ad: BannerItem) => {
     uni.navigateTo({ url: `/pages/post-detail/index?id=${ad.post_id}` });
     return
   }
+  if (ad.activity_id) {
+    uni.navigateTo({ url: `/pages/activity/index?id=${ad.activity_id}` });
+    return
+  }
   if (ad.link_url) {
     const link = toHttp(ad.link_url)
     // #ifdef H5

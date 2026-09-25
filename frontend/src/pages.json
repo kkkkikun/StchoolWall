@@ -58,6 +58,12 @@
 			}
 		},
 		{
+			"path": "pages/activity/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/mine/index",
 			"style": {
 				"navigationStyle": "custom"

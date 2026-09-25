@@ -10,6 +10,7 @@ export interface BannerItem {
   image_url?: string | null
   link_url?: string | null
   post_id?: number | null
+  activity_id?: number | null
 }
 
 /** 管理端 Banner（含投放管理字段） */
@@ -28,6 +29,7 @@ export interface BannerPayload {
   image_url?: string
   link_url?: string
   post_id?: number
+  activity_id?: number
   sort?: number
   status?: number
   start_at?: string | null

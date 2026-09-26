@@ -304,3 +304,24 @@ class TestReportPost:
             "reason": "试试",
         }, headers=auth_header(token))
         assert r.status_code == 403
+
+
+class TestTagFilter:
+    @pytest.mark.asyncio
+    async def test_list_by_tag(self, client: AsyncClient, student_user: User):
+        from app.models.post import Post
+        from app.models.tag import Tag, PostTag
+
+        async with TestSession() as db:
+            post = Post(user_id=student_user.id, post_type="general", content="带标签的帖子", status=1)
+            tag = Tag(name="考研交流")
+            db.add_all([post, tag])
+            await db.flush()
+            db.add(PostTag(post_id=post.id, tag_id=tag.id))
+            await db.commit()
+            tag_id = tag.id
+
+        r = await client.get(f"/api/v1/posts?tag_id={tag_id}")
+        assert r.status_code == 200
+        ids = [it["id"] for it in r.json()["data"]["items"]]
+        assert ids == [post.id]

@@ -35,7 +35,6 @@ import { getPosts } from '@/api/posts'
 import type { PostBrief } from '@/types/api'
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
-const tagId = ref(0)
 const tagName = ref('')
 const posts = ref<PostBrief[]>([])
 const cursor = ref<number | null>(null)
@@ -43,11 +42,11 @@ const hasMore = ref(false)
 const loading = ref(false)
 
 const load = async (refresh = true) => {
-  if (loading.value || !tagId.value) return
+  if (loading.value || !tagName.value) return
   loading.value = true
   try {
     const c = refresh ? undefined : (cursor.value ?? undefined)
-    const res = await getPosts(c, undefined, undefined, undefined, tagId.value)
+    const res = await getPosts(c, undefined, undefined, undefined, undefined, tagName.value)
     posts.value = refresh ? res.items : [...posts.value, ...res.items]
     cursor.value = res.next_cursor
     hasMore.value = res.has_more
@@ -59,7 +58,6 @@ const load = async (refresh = true) => {
 }
 
 onLoad((query) => {
-  tagId.value = Number(query?.id || 0)
   tagName.value = decodeURIComponent(query?.name || '')
   load(true)
 })

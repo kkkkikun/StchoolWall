@@ -11,10 +11,9 @@
           v-for="tag in tags"
           :key="tag.id"
           class="tag-badge"
-          :class="{ selected: selectedTagIds.includes(tag.id) }"
+          @tap="onTagTap(tag)"
         >
-          <text class="tag-link" @tap.stop="goTagPosts(tag)">#{{ tag.name }}</text>
-          <text class="tag-check" @tap.stop="onTagTap(tag)">{{ selectedTagIds.includes(tag.id) ? '✓' : '＋' }}</text>
+          #{{ tag.name }}
         </view>
         <text v-if="!tags.length" class="tag-empty">暂无标签，可在后台添加</text>
       </scroll-view>
@@ -87,8 +86,6 @@ import { tokenStorage } from '@/utils/storage'
 import { uploadFile } from '@/utils/request'
 
 const tags = ref<Tag[]>([])
-const selectedTagIds = ref<number[]>([])
-
 const content = ref('')
 const section = ref('')
 
@@ -96,15 +93,8 @@ const onContentInput = (e: { detail: { value: string } } | Event) => {
   content.value = (e as { detail: { value: string } }).detail.value
 }
 
-const goTagPosts = (tag: Tag) => {
-  uni.navigateTo({ url: `/pages/tag-posts/index?id=${tag.id}&name=${encodeURIComponent(tag.name)}` })
-}
-
 const onTagTap = (tag: Tag) => {
-  const i = selectedTagIds.value.indexOf(tag.id)
-  if (i >= 0) selectedTagIds.value.splice(i, 1)
-  else if (selectedTagIds.value.length < 5) selectedTagIds.value.push(tag.id)
-  else uni.showToast({ title: '最多选 5 个标签', icon: 'none' })
+  content.value = `${content.value} #${tag.name} `
 }
 
 const loadTags = async () => {
@@ -201,12 +191,11 @@ const onSubmit = async () => {
   submitting.value = true
   try {
     const uploaded = images.value.filter((i) => i.status === 'done').map((i) => i.url)
-    await createPost({ post_type: 'general', content: text, category: section.value, images: uploaded, tag_ids: selectedTagIds.value })
+    await createPost({ post_type: 'general', content: text, category: section.value, images: uploaded })
     uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
     setTimeout(() => {
       content.value = ''
       section.value = ''
-      selectedTagIds.value = []
       images.value = []
       uni.switchTab({ url: '/pages/index/index' })
     }, 1200)

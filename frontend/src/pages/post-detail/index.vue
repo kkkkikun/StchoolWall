@@ -24,7 +24,14 @@
 
       <!-- 正文 -->
       <view class="content">
-        <text class="content-text">{{ post.content }}</text>
+        <text class="content-text">
+          <text
+            v-for="(seg, i) in contentSegments"
+            :key="i"
+            :class="{ 'hashtag': seg.type === 'tag' }"
+            @tap.stop="seg.type === 'tag' && onTag(seg.tag)"
+          >{{ seg.text }}</text>
+        </text>
         <view v-if="post.images && post.images.length" class="images">
           <!-- 单图：widthFix 自适应铺开（高度随宽高比）；多图：1:1 方格排开 -->
           <image
@@ -109,6 +116,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { PostDetail } from '@/types/api'
+import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
 import { getPostDetail, reportPost } from '@/api/posts'
 import {
@@ -126,6 +134,8 @@ import {
 import { tokenStorage, userStorage } from '@/utils/storage'
 
 const post = ref<PostDetail | null>(null)
+const contentSegments = computed(() => parseHashtags(post.value?.content || ''))
+const onTag = (tag: string) => uni.navigateTo({ url: `/pages/tag-posts/index?name=${encodeURIComponent(tag)}` })
 const loading = ref(true)
 const comments = ref<CommentItem[]>([])
 const commentText = ref('')
@@ -358,6 +368,7 @@ const copyContact = () => {
 
 .content { padding: 24rpx; }
 .content-text { font-size: 30rpx; color: var(--text-1); line-height: 1.7; white-space: pre-wrap; }
+.content-text .hashtag { color: #1d9bf0; }
 .images { display: flex; flex-wrap: wrap; gap: 12rpx; margin: 20rpx 0; }
 .post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: #f2f3f5; }
 .post-image-single { width: 100%; border-radius: 12rpx; background: #f2f3f5; }

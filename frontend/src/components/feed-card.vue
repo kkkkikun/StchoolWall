@@ -21,7 +21,14 @@
 
     <!-- 正文 -->
     <view class="feed-body" @tap="onDetail">
-      <text class="feed-text">{{ post.content }}</text>
+      <text class="feed-text">
+        <text
+          v-for="(seg, i) in contentSegments"
+          :key="i"
+          :class="{ 'hashtag': seg.type === 'tag' }"
+          @tap.stop="seg.type === 'tag' && onTag(seg.tag)"
+        >{{ seg.text }}</text>
+      </text>
       <view v-if="post.images && post.images.length > 0" class="feed-images">
         <!-- 单图：widthFix 自适应铺开；多图：1:1 缩略排开（最多展示 3 张） -->
         <image
@@ -58,6 +65,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { PostBrief } from '@/types/api'
+import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
 import { likePost, unlikePost, favoritePost, unfavoritePost } from '@/api/interaction'
 import { tokenStorage } from '@/utils/storage'
@@ -92,6 +100,9 @@ const emit = defineEmits<{ (e: 'detail', id: number): void }>()
 const isLiked = ref(!!props.post.is_liked)
 const likeCount = ref(props.post.like_count || 0)
 const isFav = ref(!!props.post.is_favorited)
+
+const contentSegments = computed(() => parseHashtags(props.post.content))
+const onTag = (tag: string) => uni.navigateTo({ url: `/pages/tag-posts/index?name=${encodeURIComponent(tag)}` })
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[props.post.post_type] || '动态')
 
@@ -207,6 +218,7 @@ const onFavorite = async () => {
 .more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
 .feed-body { margin-top: 20rpx; }
 .feed-text { font-size: 29rpx; color: var(--text-1); line-height: 1.6; white-space: pre-wrap; }
+.feed-text .hashtag { color: #1d9bf0; }
 .feed-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .img-ph { width: 200rpx; height: 200rpx; border-radius: 16rpx; background: #f2f3f5; }
 .img-single { width: 100%; border-radius: 16rpx; background: #f2f3f5; }

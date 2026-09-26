@@ -46,11 +46,11 @@ function mapDetail(raw: RawPost): PostDetail {
   }
 }
 
-/** 获取帖子列表（可按 post_type/category/tag_id 过滤；order='time' 为最新流） */
+/** 获取帖子列表（可按 post_type/category/tag_id/tag 过滤；order='time' 为最新流） */
 export async function getPosts(
-  cursor?: number, postType?: string, category?: string, order?: 'time', tagId?: number,
+  cursor?: number, postType?: string, category?: string, order?: 'time', tagId?: number, tagText?: string,
 ): Promise<PostListResponse> {
-  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType, category, order, tag_id: tagId })
+  const data = await get<PostListResponse>('/posts', { cursor, post_type: postType, category, order, tag_id: tagId, tag: tagText })
   return {
     items: (data.items || []).map(mapBrief),
     next_cursor: data.next_cursor,

@@ -43,13 +43,14 @@ async def get_posts(
     post_type: str | None = Query(None),
     category: str | None = Query(None),
     tag_id: int | None = Query(None, ge=1),
+    tag: str | None = Query(None, max_length=30),
     order: str | None = Query(None, pattern="^(time)$"),
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
     """获取帖子列表（公开，游标分页，广告置顶，带互动计数与当前用户视角）"""
     items, next_cursor, has_more = await list_posts(
-        db, cursor, post_type, viewer=user, category=category, order=order, tag_id=tag_id,
+        db, cursor, post_type, viewer=user, category=category, order=order, tag_id=tag_id, tag_text=tag,
     )
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 

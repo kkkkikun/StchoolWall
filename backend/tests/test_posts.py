@@ -308,6 +308,16 @@ class TestReportPost:
 
 class TestTagFilter:
     @pytest.mark.asyncio
+    async def test_list_by_tag_text(self, client: AsyncClient, student_user: User):
+        await _seed_post(student_user.id, content="今天 #考研交流 一起加油")
+        await _seed_post(student_user.id, content="普通帖子")
+        r = await client.get("/api/v1/posts?tag=考研交流")
+        assert r.status_code == 200
+        items = r.json()["data"]["items"]
+        assert len(items) == 1
+        assert "考研交流" in items[0]["content"]
+
+    @pytest.mark.asyncio
     async def test_list_by_tag(self, client: AsyncClient, student_user: User):
         from app.models.post import Post
         from app.models.tag import Tag, PostTag

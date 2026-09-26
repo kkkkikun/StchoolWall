@@ -63,6 +63,7 @@ async def list_posts(
     category: str | None = None,
     order: str | None = None,
     tag_id: int | None = None,
+    tag_text: str | None = None,
 ) -> tuple[list[dict], int | None, bool]:
     # 广告轮播由独立 Banner 表承接（GET /banners），广告帖不再混入 feed
     # 置顶：仅"推荐位"（无 category/post_type/order=time）第一页前置置顶块
@@ -94,6 +95,8 @@ async def list_posts(
         conditions.append(Post.category == category)
     if tag_id:
         conditions.append(Post.id.in_(select(PostTag.post_id).where(PostTag.tag_id == tag_id)))
+    if tag_text:
+        conditions.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
 
     if is_recommend:
         # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id，

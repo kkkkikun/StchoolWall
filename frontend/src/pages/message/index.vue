@@ -37,23 +37,23 @@
         <text class="panel-title">互动提醒</text>
         <text class="panel-more" @tap="goInteractions">更多 ›</text>
       </view>
-      <scroll-view scroll-x :show-scrollbar="false" class="rem-scroll">
+      <view class="rem-list">
         <view
           v-for="r in reminders"
           :key="r.id"
-          class="rem-chip"
+          class="rem-row"
           @tap="goInteractions"
         >
           <view class="rem-icon" :class="`ic-${r.type}`">
             <text>{{ iconOf(r.type) }}</text>
           </view>
           <view class="rem-main">
-            <text class="rem-name">{{ r.nickname }}</text>
-            <text class="rem-action">{{ r.action }}</text>
+            <text class="rem-name">{{ r.nickname }} {{ r.action }}</text>
             <text class="rem-time">{{ r.time }}</text>
           </view>
+          <text class="rem-arrow">›</text>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <!-- 4. 动态列表（全部通知；时间右侧+未读红点） -->
@@ -222,7 +222,7 @@ onShow(() => {
 
 const goInteractions = () => uni.navigateTo({ url: '/pages/interactions/index' })
 const goProfile = (id: string) => uni.navigateTo({ url: `/pages/profile/index?id=${id}` })
-const onMoreRank = () => uni.showToast({ title: '完整榜单即将上线', icon: 'none' })
+const onMoreRank = () => uni.navigateTo({ url: '/pages/hot-users/index' })
 
 const onMarkAllRead = async () => {
   try {
@@ -274,16 +274,17 @@ const onMessage = async (m: MsgRow) => {
 .rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--brand-red-dark); font-weight: 600; }
 
 /* 互动提醒 */
-.rem-scroll { white-space: nowrap; }
-.rem-chip { display: inline-flex; align-items: flex-start; width: 300rpx; background: var(--bg-page); border-radius: 16rpx; padding: 20rpx; margin-right: 16rpx; vertical-align: top; }
-.rem-icon { width: 72rpx; height: 72rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32rpx; color: #fff; flex-shrink: 0; }
+.rem-list { margin-top: -4rpx; }
+.rem-row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #f5f5f6; }
+.rem-row:last-child { border-bottom: none; }
+.rem-icon { width: 68rpx; height: 68rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30rpx; color: #fff; flex-shrink: 0; }
 .ic-like { background: #ff5c7a; }
 .ic-favorite { background: #ffb822; }
 .ic-comment { background: #9b7df7; }
-.rem-main { margin-left: 16rpx; min-width: 0; white-space: normal; }
-.rem-name { display: block; font-size: 26rpx; font-weight: bold; color: var(--brand-red-dark); max-width: 170rpx; overflow: hidden; text-overflow: ellipsis; }
-.rem-action { display: block; font-size: 24rpx; color: var(--text-1); margin-top: 6rpx; }
-.rem-time { display: block; font-size: 20rpx; color: var(--text-3); margin-top: 10rpx; }
+.rem-main { flex: 1; min-width: 0; margin-left: 18rpx; }
+.rem-name { display: block; font-size: 26rpx; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rem-time { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; }
+.rem-arrow { font-size: 36rpx; color: #c8c9cc; margin-left: 10rpx; }
 
 /* 动态列表 */
 .list-panel { padding-bottom: 8rpx; margin-bottom: 24rpx; }

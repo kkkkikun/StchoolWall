@@ -123,11 +123,16 @@
         <view
           v-for="(t, idx) in TABS"
           :key="idx"
-          class="tab-item"
-          :class="{ active: currentTab === idx }"
-          @tap="switchTab(idx)"
+          class="tab-item-wrap"
         >
-          {{ t.label }}
+          <view v-if="idx === 4" class="tab-sep" />
+          <view
+            class="tab-item"
+            :class="{ active: currentTab === idx, 'tab-category': t.kind === 'category' }"
+            @tap="switchTab(idx)"
+          >
+            {{ t.label }}
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -171,13 +176,13 @@ import { tokenStorage } from "@/utils/storage";
 
 // 顶部 tab：对齐参考稿（精选/最新/二手/失物）+ 保留功能入口（关注/精华）
 // 分类完整清单仍由 POST_CATEGORIES 提供（发布页选择器用），此处只是首页瘦身
-const TABS: Array<{ label: string; mode: string }> = [
-  { label: "精选", mode: "all" }, // 热度时间衰减推荐
-  { label: "最新", mode: "latest" }, // 纯时间序（order=time）
-  { label: "关注", mode: "following" },
-  { label: "精华", mode: "featured" },
-  { label: "二手", mode: "二手市场" },
-  { label: "失物", mode: "失物招领" },
+const TABS: Array<{ label: string; mode: string; kind: 'mode' | 'category' }> = [
+  { label: "精选", mode: "all", kind: "mode" }, // 热度时间衰减推荐
+  { label: "最新", mode: "latest", kind: "mode" }, // 纯时间序（order=time）
+  { label: "关注", mode: "following", kind: "mode" },
+  { label: "精华", mode: "featured", kind: "mode" },
+  { label: "二手", mode: "二手市场", kind: "category" },
+  { label: "失物", mode: "失物招领", kind: "category" },
 ];
 const currentTab = ref(0);
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
@@ -704,6 +709,18 @@ const switchTab = (idx: number) => {
   padding: 16rpx 24rpx;
 }
 
+.tab-item-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-sep {
+  width: 2rpx;
+  height: 30rpx;
+  background: #e9ebee;
+  margin: 0 20rpx;
+}
+
 .tab-item {
   display: inline-block;
   font-size: 28rpx;
@@ -716,6 +733,22 @@ const switchTab = (idx: number) => {
   color: var(--text-1);
   font-weight: bold;
   border-bottom: 6rpx solid var(--brand-red);
+}
+
+.tab-item.tab-category {
+  margin-right: 16rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  border: 1rpx solid #f0e4e7;
+  color: var(--text-2);
+}
+
+.tab-item.tab-category.active {
+  background: var(--brand-red);
+  border-color: var(--brand-red);
+  color: #ffffff;
+  border-bottom: 1rpx solid var(--brand-red);
 }
 
 /* 7. 信息流 */

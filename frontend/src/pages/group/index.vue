@@ -6,11 +6,7 @@
       <text class="page-title">组局</text>
     </view>
 
-    <!-- 1. 累计攒局人数 -->
-    <view class="header-stats">
-      <text class="stats-text">已攒 <text class="highlight-num">{{ totalMembers }}</text> 人</text>
-      <text v-if="mode === 'mine'" class="back-all" @tap="setMode('all')">返回全部 ›</text>
-    </view>
+    <view v-if="mode === 'mine'" class="back-all" @tap="setMode('all')">‹ 返回全部</view>
 
     <!-- 2. 双核动作卡 -->
     <view class="action-cards">
@@ -35,7 +31,6 @@
           @tap="onFilter(c)"
         >
           <text class="tag-icon">{{ c.icon }}</text>
-          <text class="tag-name">{{ c.name }}</text>
         </view>
       </view>
     </scroll-view>
@@ -91,7 +86,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
-import { listParties, partiesSummary, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
+import { listParties, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
 
 // 沉浸式标题栏：预留状态栏高度（H5 下为 0）
@@ -111,7 +106,6 @@ const categories = [
   { id: '其他', icon: '⚙️', name: '其他' },
 ] as const
 
-const totalMembers = ref(0)
 const parties = ref<PartyItem[]>([])
 const loading = ref(false)
 const mode = ref<'all' | 'mine'>('all')
@@ -130,13 +124,6 @@ const timeShort = (t: string) => {
   return `${d.getMonth() + 1}-${d.getDate()}`
 }
 const progressOf = (p: PartyItem) => Math.min(100, Math.round(((p.joined_count || 0) / p.total) * 100))
-
-const loadSummary = async () => {
-  try {
-    const s = await partiesSummary()
-    totalMembers.value = s.total_members
-  } catch { /* 忽略 */ }
-}
 
 const loadList = async () => {
   loading.value = true
@@ -164,7 +151,6 @@ const loadList = async () => {
 }
 
 onShow(() => {
-  loadSummary()
   loadList()
 })
 
@@ -205,7 +191,6 @@ const onJoin = async (p: PartyItem) => {
         uni.showToast({ title: '手慢了，已满员', icon: 'none' })
       }
     }
-    await loadSummary()
   } catch (e) {
     // 回滚
     p.is_joined = wasJoined
@@ -242,9 +227,9 @@ const goCreate = () => {
 .card-icon { font-size: 44rpx; }
 
 .filter-scroll { width: 100%; margin-top: 24rpx; white-space: nowrap; }
-.filter-row { display: inline-flex; padding: 4rpx 0; } .tag-pill { display: inline-flex; align-items: center; background-color: #fff; border: 1rpx solid #f2e7ea; border-radius: 32rpx; padding: 14rpx 22rpx; margin-right: 16rpx; font-size: 24rpx; color: var(--text-2); white-space: nowrap; }
+.filter-row { display: inline-flex; padding: 4rpx 0; } .tag-pill { display: inline-flex; align-items: center; background-color: #fff; border: 1rpx solid #f2e7ea; border-radius: 32rpx; padding: 14rpx 18rpx; margin-right: 16rpx; font-size: 24rpx; color: var(--text-2); white-space: nowrap; }
 .tag-pill.active { border-color: var(--brand-red-dark); color: var(--brand-red-dark); background-color: var(--brand-red-soft); font-weight: 600; }
-.tag-icon { margin-right: 6rpx; font-size: 24rpx; }
+.tag-icon { font-size: 26rpx; line-height: 1; }
 
 .tip { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 80rpx 0; }
 

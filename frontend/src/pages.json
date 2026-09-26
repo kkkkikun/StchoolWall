@@ -70,6 +70,12 @@
 			}
 		},
 		{
+			"path": "pages/hot-users/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/mine/index",
 			"style": {
 				"navigationStyle": "custom"

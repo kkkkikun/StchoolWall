@@ -181,8 +181,9 @@ const TABS: Array<{ label: string; mode: string; kind: 'mode' | 'category' }> = 
   { label: "最新", mode: "latest", kind: "mode" }, // 纯时间序（order=time）
   { label: "关注", mode: "following", kind: "mode" },
   { label: "精华", mode: "featured", kind: "mode" },
-  { label: "二手", mode: "二手市场", kind: "category" },
-  { label: "失物", mode: "失物招领", kind: "category" },
+  { label: "广场", mode: "广场", kind: "category" },
+  { label: "二手", mode: "二手", kind: "category" },
+  { label: "失物", mode: "失物", kind: "category" },
 ];
 const currentTab = ref(0);
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>

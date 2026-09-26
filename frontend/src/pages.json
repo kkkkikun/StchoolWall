@@ -64,6 +64,12 @@
 			}
 		},
 		{
+			"path": "pages/tag-posts/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/mine/index",
 			"style": {
 				"navigationStyle": "custom"

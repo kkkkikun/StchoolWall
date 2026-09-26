@@ -8,13 +8,15 @@
       </view>
       <scroll-view class="tags-scroll" scroll-x :show-scrollbar="false">
         <view
-          v-for="tag in hotTags"
-          :key="tag"
+          v-for="tag in tags"
+          :key="tag.id"
           class="tag-badge"
-          @tap="onTagTap(tag)"
+          :class="{ selected: selectedTagIds.includes(tag.id) }"
         >
-          #{{ tag }}
+          <text class="tag-link" @tap.stop="goTagPosts(tag)">#{{ tag.name }}</text>
+          <text class="tag-check" @tap.stop="onTagTap(tag)">{{ selectedTagIds.includes(tag.id) ? '✓' : '＋' }}</text>
         </view>
+        <text v-if="!tags.length" class="tag-empty">暂无标签，可在后台添加</text>
       </scroll-view>
     </view>
 
@@ -75,14 +77,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import TabBar from '@/components/tab-bar.vue'
-import { PUBLISH_HOT_TAGS, POST_CATEGORIES } from '@/utils/mock'
+import { POST_CATEGORIES } from '@/utils/mock'
+import { getTags } from '@/api/tags'
+import type { Tag } from '@/types/api'
 import { createPost } from '@/api/posts'
 import { tokenStorage } from '@/utils/storage'
 import { uploadFile } from '@/utils/request'
 
-const hotTags = PUBLISH_HOT_TAGS
+const tags = ref<Tag[]>([])
+const selectedTagIds = ref<number[]>([])
 
 const content = ref('')
 const section = ref('')
@@ -91,9 +96,24 @@ const onContentInput = (e: { detail: { value: string } } | Event) => {
   content.value = (e as { detail: { value: string } }).detail.value
 }
 
-const onTagTap = (tag: string) => {
-  content.value = `${content.value} #${tag} `
+const goTagPosts = (tag: Tag) => {
+  uni.navigateTo({ url: `/pages/tag-posts/index?id=${tag.id}&name=${encodeURIComponent(tag.name)}` })
 }
+
+const onTagTap = (tag: Tag) => {
+  const i = selectedTagIds.value.indexOf(tag.id)
+  if (i >= 0) selectedTagIds.value.splice(i, 1)
+  else if (selectedTagIds.value.length < 5) selectedTagIds.value.push(tag.id)
+  else uni.showToast({ title: '最多选 5 个标签', icon: 'none' })
+}
+
+const loadTags = async () => {
+  try {
+    tags.value = await getTags()
+  } catch { /* 标签非关键，失败静默 */ }
+}
+
+onMounted(loadTags)
 
 const onSelectSection = () => {
   uni.showActionSheet({
@@ -181,11 +201,12 @@ const onSubmit = async () => {
   submitting.value = true
   try {
     const uploaded = images.value.filter((i) => i.status === 'done').map((i) => i.url)
-    await createPost({ post_type: 'general', content: text, category: section.value, images: uploaded })
+    await createPost({ post_type: 'general', content: text, category: section.value, images: uploaded, tag_ids: selectedTagIds.value })
     uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
     setTimeout(() => {
       content.value = ''
       section.value = ''
+      selectedTagIds.value = []
       images.value = []
       uni.switchTab({ url: '/pages/index/index' })
     }, 1200)
@@ -235,8 +256,22 @@ const onSubmit = async () => {
   flex: 1;
 }
 
+.tag-badge.selected {
+  background-color: var(--brand-red);
+  color: #ffffff;
+}
+
+.tag-link { white-space: nowrap; }
+.tag-check { margin-left: 8rpx; font-weight: bold; }
+
+.tag-empty {
+  font-size: 24rpx;
+  color: var(--text-3);
+}
+
 .tag-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   background-color: var(--brand-red-soft);
   color: var(--brand-red);
   font-size: 24rpx;
@@ -259,13 +294,15 @@ const onSubmit = async () => {
 
 .selector-left {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .icon-layers {
-  font-size: 40rpx;
+  font-size: 38rpx;
   margin-right: 20rpx;
+  margin-top: 2rpx;
   color: var(--brand-red);
+  line-height: 1;
 }
 
 .selector-meta {

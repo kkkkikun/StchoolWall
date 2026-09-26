@@ -102,11 +102,12 @@ async def get_my_posts(
 @router.get("/following")
 async def following_feed_route(
     cursor: int | None = Query(None),
+    tag: str | None = Query(None, max_length=30),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
     """关注流：已关注用户的帖子"""
-    items, next_cursor, has_more = await following_feed(db, user, cursor)
+    items, next_cursor, has_more = await following_feed(db, user, cursor, tag_text=tag)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
@@ -124,11 +125,12 @@ async def hot_posts_route(
 async def featured_posts_route(
     cursor: int | None = Query(None),
     limit: int = Query(20, ge=1, le=50),
+    tag: str | None = Query(None, max_length=30),
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
     """精华流：经验贴等长尾内容，历史热度排序（公开可看，登录后带点赞视角）"""
-    items, next_cursor, has_more = await featured_posts(db, cursor, limit)
+    items, next_cursor, has_more = await featured_posts(db, cursor, limit, tag_text=tag)
     if user and items:
         liked_ids, fav_ids = await _viewer_flags(db, user, [it["id"] for it in items])
         for it in items:

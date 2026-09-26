@@ -9,6 +9,18 @@
       </view>
     </view>
 
+    <view class="tabs">
+      <view
+        v-for="t in tabs"
+        :key="t.mode"
+        class="tab"
+        :class="{ on: mode === t.mode }"
+        @tap="switchMode(t.mode)"
+      >
+        {{ t.label }}
+      </view>
+    </view>
+
     <view v-if="loading && posts.length === 0" class="skeleton-list">
       <SkeletonCard v-for="i in 3" :key="i" />
     </view>
@@ -31,11 +43,19 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import FeedCard from '@/components/feed-card.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
-import { getPosts } from '@/api/posts'
+import { getPosts, getFeaturedPosts, getFollowingFeed } from '@/api/posts'
+import { tokenStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const tagName = ref('')
+const mode = ref<'all' | 'latest' | 'following' | 'featured'>('all')
+const tabs = [
+  { mode: 'all' as const, label: '精选' },
+  { mode: 'latest' as const, label: '最新' },
+  { mode: 'following' as const, label: '关注' },
+  { mode: 'featured' as const, label: '精华' },
+]
 const posts = ref<PostBrief[]>([])
 const cursor = ref<number | null>(null)
 const hasMore = ref(false)
@@ -46,7 +66,21 @@ const load = async (refresh = true) => {
   loading.value = true
   try {
     const c = refresh ? undefined : (cursor.value ?? undefined)
-    const res = await getPosts(c, undefined, undefined, undefined, undefined, tagName.value)
+    let res
+    if (mode.value === 'latest') {
+      res = await getPosts(c, undefined, undefined, 'time', undefined, tagName.value)
+    } else if (mode.value === 'following') {
+      if (!tokenStorage.isLoggedIn()) {
+        posts.value = []
+        uni.showToast({ title: '请先登录', icon: 'none' })
+        return
+      }
+      res = await getFollowingFeed(c, tagName.value)
+    } else if (mode.value === 'featured') {
+      res = await getFeaturedPosts(c, tagName.value)
+    } else {
+      res = await getPosts(c, undefined, undefined, undefined, undefined, tagName.value)
+    }
     posts.value = refresh ? res.items : [...posts.value, ...res.items]
     cursor.value = res.next_cursor
     hasMore.value = res.has_more
@@ -62,6 +96,13 @@ onLoad((query) => {
   load(true)
 })
 
+const switchMode = (m: typeof mode.value) => {
+  if (mode.value === m) return
+  mode.value = m
+  cursor.value = null
+  load(true)
+}
+
 const loadMore = () => load(false)
 const goPost = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` })
 const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/index/index' }) })
@@ -75,6 +116,11 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .back-btn { font-size: 56rpx; color: #fff; line-height: 1; padding: 0 12rpx; }
 .header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #fff; }
 .header-right { width: 80rpx; }
+
+.tabs { display: flex; background: #fff; padding: 0 16rpx; border-bottom: 1rpx solid #f0f0f1; }
+.tab { position: relative; flex: 1; text-align: center; font-size: 28rpx; color: var(--text-2); padding: 24rpx 0 20rpx; }
+.tab.on { color: var(--text-1); font-weight: bold; }
+.tab.on::after { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 56rpx; height: 6rpx; border-radius: 3rpx; background: var(--brand-red); }
 
 .skeleton-list { padding: 20rpx 24rpx; }
 .feed-list { padding: 20rpx 24rpx 40rpx; }

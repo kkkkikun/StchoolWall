@@ -364,11 +364,13 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
 
 
 async def featured_posts(
-    db: AsyncSession, cursor: int | None = None, limit: int = 20
+    db: AsyncSession, cursor: int | None = None, limit: int = 20, tag_text: str | None = None
 ) -> tuple[list[dict], int | None, bool]:
     """精华流：经验贴等长尾内容，按历史总热度排序（无时间衰减），键集分页。"""
     score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
     conds = [Post.is_featured.is_(True), Post.status == 1, Post.post_type != "advertisement"]
+    if tag_text:
+        conds.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
     if cursor:
         cur = aliased(Post)
         cur_score = select(
@@ -451,13 +453,15 @@ async def search_posts(
 
 
 async def following_feed(
-    db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
+    db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20, tag_text: str | None = None
 ) -> tuple[list[dict], int | None, bool]:
     """关注流：已关注用户的正常非广告帖，按时间倒序。"""
     from app.models.follow import UserFollow
 
     followed = select(UserFollow.followee_id).where(UserFollow.follower_id == user.id)
     conds = [Post.status == 1, Post.post_type != "advertisement", Post.user_id.in_(followed)]
+    if tag_text:
+        conds.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
     if cursor:
         conds.append(Post.id < cursor)
     stmt = (

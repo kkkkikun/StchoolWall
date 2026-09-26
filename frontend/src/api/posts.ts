@@ -71,8 +71,8 @@ export async function getHotPosts(limit = 10): Promise<PostBrief[]> {
 }
 
 /** 精华流：经验贴等长尾内容，历史热度排序（无时间衰减） */
-export async function getFeaturedPosts(cursor?: number): Promise<PostListResponse> {
-  const data = await get<PostListResponse>('/posts/featured', { cursor })
+export async function getFeaturedPosts(cursor?: number, tagText?: string): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts/featured', { cursor, tag: tagText })
   return {
     items: (data.items || []).map(mapBrief),
     next_cursor: data.next_cursor,
@@ -81,8 +81,8 @@ export async function getFeaturedPosts(cursor?: number): Promise<PostListRespons
 }
 
 /** 关注流（已关注用户的帖子） */
-export async function getFollowingFeed(cursor?: number): Promise<PostListResponse> {
-  const data = await get<PostListResponse>('/posts/following', { cursor })
+export async function getFollowingFeed(cursor?: number, tagText?: string): Promise<PostListResponse> {
+  const data = await get<PostListResponse>('/posts/following', { cursor, tag: tagText })
   return {
     items: (data.items || []).map(mapBrief),
     next_cursor: data.next_cursor,

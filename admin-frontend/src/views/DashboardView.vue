@@ -31,7 +31,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ECharts } from 'echarts'
 import { getStats, getTrends, type AdminStats, type TrendPoint } from '@/api/stats'
-import { CHART_COLORS } from '@/theme'
+import { CHART_COLORS, CHART_TEXT, CHART_AXIS, CHART_SPLIT } from '@/theme'
 
 const stats = ref<AdminStats | null>(null)
 const series = ref<TrendPoint[]>([])
@@ -70,10 +70,10 @@ const renderChart = async () => {
   const dates = series.value.map(p => p.date.slice(5))
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['帖子', '评论', '点赞', '新用户', '活跃用户'] },
+    legend: { data: ['帖子', '评论', '点赞', '新用户', '活跃用户'], textStyle: { color: CHART_TEXT } },
     grid: { left: 40, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: dates },
-    yAxis: { type: 'value', minInterval: 1 },
+    xAxis: { type: 'category', data: dates, axisLabel: { color: CHART_TEXT }, axisLine: { lineStyle: { color: CHART_AXIS } } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: CHART_TEXT }, splitLine: { lineStyle: { color: CHART_SPLIT } } },
     series: [
       { name: '帖子', type: 'line', smooth: true, data: series.value.map(p => p.posts), itemStyle: { color: CHART_COLORS[0] } },
       { name: '评论', type: 'line', smooth: true, data: series.value.map(p => p.comments), itemStyle: { color: CHART_COLORS[1] } },

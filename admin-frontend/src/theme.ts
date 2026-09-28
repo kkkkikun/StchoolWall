@@ -4,5 +4,7 @@
  */
 export const CHART_COLORS = ['#33b381', '#3aa0d8', '#f5a623', '#8a5cf5', '#93a49c']
 
-/** 待办警示色（统计卡 warn 态） */
-export const WARN_COLOR = '#f26d6d'
+/** 图表文字（图例/坐标轴刻度）与轴线/网格线颜色 */
+export const CHART_TEXT = '#52655d'
+export const CHART_AXIS = '#c5d4ca'
+export const CHART_SPLIT = '#e2ece5'

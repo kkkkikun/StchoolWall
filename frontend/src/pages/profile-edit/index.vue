@@ -167,7 +167,7 @@ const onSave = async () => {
 <style scoped>
 .page-edit { min-height: 100vh; background: var(--bg-page); padding-bottom: 60rpx; }
 
-.banner-prev { height: 280rpx; background: linear-gradient(160deg, #fbc6d0, #f2b8c8); }
+.banner-prev { height: 280rpx; background: var(--hero-gradient); }
 .banner-img { width: 100%; height: 100%; }
 .banner-ph {
   height: 100%;
@@ -175,7 +175,7 @@ const onSave = async () => {
   align-items: center;
   justify-content: center;
   font-size: 26rpx;
-  color: #ffffff;
+  color: var(--text-inverse);
   opacity: 0.9;
 }
 
@@ -183,14 +183,14 @@ const onSave = async () => {
 .avatar-ring {
   position: relative;
   padding: 6rpx;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 50%;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-float);
   margin-top: -50rpx;
 }
 .avatar-img, .avatar-ph { width: 140rpx; height: 140rpx; border-radius: 50%; }
 .avatar-ph {
-  background: var(--brand-red-soft);
+  background: var(--primary-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,7 +203,7 @@ const onSave = async () => {
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%;
-  background: var(--brand-red-dark);
+  background: var(--primary-strong);
   border: 4rpx solid #ffffff;
   display: flex;
   align-items: center;
@@ -213,25 +213,25 @@ const onSave = async () => {
 .avatar-tip { font-size: 22rpx; color: var(--text-3); margin-top: 40rpx; }
 
 .form-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   margin: 24rpx 24rpx 0;
   padding: 8rpx 32rpx;
 }
-.field { padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f6; position: relative; }
+.field { padding: 26rpx 0; border-bottom: 1rpx solid var(--border-light); position: relative; }
 .field:last-child { border-bottom: none; }
 .label { display: block; font-size: 24rpx; color: var(--text-3); margin-bottom: 12rpx; }
 .input { font-size: 28rpx; color: var(--text-1); }
 .textarea { font-size: 28rpx; color: var(--text-1); width: 100%; min-height: 100rpx; line-height: 1.6; }
-.ph { color: #c0c4cc; }
+.ph { color: var(--text-4); }
 .counter { position: absolute; right: 0; bottom: 26rpx; font-size: 20rpx; color: var(--text-3); }
 .readonly { font-size: 28rpx; color: var(--text-2); }
 .ro-tip { display: block; font-size: 20rpx; color: var(--text-3); padding: 16rpx 0 8rpx; line-height: 1.6; }
 
 .save-btn {
   margin: 40rpx 24rpx 0;
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 30rpx;
   font-weight: 600;
   text-align: center;

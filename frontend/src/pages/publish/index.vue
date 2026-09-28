@@ -216,21 +216,21 @@ const onSubmit = async () => {
 
 /* 1. 热搜 */
 .hot-search-section {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   padding: 24rpx;
   margin: 20rpx 24rpx 0;
   border-radius: var(--radius-card);
   display: flex;
   align-items: center;
-  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 .hot-label {
-  color: var(--brand-red);
+  color: var(--primary);
   font-size: 24rpx;
   font-weight: bold;
   line-height: 1.2;
-  border-right: 2rpx solid #f2f3f5;
+  border-right: 2rpx solid var(--border-light);
   padding-right: 16rpx;
   margin-right: 16rpx;
   display: flex;
@@ -246,8 +246,8 @@ const onSubmit = async () => {
 }
 
 .tag-badge.selected {
-  background-color: var(--brand-red);
-  color: #ffffff;
+  background-color: var(--primary);
+  color: var(--text-inverse);
 }
 
 .tag-link { white-space: nowrap; }
@@ -261,8 +261,8 @@ const onSubmit = async () => {
 .tag-badge {
   display: inline-flex;
   align-items: center;
-  background-color: var(--brand-red-soft);
-  color: var(--brand-red);
+  background-color: var(--primary-soft);
+  color: var(--primary);
   font-size: 24rpx;
   padding: 10rpx 24rpx;
   border-radius: 30rpx;
@@ -271,14 +271,14 @@ const onSubmit = async () => {
 
 /* 2. 版块选择 */
 .section-selector {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   padding: 30rpx 24rpx;
   margin: 20rpx 24rpx 0;
   border-radius: var(--radius-card);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 .selector-left {
@@ -290,7 +290,7 @@ const onSubmit = async () => {
   font-size: 38rpx;
   margin-right: 20rpx;
   margin-top: 2rpx;
-  color: var(--brand-red);
+  color: var(--primary);
   line-height: 1;
 }
 
@@ -318,12 +318,12 @@ const onSubmit = async () => {
 
 /* 3. 正文 + 工具栏 */
 .content-editor-wrapper {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   margin: 20rpx 24rpx 0;
   padding: 30rpx 24rpx;
   border-radius: var(--radius-card);
   height: 450rpx;
-  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 .post-textarea {
@@ -340,26 +340,26 @@ const onSubmit = async () => {
 
 /* 4. 媒体 */
 .media-upload-section {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   margin: 20rpx 24rpx 0;
   padding: 24rpx;
   border-radius: var(--radius-card);
   display: flex;
   flex-wrap: wrap;
   gap: 20rpx;
-  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 .upload-box {
   width: 200rpx;
   height: 200rpx;
-  border: 2rpx dashed #f1c7ce;
-  border-radius: 16rpx;
+  border: 2rpx dashed var(--border-primary-soft);
+  border-radius: var(--radius-inner);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--brand-red-soft);
+  background-color: var(--primary-soft);
 }
 
 .upload-icon {
@@ -383,7 +383,7 @@ const onSubmit = async () => {
   position: relative;
   width: 200rpx;
   height: 200rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
   overflow: hidden;
 }
 
@@ -400,12 +400,12 @@ const onSubmit = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 32rpx;
 }
 
 .img-mask.failed {
-  background: rgba(226, 109, 125, 0.55);
+  background: var(--primary-alpha);
 }
 
 .fail-text {
@@ -421,7 +421,7 @@ const onSubmit = async () => {
   height: 40rpx;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.5);
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 22rpx;
   display: flex;
   align-items: center;
@@ -437,15 +437,15 @@ const onSubmit = async () => {
 .publish-btn {
   width: 100%;
   height: 88rpx;
-  background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark));
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  color: var(--text-inverse);
   border-radius: var(--radius-btn);
   font-size: 32rpx;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 26rpx rgba(226, 109, 125, 0.28);
+  box-shadow: var(--shadow-primary-lg);
   line-height: 88rpx;
 }
 </style>

@@ -111,20 +111,20 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-tag-posts { min-height: 100vh; background-color: var(--bg-page); }
 
-.header { background-color: var(--brand-red); }
+.header { background-color: var(--primary); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: #fff; line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #fff; }
+.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
 .header-right { width: 80rpx; }
 
-.tabs { display: flex; background: #fff; padding: 0 16rpx; border-bottom: 1rpx solid #f0f0f1; }
+.tabs { display: flex; background: var(--bg-card); padding: 0 16rpx; border-bottom: 1rpx solid var(--border-light); }
 .tab { position: relative; flex: 1; text-align: center; font-size: 28rpx; color: var(--text-2); padding: 24rpx 0 20rpx; }
 .tab.on { color: var(--text-1); font-weight: bold; }
-.tab.on::after { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 56rpx; height: 6rpx; border-radius: 3rpx; background: var(--brand-red); }
+.tab.on::after { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 56rpx; height: 6rpx; border-radius: 3rpx; background: var(--primary); }
 
 .skeleton-list { padding: 20rpx 24rpx; }
 .feed-list { padding: 20rpx 24rpx 40rpx; }
 .feed-foot { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 24rpx 0; }
-.more { color: var(--brand-red-dark); }
+.more { color: var(--primary-strong); }
 .empty { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 140rpx 0; }
 </style>

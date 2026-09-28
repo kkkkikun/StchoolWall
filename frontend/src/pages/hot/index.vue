@@ -116,17 +116,17 @@ const goBack = () =>
 }
 
 /* 头部：粉色沉浸式，与首页/互动页统一 */
-.header { background-color: var(--brand-red); }
+.header { background-color: var(--primary); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: #ffffff; line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #ffffff; }
+.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
 .header-right { width: 100rpx; }
 
 .intro-bar { padding: 20rpx 32rpx 4rpx; }
 .intro-text { font-size: 22rpx; color: var(--text-3); }
 
 .rank-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   margin: 20rpx 24rpx 40rpx;
   padding: 8rpx 28rpx;
@@ -136,7 +136,7 @@ const goBack = () =>
   display: flex;
   align-items: center;
   padding: 26rpx 0;
-  border-bottom: 1rpx solid #f5f5f6;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .rank-row:last-child { border-bottom: none; }
 
@@ -151,9 +151,9 @@ const goBack = () =>
   text-align: center;
 }
 .rank-row.top3 .rank { font-size: 44rpx; }
-.rank-1 { color: var(--brand-red-dark); }
-.rank-2 { color: #e8a23f; }
-.rank-3 { color: #d9b23f; }
+.rank-1 { color: var(--primary-strong); }
+.rank-2 { color: var(--rank-2); }
+.rank-3 { color: var(--rank-3); }
 
 .mid { flex: 1; min-width: 0; margin-left: 20rpx; }
 
@@ -169,11 +169,11 @@ const goBack = () =>
 }
 .hot-tag {
   flex-shrink: 0;
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 18rpx;
   padding: 2rpx 8rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
   margin-left: 10rpx;
 }
 
@@ -186,7 +186,7 @@ const goBack = () =>
 .meta { font-size: 22rpx; color: var(--text-3); }
 .views { font-size: 22rpx; color: var(--text-3); }
 
-.arrow { font-size: 40rpx; color: #c8c9cc; margin-left: 12rpx; }
+.arrow { font-size: 40rpx; color: var(--text-4); margin-left: 12rpx; }
 
 .state {
   display: flex;

@@ -101,8 +101,8 @@ const onSubmit = async () => {
 
 <style scoped>
 .page-create { min-height: 100vh; background: var(--bg-page); padding: 24rpx; }
-.form-card { background: #fff; border-radius: var(--radius-card); padding: 8rpx 28rpx; }
-.form-item { padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f5; display: flex; align-items: center; }
+.form-card { background: var(--bg-card); border-radius: var(--radius-card); padding: 8rpx 28rpx; }
+.form-item { padding: 28rpx 0; border-bottom: 1rpx solid var(--border-light); display: flex; align-items: center; }
 .form-card .form-item:last-child { border-bottom: none; }
 .label { width: 160rpx; font-size: 28rpx; color: var(--text-1); flex-shrink: 0; }
 .input { flex: 1; font-size: 28rpx; color: var(--text-1); }
@@ -110,15 +110,15 @@ const onSubmit = async () => {
 .num { width: 120rpx; flex: none; }
 
 .type-toggle { display: flex; gap: 16rpx; }
-.type-opt { padding: 12rpx 32rpx; border-radius: 32rpx; background: #f5f5f5; font-size: 26rpx; color: var(--text-2); }
-.type-opt.on { background: var(--brand-red); color: #fff; }
+.type-opt { padding: 12rpx 32rpx; border-radius: 32rpx; background: var(--bg-card-2); font-size: 26rpx; color: var(--text-2); }
+.type-opt.on { background: var(--primary); color: var(--text-inverse); }
 
 .picker-row { flex: 1; display: flex; align-items: center; justify-content: space-between; }
 .picker-val { font-size: 28rpx; color: var(--text-1); }
-.picker-ph { font-size: 28rpx; color: #bbb; }
-.arrow { color: #ccc; font-size: 32rpx; }
+.picker-ph { font-size: 28rpx; color: var(--text-4); }
+.arrow { color: var(--text-4); font-size: 32rpx; }
 
 .submit-bar { margin-top: 48rpx; padding: 0 16rpx; }
-.submit-btn { width: 100%; height: 92rpx; background: var(--brand-red); color: #fff; border-radius: var(--radius-btn); font-size: 32rpx; font-weight: bold; line-height: 92rpx; box-shadow: 0 8rpx 24rpx rgba(247,59,67,0.3); }
+.submit-btn { width: 100%; height: 92rpx; background: var(--primary); color: var(--text-inverse); border-radius: var(--radius-btn); font-size: 32rpx; font-weight: bold; line-height: 92rpx; box-shadow: var(--shadow-primary-lg); }
 .submit-btn.disabled { opacity: 0.5; }
 </style>

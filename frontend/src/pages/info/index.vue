@@ -112,13 +112,13 @@ const copyInvite = () => {
 
 <style scoped>
 .page-info { min-height: 100vh; background: var(--bg-page); padding: 24rpx; }
-.info-card { background: #ffffff; border-radius: var(--radius-card); padding: 40rpx 32rpx; }
+.info-card { background: var(--bg-card); border-radius: var(--radius-card); padding: 40rpx 32rpx; }
 .info-title { display: block; font-size: 34rpx; font-weight: bold; color: var(--text-1); margin-bottom: 24rpx; }
 .info-para { display: block; font-size: 26rpx; color: var(--text-2); line-height: 1.9; }
 .invite-btn {
   margin-top: 36rpx;
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 28rpx;
   text-align: center;
   padding: 20rpx 0;

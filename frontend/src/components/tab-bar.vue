@@ -81,8 +81,8 @@ const onTap = (path: string) => {
   bottom: 0;
   z-index: 999;
   display: flex;
-  background-color: #ffffff;
-  border-top: 1rpx solid #f0f0f0;
+  background-color: var(--bg-card);
+  border-top: 1rpx solid var(--border-light);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -102,7 +102,7 @@ const onTap = (path: string) => {
 
 .tab-label {
   font-size: 18rpx;
-  color: #a8a8a8;
+  color: var(--text-4);
   margin-top: 2rpx;
 }
 

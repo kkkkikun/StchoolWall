@@ -77,7 +77,7 @@ onMounted(() => {
 <style scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-card-2);
   display: flex;
   flex-direction: column;
 }
@@ -85,7 +85,7 @@ onMounted(() => {
 /* 与首页吸顶 Tab 同规格：左对齐下划线式，弃用蓝色药丸 */
 .type-tabs {
   display: flex;
-  background: #fff;
+  background: var(--bg-card);
   padding: 16rpx 24rpx;
   gap: 36rpx;
 }
@@ -99,7 +99,7 @@ onMounted(() => {
 .tab.active {
   color: var(--text-1);
   font-weight: bold;
-  border-bottom: 6rpx solid var(--brand-red);
+  border-bottom: 6rpx solid var(--primary);
 }
 
 .scroll-container {

@@ -198,45 +198,45 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-interactions { min-height: 100vh; background-color: var(--bg-page); display: flex; flex-direction: column; }
 
-.header { background-color: var(--brand-red); }
+.header { background-color: var(--primary); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: #ffffff; line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #ffffff; }
-.header-right { font-size: 24rpx; color: #ffffff; opacity: 0.85; }
+.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
+.header-right { font-size: 24rpx; color: var(--text-inverse); opacity: 0.85; }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
-.chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: #ffffff; }
+.chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: var(--bg-card); }
 .chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-bottom: 12rpx; line-height: 1.4; }
-.chip.on { color: var(--text-1); font-weight: bold; border-bottom: 6rpx solid var(--brand-red); }
-.chip-badge { margin-left: 8rpx; font-size: 20rpx; font-weight: normal; color: var(--brand-red-dark); }
+.chip.on { color: var(--text-1); font-weight: bold; border-bottom: 6rpx solid var(--primary); }
+.chip-badge { margin-left: 8rpx; font-size: 20rpx; font-weight: normal; color: var(--primary-strong); }
 
 .list-area { flex: 1; padding: 16rpx 24rpx 0; box-sizing: border-box; }
 
 .interaction-card {
   position: relative;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   padding: 24rpx;
   margin-bottom: 16rpx;
   display: flex;
   align-items: flex-start;
 }
-.interaction-card.unread { background: #fff8f8; }
+.interaction-card.unread { background: var(--primary-soft); }
 
-.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: #fff; font-weight: bold; flex-shrink: 0; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
 .main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .line1 { display: flex; align-items: center; flex-wrap: wrap; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
 .action { font-size: 24rpx; color: var(--text-2); margin-left: 10rpx; }
-.act-like { color: #ff5c7a; }
-.act-favorite { color: #ffb822; }
-.act-comment { color: #2f86f6; }
+.act-like { color: var(--danger); }
+.act-favorite { color: var(--warning); }
+.act-comment { color: var(--info); }
 .excerpt { display: block; font-size: 26rpx; color: var(--text-1); margin-top: 10rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line2 { display: flex; align-items: center; margin-top: 10rpx; }
 .post-ref { font-size: 22rpx; color: var(--text-3); max-width: 380rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .time { font-size: 22rpx; color: var(--text-3); margin-left: 16rpx; }
-.unread-dot { position: absolute; left: 12rpx; top: 12rpx; width: 14rpx; height: 14rpx; border-radius: 50%; background: var(--brand-red-dark); }
-.arrow { font-size: 40rpx; color: #c8c9cc; margin-left: 8rpx; align-self: center; }
+.unread-dot { position: absolute; left: 12rpx; top: 12rpx; width: 14rpx; height: 14rpx; border-radius: 50%; background: var(--primary-strong); }
+.arrow { font-size: 40rpx; color: var(--text-4); margin-left: 8rpx; align-self: center; }
 
 .empty-state { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
 .empty-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }

@@ -6,8 +6,7 @@
         <span class="brand-mark">鄂</span>
         <span class="brand-text">鄂应墙管理后台</span>
       </div>
-      <el-menu :default-active="activeMenu" router background-color="#1d2b36" text-color="#a7b7c7"
-               active-text-color="#ffffff" class="menu">
+      <el-menu :default-active="activeMenu" router class="menu">
         <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
           <span class="menu-icon">{{ item.icon }}</span>
           <span>{{ item.title }}</span>
@@ -93,33 +92,60 @@ const onCommand = async (cmd: string) => {
 
 <style scoped>
 .layout { height: 100%; }
-.aside { background: #1d2b36; display: flex; flex-direction: column; }
+.aside {
+  background: var(--app-aside-bg);
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border-light, rgba(255, 255, 255, 0.07));
+}
 .brand {
   height: 60px;
   display: flex; align-items: center; gap: 10px;
   padding: 0 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border-light, rgba(255, 255, 255, 0.07));
 }
 .brand-mark {
   width: 32px; height: 32px;
-  border-radius: 8px;
-  background: #f73b43;
+  border-radius: 10px;
+  background: var(--app-brand-grad);
   color: #fff; font-weight: bold;
   display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(124, 92, 255, 0.5);
 }
-.brand-text { color: #fff; font-size: 15px; font-weight: 600; }
-.menu { border-right: none; flex: 1; }
+.brand-text { color: var(--app-title-color); font-size: 15px; font-weight: 600; }
+
+/* 菜单：夜色底 + 圆角胶囊激活态（颜色全走主题令牌） */
+.menu {
+  border-right: none; flex: 1;
+  --el-menu-bg-color: var(--app-aside-bg);
+  --el-menu-text-color: var(--app-aside-text);
+  --el-menu-active-color: var(--app-aside-active);
+  --el-menu-hover-bg-color: var(--app-aside-active-bg);
+  padding: 8px 10px;
+}
+.menu :deep(.el-menu-item) {
+  border-radius: 10px;
+  margin-bottom: 2px;
+  height: 42px; line-height: 42px;
+}
+.menu :deep(.el-menu-item.is-active) {
+  background: var(--app-aside-active-bg);
+  font-weight: 600;
+}
 .menu-icon { margin-right: 8px; }
 
 .header {
-  background: #fff;
+  background: var(--app-header-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: var(--app-header-border);
   display: flex; align-items: center; justify-content: space-between;
-  box-shadow: 0 1px 4px rgba(0,21,41,0.08);
+  box-shadow: none;
 }
-.breadcrumb { font-size: 16px; font-weight: 600; color: #303133; }
+.breadcrumb { font-size: 16px; font-weight: 600; color: var(--app-title-color); }
 .user-chip {
   display: flex; align-items: center; gap: 6px;
-  cursor: pointer; color: #606266; font-size: 14px;
+  cursor: pointer; color: var(--app-aside-text); font-size: 14px;
+  padding: 6px 12px; border-radius: 18px;
 }
-.main { background: #f5f7fa; padding: 20px; overflow-y: auto; }
+.user-chip:hover { background: var(--app-aside-active-bg); }
+.main { background: var(--app-bg); padding: 20px; overflow-y: auto; }
 </style>

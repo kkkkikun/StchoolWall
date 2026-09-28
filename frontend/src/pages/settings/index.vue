@@ -170,7 +170,7 @@ const onLogout = () => {
     title: '退出登录',
     content: `确定退出「${user.value.nickname}」吗？`,
     confirmText: '退出',
-    confirmColor: '#e26d7d',
+    confirmColor: '#7c5cff',
     success: (r) => {
       if (!r.confirm) return
       tokenStorage.removeToken()
@@ -243,7 +243,7 @@ const onDeleteAccount = async () => {
       title: '注销账号',
       content: '注销后无法恢复，历史帖子将显示为「已注销用户」。确定继续吗？',
       confirmText: '确认注销',
-      confirmColor: '#e26d7d',
+      confirmColor: '#7c5cff',
       success: (res) => resolve(!!res.confirm),
       fail: () => resolve(false),
     })

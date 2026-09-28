@@ -1,0 +1,85 @@
+/* ===== 鄂应墙管理后台 · 主题B「夜间霓虹」 =====
+   深夜蓝黑 + 紫→青霓虹：控制台风（类 Linear/Vercel），玻璃拟态顶栏/侧栏。
+   基于 Element Plus dark 模式（main.ts 已加 html.dark），这里覆写主色族与布局令牌。
+   图表配色见 src/theme.ts。 */
+
+/* —— 主色族：暗色上下直接给亮阶 —— */
+:root, html.dark {
+  --el-color-primary: #7c5cff;
+  --el-color-primary-light-3: #9d7bff;
+  --el-color-primary-light-5: #bda7ff;
+  --el-color-primary-light-7: #dccdff;
+  --el-color-primary-light-8: #ebddff;
+  --el-color-primary-light-9: rgba(124, 92, 255, 0.16);
+  --el-color-primary-dark-2: #6b46e8;
+  --el-border-radius-base: 8px;
+
+  /* —— 布局层令牌 —— */
+  --app-bg: #0f1219;                /* 主区域底：深夜蓝黑 */
+  --app-aside-bg: #141824;          /* 侧边栏：略浮一层的夜色 */
+  --app-aside-text: #aab3c8;
+  --app-aside-active: #c4b5fd;      /* 激活文字：亮紫 */
+  --app-aside-active-bg: rgba(124, 92, 255, 0.14);
+  --app-header-bg: rgba(20, 24, 36, 0.85);
+  --app-header-border: 1px solid rgba(255, 255, 255, 0.07);
+  --app-brand-grad: linear-gradient(135deg, #7c5cff, #22d3ee);
+  --app-title-color: #e9ecf5;
+  --app-muted: #737e96;
+  --app-card-radius: 12px;
+  --app-card-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* —— Element Plus 暗色表面校准（蓝黑系，替代默认纯灰黑） —— */
+html.dark {
+  --el-bg-color: #171b26;           /* 卡片/面板 */
+  --el-bg-color-overlay: #1c2130;   /* 弹窗/下拉 */
+  --el-bg-color-page: #0f1219;
+  --el-text-color-primary: #e9ecf5;
+  --el-text-color-regular: #aab3c8;
+  --el-text-color-secondary: #737e96;
+  --el-text-color-placeholder: #4d5670;
+  --el-text-color-disabled: #4d5670;
+  --el-border-color: rgba(255, 255, 255, 0.14);
+  --el-border-color-light: rgba(255, 255, 255, 0.10);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.07);
+  --el-border-color-extra-light: rgba(255, 255, 255, 0.06);
+  --el-fill-color: #202635;
+  --el-fill-color-light: #1c2130;
+  --el-fill-color-lighter: #171b26;
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.04);
+  --el-fill-color-blank: #171b26;
+  --el-mask-color: rgba(5, 8, 15, 0.65);
+}
+
+html, body, #app { height: 100%; }
+body {
+  background: var(--app-bg);
+  font-family: "PingFang SC", -apple-system, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+}
+
+/* —— 卡片：深色浮层 + 细霓虹描边 —— */
+.el-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--app-card-radius);
+  box-shadow: var(--app-card-shadow) !important;
+}
+
+/* —— 按钮：胶囊化，主按钮紫色辉光 —— */
+.el-button--primary {
+  box-shadow: 0 2px 14px rgba(124, 92, 255, 0.4);
+}
+.el-button { border-radius: 18px; }
+
+/* —— 表格：深色表头 + 夜色分隔线 —— */
+.el-table {
+  --el-table-header-bg-color: #1c2130;
+  --el-table-header-text-color: #aab3c8;
+  --el-table-tr-bg-color: #171b26;
+  --el-table-row-hover-bg-color: #202635;
+  --el-table-border-color: rgba(255, 255, 255, 0.07);
+}
+.el-table th.el-table__cell { font-weight: 600; }
+
+/* —— 弹窗/消息圆角统一 —— */
+.el-dialog { border-radius: var(--app-card-radius); }
+.el-message-box { border-radius: var(--app-card-radius); }

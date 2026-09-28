@@ -107,6 +107,6 @@ onMounted(() => load())
 
 <style scoped>
 .pager { margin-top: 16px; justify-content: flex-end; }
-.muted { color: #909399; font-size: 12px; }
-.matched { color: #f56c6c; font-size: 12px; font-weight: 600; }
+.muted { color: var(--el-text-color-secondary); font-size: 12px; }
+.matched { color: var(--el-color-danger); font-size: 12px; font-weight: 600; }
 </style>

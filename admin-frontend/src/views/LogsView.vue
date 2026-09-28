@@ -125,7 +125,7 @@ onMounted(() => load(true))
 
 <style scoped>
 .src-chip { margin-left: 6px; }
-.muted { color: #c0c4cc; }
-.detail-code { font-size: 12px; color: #909399; word-break: break-all; }
+.muted { color: var(--el-text-color-placeholder); }
+.detail-code { font-size: 12px; color: var(--el-text-color-secondary); word-break: break-all; }
 .load-more-row { margin-top: 16px; text-align: center; }
 </style>

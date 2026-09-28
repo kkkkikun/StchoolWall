@@ -1,5 +1,7 @@
 # SchoolWall 网页测试版部署手册
 
+> 自动部署（推送到 main 触发）见 [`GH_ACTIONS.md`](./GH_ACTIONS.md)；本手册是手工部署与服务器初始化流程。
+
 > 目标拓扑：一台公网云服务器 + 域名 + HTTPS。
 > 宿主机 nginx 负责 TLS/静态文件/路径分流；db/redis/backend 跑 Docker。
 

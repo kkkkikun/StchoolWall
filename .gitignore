@@ -14,6 +14,10 @@ env/
 .env
 .env.local
 .env.production
+.env.prod
+
+# GH Actions 部署：服务器上的 npm 缓存挂载目录
+.npm-cache/
 
 # IDE
 .vscode/

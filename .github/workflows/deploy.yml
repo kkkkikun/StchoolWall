@@ -1,0 +1,68 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 支持手动触发
+
+# 同一时间只允许一个部署，避免并发 git pull / compose 冲突
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: DEPLOY_PATH,WEB_ROOT
+          script: |
+            set -eu
+            DEPLOY_PATH="${DEPLOY_PATH:-/opt/schoolwall}"
+            WEB_ROOT="${WEB_ROOT:-/var/www/schoolwall}"
+
+            # 1. 更新代码（服务器需已 clone 私有仓库，凭证见 deploy/GH_ACTIONS.md）
+            cd "$DEPLOY_PATH"
+            git pull --ff-only origin main
+
+            # 2. 构建前端产物（服务器无需装 Node，用 docker 跑构建）
+            mkdir -p "$DEPLOY_PATH/.npm-cache" "$WEB_ROOT"
+            docker run --rm -v "$DEPLOY_PATH":/app -w /app/frontend \
+              -e HOME=/tmp -e npm_config_cache=/npm-cache \
+              --user "$(id -u):$(id -g)" -v "$DEPLOY_PATH/.npm-cache":/npm-cache \
+              node:20-alpine sh -c "npm ci && npm run build:h5"
+            docker run --rm -v "$DEPLOY_PATH":/app -w /app/admin-frontend \
+              -e HOME=/tmp -e npm_config_cache=/npm-cache \
+              --user "$(id -u):$(id -g)" -v "$DEPLOY_PATH/.npm-cache":/npm-cache \
+              node:20-alpine sh -c "npm ci && npm run build -- --base=/admin/"
+
+            # 3. 同步静态站点（uni-app H5 + 管理台 SPA）
+            rsync -a --delete "$DEPLOY_PATH/frontend/dist/build/h5/" "$WEB_ROOT/h5/"
+            rsync -a --delete "$DEPLOY_PATH/admin-frontend/dist/"   "$WEB_ROOT/admin/"
+
+            # 4. 重建后端容器（自动跑 Alembic 迁移）
+            cd "$DEPLOY_PATH/deploy"
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+            # 5. 健康检查（后端起动+迁移需要几秒）
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
+                echo "deploy ok: backend healthy"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "deploy failed: backend health check timed out" >&2
+            exit 1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/schoolwall' }}
+          WEB_ROOT: ${{ secrets.WEB_ROOT || '/var/www/schoolwall' }}

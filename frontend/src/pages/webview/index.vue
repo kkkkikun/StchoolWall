@@ -89,7 +89,7 @@ const openExternal = () => {
   padding: 14rpx 24rpx;
   font-size: 22rpx;
   color: var(--text-3);
-  background: #fffbe6;
+  background: var(--warning-soft);
   flex-shrink: 0;
 }
 
@@ -99,19 +99,19 @@ const openExternal = () => {
   align-items: center;
   justify-content: center;
   gap: 24rpx;
-  background: #ffffff;
-  border-top: 1rpx solid #eeeeef;
+  background: var(--bg-card);
+  border-top: 1rpx solid var(--border-light);
   flex-shrink: 0;
 }
 .tool-btn {
   padding: 14rpx 40rpx;
-  border: 2rpx solid #e5e6eb;
+  border: 2rpx solid var(--border-strong);
   border-radius: 999rpx;
   font-size: 26rpx;
   color: var(--text-1);
 }
 .tool-btn.primary {
-  border-color: var(--brand-red);
-  color: var(--brand-red-dark);
+  border-color: var(--primary);
+  color: var(--primary-strong);
 }
 </style>

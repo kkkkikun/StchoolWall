@@ -321,7 +321,7 @@ onUnmounted(() => {
 }
 
 .account-card {
-  background: var(--brand-red);
+  background: var(--primary);
   border-radius: var(--radius-card);
   padding: 36rpx 32rpx;
   display: flex;
@@ -336,15 +336,15 @@ onUnmounted(() => {
   justify-content: center;
   box-shadow: 0 0 0 6rpx rgba(255, 255, 255, 0.35);
 }
-.avatar-letter { font-size: 52rpx; font-weight: bold; color: #fff; }
+.avatar-letter { font-size: 52rpx; font-weight: bold; color: var(--text-inverse); }
 .account-meta { margin-left: 26rpx; flex: 1; }
 .name-row { display: flex; align-items: center; gap: 12rpx; }
-.nickname { color: #fff; font-size: 36rpx; font-weight: bold; }
+.nickname { color: var(--text-inverse); font-size: 36rpx; font-weight: bold; }
 .v-badge { font-size: 20rpx; color: rgba(255, 255, 255, 0.9); }
 .role-text { color: rgba(255, 255, 255, 0.8); font-size: 24rpx; margin-top: 8rpx; }
 
 .group-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   margin-top: 24rpx;
   padding: 0 32rpx;
@@ -359,15 +359,15 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 30rpx 0;
-  border-bottom: 1rpx solid #f5f6f7;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .group-card .cell:last-child { border-bottom: none; }
 .cell-left { display: flex; align-items: center; }
 .cell-icon { font-size: 36rpx; margin-right: 22rpx; }
-.cell-title { font-size: 29rpx; color: #2b2b2b; }
+.cell-title { font-size: 29rpx; color: var(--text-1); }
 .cell-value { font-size: 24rpx; color: var(--text-3); }
-.arrow { font-size: 32rpx; color: #c8c9cc; }
-.danger-cell .cell-title.danger-text { color: var(--brand-red); }
+.arrow { font-size: 32rpx; color: var(--text-4); }
+.danger-cell .cell-title.danger-text { color: var(--primary); }
 
 .footer-text {
   display: block;

@@ -61,7 +61,7 @@ onLoad(async () => {
   padding: 40rpx;
 }
 .card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   padding: 60rpx 40rpx;
   width: 100%;

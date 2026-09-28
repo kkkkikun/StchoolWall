@@ -181,7 +181,7 @@ const onFavorite = async () => {
 
 <style scoped>
 .feed-card {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   border-radius: var(--radius-card);
   padding: 28rpx;
   margin-bottom: 20rpx;
@@ -192,42 +192,42 @@ const onFavorite = async () => {
   width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
 }
-.avatar-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
+.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
 .username { font-size: 28rpx; color: var(--text-1); font-weight: bold; }
 .pinned-badge {
   margin-left: 10rpx;
   font-size: 18rpx;
-  color: #fff;
-  background: var(--brand-red);
+  color: var(--text-inverse);
+  background: var(--primary);
   padding: 2rpx 10rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
 }
 
 .featured-badge {
   margin-left: 10rpx;
   font-size: 18rpx;
-  color: var(--brand-red-dark);
-  background: var(--brand-red-soft);
-  border: 1rpx solid var(--brand-red);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  border: 1rpx solid var(--primary);
   padding: 1rpx 10rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
 }
 .time-ago { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
 .more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
 .feed-body { margin-top: 20rpx; }
 .feed-text { font-size: 29rpx; color: var(--text-1); line-height: 1.6; white-space: pre-wrap; }
-.feed-text .hashtag { color: #1d9bf0; }
+.feed-text .hashtag { color: var(--link); }
 .feed-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
-.img-ph { width: 200rpx; height: 200rpx; border-radius: 16rpx; background: #f2f3f5; }
-.img-single { width: 100%; border-radius: 16rpx; background: #f2f3f5; }
+.img-ph { width: 200rpx; height: 200rpx; border-radius: var(--radius-inner); background: var(--bg-card-2); }
+.img-single { width: 100%; border-radius: var(--radius-inner); background: var(--bg-card-2); }
 .feed-actions {
-  display: flex; margin-top: 28rpx; border-top: 1rpx solid #f5f5f5;
+  display: flex; margin-top: 28rpx; border-top: 1rpx solid var(--border-light);
   padding-top: 24rpx; justify-content: space-between;
 }
 .action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); }
-.action-item.on .act-num { color: var(--brand-red-dark); }
+.action-item.on .act-num { color: var(--primary-strong); }
 .act-icon { width: 36rpx; height: 36rpx; }
 .act-num { font-size: 24rpx; color: var(--text-2); }
 </style>

@@ -456,7 +456,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 /* 1. 横幅（无照片时粉色渐变兜底） */
 .banner {
   height: 460rpx;
-  background: linear-gradient(160deg, #fbc6d0 0%, #f7a8bc 45%, #f2b8c8 100%);
+  background: var(--hero-gradient);
   position: relative;
   overflow: hidden;
 }
@@ -479,7 +479,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   width: 52rpx;
   height: 52rpx;
   border-radius: 50%;
-  background: var(--brand-red-dark);
+  background: var(--primary-strong);
   border: 4rpx solid #ffffff;
   display: flex;
   align-items: center;
@@ -495,7 +495,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
    头像(176rpx) 上移 100rpx ≈ 4/7 压横幅、3/7 落白面板；
    margin-bottom 负值回收位移产生的空隙，保留 24rpx 与昵称的间距 */
 .sheet {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 40rpx 40rpx 0 0;
   padding: 0 40rpx 40rpx;
   position: relative;
@@ -508,9 +508,9 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .avatar-ring {
   display: inline-flex;
   padding: 8rpx;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 50%;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-float);
 }
 .avatar {
   width: 176rpx;
@@ -520,19 +520,19 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   align-items: center;
   justify-content: center;
 }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: #ffffff; }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
 
 /* 昵称行 + 编辑资料 + 齿轮 */
 .name-row { display: flex; align-items: center; margin-top: 24rpx; }
 .nickname { font-size: 40rpx; font-weight: bold; color: var(--text-1); }
 .name-actions { margin-left: auto; display: flex; align-items: center; gap: 18rpx; }
 .edit-btn {
-  border: 2rpx solid #e5e6eb;
+  border: 2rpx solid var(--border-strong);
   border-radius: 36rpx;
   padding: 14rpx 34rpx;
   font-size: 26rpx;
   color: var(--text-1);
-  background: #ffffff;
+  background: var(--bg-card);
 }
 .gear-btn { padding: 8rpx; }
 .gear-icon { font-size: 40rpx; line-height: 1; }
@@ -542,13 +542,13 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 
 .dev-login-row { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .dev-capsule {
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 24rpx;
   padding: 14rpx 28rpx;
   border-radius: 30rpx;
 }
-.dev-capsule.admin { background: #8a5cf5; }
+.dev-capsule.admin { background: var(--accent-violet); }
 
 /* 网页版登录弹窗（H5） */
 .wl-mask {
@@ -562,7 +562,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 }
 .wl-card {
   width: 580rpx;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 32rpx;
   padding: 48rpx 40rpx 40rpx;
   display: flex;
@@ -573,15 +573,15 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .wl-input {
   margin-top: 28rpx;
   background: var(--bg-page);
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
   padding: 22rpx 26rpx;
   font-size: 28rpx;
   color: var(--text-1);
 }
 .wl-btn {
   margin-top: 36rpx;
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 30rpx;
   font-weight: 600;
   text-align: center;
@@ -592,19 +592,19 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 
 .slim-tip {
   margin-top: 20rpx;
-  background: var(--brand-red-soft);
+  background: var(--primary-soft);
   border-radius: 12rpx;
   padding: 14rpx 22rpx;
   font-size: 24rpx;
-  color: var(--brand-red-dark);
+  color: var(--primary-strong);
 }
-.slim-tip.admin { background: #f1ecfe; color: #6b46d6; }
+.slim-tip.admin { background: var(--accent-violet-soft); color: var(--accent-violet-strong); }
 
 /* 3. 四栏内容 Tab（下划线式） */
 .content-tabs {
   display: flex;
   margin-top: 36rpx;
-  border-bottom: 1rpx solid #f0f0f2;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .ct-item {
   flex: 1;
@@ -623,7 +623,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   width: 80rpx;
   height: 6rpx;
   border-radius: 3rpx;
-  background: var(--brand-red);
+  background: var(--primary);
 }
 
 /* 4. 内容区 */
@@ -631,7 +631,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .content-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 
 .post-card {
-  background: #fafafb;
+  background: var(--bg-card-2);
   border-radius: 20rpx;
   padding: 26rpx;
   margin-top: 20rpx;
@@ -655,11 +655,11 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
   flex-shrink: 0;
 }
 .pc-thumb-ph {
-  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  background: var(--soft-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -671,12 +671,12 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .wl-wechat {
   margin-top: 20rpx;
   padding: 24rpx 0;
-  border: 2rpx solid #07c160;
+  border: 2rpx solid var(--success);
   border-radius: var(--radius-btn);
   text-align: center;
 }
 .wl-wechat text {
-  color: #07c160;
+  color: var(--success);
   font-size: 30rpx;
   font-weight: 600;
 }

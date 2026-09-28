@@ -73,7 +73,7 @@
         :class="{ unread: !m.is_read }"
         @tap="onMessage(m)"
       >
-        <view class="sender-avatar" :class="{ sys: m._system }" :style="{ background: m._system ? '#fdf0f2' : colorOf(m.nickname) }">
+        <view class="sender-avatar" :class="{ sys: m._system }" :style="{ background: m._system ? 'var(--primary-soft)' : colorOf(m.nickname) }">
           <text v-if="m._type === 'announcement'">📢</text>
           <text v-else-if="m._type === 'moderation'">🛡️</text>
           <text v-else>{{ (m.nickname || '?').slice(0, 1) }}</text>
@@ -254,11 +254,11 @@ const onMessage = async (m: MsgRow) => {
 <style scoped>
 .page-message { background-color: var(--bg-page); min-height: 100vh; }
 
-.message-header { background-color: var(--brand-red); padding: 30rpx 40rpx; text-align: center; }
-.header-title { color: #ffffff; font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
+.message-header { background-color: var(--primary); padding: 30rpx 40rpx; text-align: center; }
+.header-title { color: var(--text-inverse); font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
 
 /* 面板（参考稿：白卡圆角 + 标题行 + 更多） */
-.panel { background: #ffffff; border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }
+.panel { background: var(--bg-card); border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .panel-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 .panel-more { font-size: 24rpx; color: var(--text-3); }
@@ -267,41 +267,41 @@ const onMessage = async (m: MsgRow) => {
 .rank-scroll { white-space: nowrap; }
 .rank-user { display: inline-flex; flex-direction: column; align-items: center; width: 138rpx; vertical-align: top; }
 .crown { height: 40rpx; font-size: 34rpx; line-height: 1; }
-.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: #fff; font-weight: bold; }
-.rank-badge { margin-top: -12rpx; background: var(--brand-red-dark); color: #fff; font-size: 18rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: 16rpx; border: 3rpx solid #fff; line-height: 1.5; }
-.rank-badge.dim { background: #f0a7b1; }
+.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: var(--text-inverse); font-weight: bold; }
+.rank-badge { margin-top: -12rpx; background: var(--primary-strong); color: var(--text-inverse); font-size: 18rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: var(--radius-inner); border: 3rpx solid #fff; line-height: 1.5; }
+.rank-badge.dim { background: var(--primary); }
 .rank-name { margin-top: 8rpx; font-size: 22rpx; color: var(--text-1); max-width: 130rpx; overflow: hidden; text-overflow: ellipsis; }
-.rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--brand-red-dark); font-weight: 600; }
+.rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--primary-strong); font-weight: 600; }
 
 /* 互动提醒 */
 .rem-list { margin-top: -4rpx; }
-.rem-row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #f5f5f6; }
+.rem-row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid var(--border-light); }
 .rem-row:last-child { border-bottom: none; }
-.rem-icon { width: 68rpx; height: 68rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30rpx; color: #fff; flex-shrink: 0; }
-.ic-like { background: #ff5c7a; }
-.ic-favorite { background: #ffb822; }
-.ic-comment { background: #9b7df7; }
+.rem-icon { width: 68rpx; height: 68rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30rpx; color: var(--text-inverse); flex-shrink: 0; }
+.ic-like { background: var(--danger); }
+.ic-favorite { background: var(--warning); }
+.ic-comment { background: var(--accent-violet); }
 .rem-main { flex: 1; min-width: 0; margin-left: 18rpx; }
 .rem-name { display: block; font-size: 26rpx; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rem-time { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; }
-.rem-arrow { font-size: 36rpx; color: #c8c9cc; margin-left: 10rpx; }
+.rem-arrow { font-size: 36rpx; color: var(--text-4); margin-left: 10rpx; }
 
 /* 动态列表 */
 .list-panel { padding-bottom: 8rpx; margin-bottom: 24rpx; }
-.msg-row { display: flex; align-items: center; padding: 24rpx 4rpx; border-bottom: 1rpx solid #f5f5f6; }
+.msg-row { display: flex; align-items: center; padding: 24rpx 4rpx; border-bottom: 1rpx solid var(--border-light); }
 .msg-row:last-child { border-bottom: none; }
-.msg-row.unread { background: linear-gradient(90deg, #fff7f8, #ffffff); border-radius: 16rpx; padding-left: 12rpx; padding-right: 12rpx; }
-.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #fff; font-weight: bold; flex-shrink: 0; }
-.sender-avatar.sys { color: var(--brand-red-dark); font-size: 40rpx; }
+.msg-row.unread { background: var(--card-gradient); border-radius: var(--radius-inner); padding-left: 12rpx; padding-right: 12rpx; }
+.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
+.sender-avatar.sys { color: var(--primary-strong); font-size: 40rpx; }
 .msg-main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .msg-title-row { display: flex; align-items: center; gap: 12rpx; }
 .msg-name { font-size: 28rpx; font-weight: bold; color: var(--text-1); }
-.sys-tag { font-size: 20rpx; color: var(--brand-red-dark); background: #fdf0f2; border: 1rpx solid #ef8a97; padding: 2rpx 10rpx; border-radius: 999rpx; }
+.sys-tag { font-size: 20rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 2rpx 10rpx; border-radius: 999rpx; }
 .msg-text { display: block; font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-sub { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-right { display: flex; flex-direction: column; align-items: flex-end; margin-left: 16rpx; gap: 12rpx; }
 .msg-time { font-size: 22rpx; color: var(--text-3); }
-.unread-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--brand-red-dark); }
+.unread-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--primary-strong); }
 
 .empty-state { padding: 60rpx 0 70rpx; display: flex; flex-direction: column; align-items: center; }
 .empty-emoji { font-size: 80rpx; margin-bottom: 20rpx; opacity: 0.5; }

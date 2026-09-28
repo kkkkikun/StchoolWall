@@ -92,14 +92,14 @@ const submit = async () => {
 <style scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-card-2);
   padding-bottom: 120rpx;
 }
 
 .header {
-  background: linear-gradient(135deg, #1296db 0%, #0066cc 100%);
+  background: var(--info-gradient);
   padding: 60rpx 32rpx 80rpx;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .title {
@@ -115,10 +115,10 @@ const submit = async () => {
 }
 
 .form {
-  background: #fff;
+  background: var(--bg-card);
   margin: -40rpx 20rpx 0;
   padding: 32rpx 24rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
 }
 
 .form-item {
@@ -135,7 +135,7 @@ const submit = async () => {
 .input {
   width: 100%;
   padding: 24rpx;
-  background: #f5f5f5;
+  background: var(--bg-card-2);
   border-radius: 12rpx;
   font-size: 30rpx;
 }
@@ -143,14 +143,14 @@ const submit = async () => {
 .tips {
   margin-top: 32rpx;
   padding: 20rpx;
-  background: #fff9e6;
+  background: var(--warning-soft);
   border-radius: 12rpx;
 }
 
 .tips-title {
   font-size: 26rpx;
   font-weight: 600;
-  color: #ff9800;
+  color: var(--warning);
   display: block;
   margin-bottom: 12rpx;
 }
@@ -168,21 +168,21 @@ const submit = async () => {
   left: 0;
   right: 0;
   padding: 24rpx;
-  background: #fff;
-  border-top: 1rpx solid #eee;
+  background: var(--bg-card);
+  border-top: 1rpx solid var(--border-light);
 }
 
 .submit-btn {
   width: 100%;
   height: 88rpx;
-  background: #1296db;
-  color: #fff;
+  background: var(--info);
+  color: var(--text-inverse);
   border-radius: 12rpx;
   font-size: 32rpx;
   border: none;
 }
 
 .submit-btn[disabled] {
-  background: #ccc;
+  background: var(--bg-disabled);
 }
 </style>

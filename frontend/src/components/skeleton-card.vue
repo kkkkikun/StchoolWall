@@ -11,19 +11,19 @@
 
 <style scoped>
 .skeleton-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   padding: 28rpx 24rpx;
   margin-bottom: 20rpx;
   display: flex;
   gap: 20rpx;
-  box-shadow: 0 6rpx 18rpx rgba(239, 138, 151, 0.06);
+  box-shadow: var(--shadow-card);
 }
 .sk-avatar {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: linear-gradient(90deg, #f5e7ea 25%, #fdf0f2 37%, #f5e7ea 63%);
+  background: var(--shimmer-gradient);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
   flex-shrink: 0;
@@ -38,7 +38,7 @@
 .sk-line {
   height: 22rpx;
   border-radius: 12rpx;
-  background: linear-gradient(90deg, #f5e7ea 25%, #fdf0f2 37%, #f5e7ea 63%);
+  background: var(--shimmer-gradient);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

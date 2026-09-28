@@ -353,52 +353,52 @@ const copyContact = () => {
 .page-detail { min-height: 100vh; background: var(--bg-page); padding-bottom: 140rpx; }
 .state { text-align: center; padding: 120rpx 0; color: var(--text-3); font-size: 26rpx; }
 
-.body { background: #fff; margin: 0; }
-.author { display: flex; align-items: center; padding: 28rpx 24rpx; border-bottom: 1rpx solid #f5f5f5; }
+.body { background: var(--bg-card); margin: 0; }
+.author { display: flex; align-items: center; padding: 28rpx 24rpx; border-bottom: 1rpx solid var(--border-light); }
 .avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; }
-.avatar-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
+.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
 .author-meta { flex: 1; display: flex; flex-direction: column; }
 .nickname { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 .name-row { display: flex; align-items: center; }
-.featured-chip { margin-left: 12rpx; font-size: 18rpx; color: var(--brand-red-dark); background: var(--brand-red-soft); border: 1rpx solid var(--brand-red); padding: 1rpx 10rpx; border-radius: 6rpx; }
+.featured-chip { margin-left: 12rpx; font-size: 18rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 1rpx 10rpx; border-radius: var(--radius-tag); }
 .sub { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
-.report-btn { font-size: 24rpx; color: var(--text-3); border: 1rpx solid #eee; padding: 8rpx 20rpx; border-radius: 24rpx; }
-.follow-btn { font-size: 24rpx; color: #fff; background: var(--brand-red); padding: 8rpx 24rpx; border-radius: 24rpx; margin-right: 16rpx; }
-.follow-btn.on { background: #f0f0f0; color: #888; }
+.report-btn { font-size: 24rpx; color: var(--text-3); border: 1rpx solid var(--border-light); padding: 8rpx 20rpx; border-radius: 24rpx; }
+.follow-btn { font-size: 24rpx; color: var(--text-inverse); background: var(--primary); padding: 8rpx 24rpx; border-radius: 24rpx; margin-right: 16rpx; }
+.follow-btn.on { background: var(--bg-card-2); color: var(--text-3); }
 
 .content { padding: 24rpx; }
 .content-text { font-size: 30rpx; color: var(--text-1); line-height: 1.7; white-space: pre-wrap; }
-.content-text .hashtag { color: #1d9bf0; }
+.content-text .hashtag { color: var(--link); }
 .images { display: flex; flex-wrap: wrap; gap: 12rpx; margin: 20rpx 0; }
-.post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: #f2f3f5; }
-.post-image-single { width: 100%; border-radius: 12rpx; background: #f2f3f5; }
-.price { font-size: 40rpx; font-weight: bold; color: var(--brand-red); display: block; margin-top: 16rpx; }
+.post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: var(--bg-card-2); }
+.post-image-single { width: 100%; border-radius: 12rpx; background: var(--bg-card-2); }
+.price { font-size: 40rpx; font-weight: bold; color: var(--primary); display: block; margin-top: 16rpx; }
 .contact { background: var(--bg-page); padding: 16rpx 20rpx; border-radius: 12rpx; margin-top: 20rpx; }
 .contact-label { font-size: 24rpx; color: var(--text-3); }
-.contact-value { font-size: 28rpx; color: var(--brand-red); margin-left: 8rpx; font-weight: 500; }
+.contact-value { font-size: 28rpx; color: var(--primary); margin-left: 8rpx; font-weight: 500; }
 .meta { display: flex; align-items: center; margin-top: 24rpx; font-size: 22rpx; color: var(--text-3); }
 .dot { margin: 0 12rpx; }
 
-.action-bar { display: flex; border-top: 1rpx solid #f5f5f5; border-bottom: 16rpx solid var(--bg-page); padding: 20rpx 24rpx; justify-content: space-around; }
+.action-bar { display: flex; border-top: 1rpx solid var(--border-light); border-bottom: 16rpx solid var(--bg-page); padding: 20rpx 24rpx; justify-content: space-around; }
 .act { display: flex; align-items: center; color: var(--text-2); font-size: 26rpx; }
-.act.on { color: var(--brand-red); }
+.act.on { color: var(--primary); }
 .act-icon { font-size: 34rpx; margin-right: 8rpx; }
 
 .comments { padding: 24rpx; }
 .comments-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); margin-bottom: 20rpx; }
 .empty-comment { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 40rpx 0; }
-.comment { display: flex; padding: 20rpx 0; border-bottom: 1rpx solid #f7f7f7; }
+.comment { display: flex; padding: 20rpx 0; border-bottom: 1rpx solid var(--border-light); }
 /* 评论者头像/昵称与楼主同规格（X 式层级：作者一致，正文小一号） */
 .c-avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.c-letter { font-size: 40rpx; font-weight: bold; color: #fff; }
+.c-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
 .c-main { flex: 1; }
 .c-top { display: flex; align-items: center; justify-content: space-between; }
 .c-name { font-size: 30rpx; color: var(--text-1); font-weight: bold; }
 .c-del { font-size: 22rpx; color: var(--text-3); }
 .c-text { font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; display: block; line-height: 1.5; }
 
-.comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: #fff; border-top: 1rpx solid #eee; padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
+.comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: var(--bg-card); border-top: 1rpx solid var(--border-light); padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
 .comment-input { flex: 1; height: 72rpx; background: var(--bg-page); border-radius: 36rpx; padding: 0 28rpx; font-size: 28rpx; }
-.send-btn { margin-left: 16rpx; background: var(--brand-red); color: #fff; font-size: 28rpx; padding: 0 32rpx; height: 72rpx; line-height: 72rpx; border-radius: 36rpx; }
+.send-btn { margin-left: 16rpx; background: var(--primary); color: var(--text-inverse); font-size: 28rpx; padding: 0 32rpx; height: 72rpx; line-height: 72rpx; border-radius: 36rpx; }
 .send-btn.disabled { opacity: 0.4; }
 </style>

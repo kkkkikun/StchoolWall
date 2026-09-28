@@ -396,7 +396,7 @@ const switchTab = (idx: number) => {
 
 /* 1. 红色头部（沉浸式） */
 .header-search-box {
-  background-color: var(--brand-red);
+  background-color: var(--primary);
   display: flex;
   flex-direction: column;
 }
@@ -425,9 +425,9 @@ const switchTab = (idx: number) => {
   gap: 10rpx;
 }
 .checkin-btn.done {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   border-color: #ffffff;
-  box-shadow: 0 2rpx 12rpx rgba(226, 109, 125, 0.18);
+  box-shadow: var(--shadow-primary);
 }
 
 .checkin-icon {
@@ -445,7 +445,7 @@ const switchTab = (idx: number) => {
 .checkin-fallback {
   font-size: 26rpx;
   line-height: 1;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 .checkin-btn.done .checkin-fallback {
   font-size: 30rpx;
@@ -455,23 +455,23 @@ const switchTab = (idx: number) => {
 .checkin-count {
   font-size: 24rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-inverse);
   line-height: 1;
 }
 .checkin-btn.done .checkin-count {
-  color: var(--brand-red-dark);
+  color: var(--primary-strong);
 }
 
 .search-bar {
   flex: 1;
   min-width: 0;
   height: 64rpx;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   border-radius: 32rpx;
   padding: 0 26rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 2rpx 12rpx rgba(226, 109, 125, 0.12);
+  box-shadow: var(--shadow-primary);
 }
 
 .icon-search {
@@ -488,19 +488,19 @@ const switchTab = (idx: number) => {
 }
 
 .search-placeholder {
-  color: #b9bcc2;
+  color: var(--text-4);
 }
 
 .search-confirm {
   font-size: 26rpx;
-  color: var(--brand-red);
+  color: var(--primary);
   padding-left: 20rpx;
-  border-left: 1rpx solid #eef0f3;
+  border-left: 1rpx solid var(--border-light);
 }
 
 /* 2. 十大热帖（原"搭乘UFO"通知栏已删，2026-09-01 客户反馈） */
 .hot-posts-section {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   margin: 20rpx 24rpx 24rpx;
   border-radius: var(--radius-card);
   padding: 24rpx;
@@ -511,13 +511,13 @@ const switchTab = (idx: number) => {
 .hot-side-banner {
   width: 150rpx;
   min-height: 150rpx; /* 兜底：短列表时色块至少装得下"十大热帖"标题，防文字溢出 */
-  background: linear-gradient(135deg, #e8848f, #f6b8c0);
-  border-radius: 16rpx;
+  background: var(--primary-gradient);
+  border-radius: var(--radius-inner);
   justify-content: center;
   align-items: center;
   display: flex;
   flex-direction: column;
-  color: #ffffff;
+  color: var(--text-inverse);
   flex-shrink: 0;
 }
 
@@ -555,7 +555,7 @@ const switchTab = (idx: number) => {
 .hot-more {
   margin-top: 14rpx;
   padding-top: 12rpx;
-  border-top: 1rpx solid #f5f5f6;
+  border-top: 1rpx solid var(--border-light);
   display: flex;
   justify-content: center;
 }
@@ -583,13 +583,13 @@ const switchTab = (idx: number) => {
 }
 
 .rank-1 {
-  color: var(--brand-red-dark);
+  color: var(--primary-strong);
 }
 .rank-2 {
-  color: #e8a23f;
+  color: var(--rank-2);
 }
 .rank-3 {
-  color: #d9b23f;
+  color: var(--rank-3);
 }
 
 .hot-item-title {
@@ -603,11 +603,11 @@ const switchTab = (idx: number) => {
 }
 
 .hot-tag {
-  background-color: var(--brand-red-dark);
-  color: #ffffff;
+  background-color: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 18rpx;
   padding: 2rpx 8rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
   margin-left: 10rpx;
   flex-shrink: 0;
 }
@@ -672,7 +672,7 @@ const switchTab = (idx: number) => {
 }
 
 .ad-title {
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 30rpx;
   font-weight: bold;
 }
@@ -691,7 +691,7 @@ const switchTab = (idx: number) => {
   font-size: 18rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.6);
   padding: 2rpx 12rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
 }
 
 /* 6. 吸顶 Tab */
@@ -718,7 +718,7 @@ const switchTab = (idx: number) => {
 .tab-sep {
   width: 2rpx;
   height: 30rpx;
-  background: #e9ebee;
+  background: var(--bg-card-2);
   margin: 0 20rpx;
 }
 
@@ -733,23 +733,23 @@ const switchTab = (idx: number) => {
 .tab-item.active {
   color: var(--text-1);
   font-weight: bold;
-  border-bottom: 6rpx solid var(--brand-red);
+  border-bottom: 6rpx solid var(--primary);
 }
 
 .tab-item.tab-category {
   margin-right: 16rpx;
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
-  background: #ffffff;
-  border: 1rpx solid #f0e4e7;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-primary-soft);
   color: var(--text-2);
 }
 
 .tab-item.tab-category.active {
-  background: var(--brand-red);
-  border-color: var(--brand-red);
-  color: #ffffff;
-  border-bottom: 1rpx solid var(--brand-red);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-inverse);
+  border-bottom: 1rpx solid var(--primary);
 }
 
 /* 7. 信息流 */

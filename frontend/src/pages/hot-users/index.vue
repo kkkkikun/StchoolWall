@@ -70,10 +70,10 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-hot-users { min-height: 100vh; background-color: var(--bg-page); }
 
-.header { background-color: var(--brand-red); }
+.header { background-color: var(--primary); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: #fff; line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #fff; }
+.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
 .header-right { width: 80rpx; }
 
 .state-box { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
@@ -81,13 +81,13 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .state-text { font-size: 28rpx; color: var(--text-3); }
 
 .user-list { padding: 20rpx 24rpx; }
-.user-row { display: flex; align-items: center; background: #fff; border-radius: var(--radius-card); padding: 22rpx; margin-bottom: 16rpx; }
-.rank { width: 48rpx; height: 48rpx; border-radius: 50%; background: #f0f0f1; color: var(--text-3); display: flex; align-items: center; justify-content: center; font-size: 24rpx; font-weight: bold; margin-right: 20rpx; }
-.rank.top { background: var(--brand-red); color: #fff; }
-.avatar { width: 76rpx; height: 76rpx; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 34rpx; color: #fff; font-weight: bold; margin-right: 20rpx; }
+.user-row { display: flex; align-items: center; background: var(--bg-card); border-radius: var(--radius-card); padding: 22rpx; margin-bottom: 16rpx; }
+.rank { width: 48rpx; height: 48rpx; border-radius: 50%; background: var(--bg-card-2); color: var(--text-3); display: flex; align-items: center; justify-content: center; font-size: 24rpx; font-weight: bold; margin-right: 20rpx; }
+.rank.top { background: var(--primary); color: var(--text-inverse); }
+.avatar { width: 76rpx; height: 76rpx; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 34rpx; color: var(--text-inverse); font-weight: bold; margin-right: 20rpx; }
 .avatar image { width: 100%; height: 100%; }
 .main { flex: 1; min-width: 0; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
-.heat { display: block; font-size: 24rpx; color: var(--brand-red-dark); margin-top: 6rpx; }
-.arrow { font-size: 40rpx; color: #c8c9cc; }
+.heat { display: block; font-size: 24rpx; color: var(--primary-strong); margin-top: 6rpx; }
+.arrow { font-size: 40rpx; color: var(--text-4); }
 </style>

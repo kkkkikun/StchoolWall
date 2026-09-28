@@ -92,11 +92,11 @@ const goDetail = () => {
 
 <style scoped>
 .post-card {
-  background: #fff;
+  background: var(--bg-card);
   margin: 20rpx;
   padding: 24rpx;
-  border-radius: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-inner);
+  box-shadow: var(--shadow-card);
 }
 
 .card-header {
@@ -121,7 +121,7 @@ const goDetail = () => {
 .avatar-letter {
   font-size: 30rpx;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .author-info {
@@ -144,8 +144,8 @@ const goDetail = () => {
 
 .pinned-badge {
   font-size: 20rpx;
-  color: #fff;
-  background: var(--brand-red-dark);
+  color: var(--text-inverse);
+  background: var(--primary-strong);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
 }
@@ -185,7 +185,7 @@ const goDetail = () => {
   right: 8rpx;
   bottom: 8rpx;
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: var(--text-inverse);
   font-size: 22rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
@@ -200,8 +200,8 @@ const goDetail = () => {
 
 .tag {
   font-size: 22rpx;
-  color: #1296db;
-  background: #e6f3ff;
+  color: var(--info);
+  background: var(--accent-blue-soft);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
 }
@@ -209,7 +209,7 @@ const goDetail = () => {
 .price {
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--brand-red-dark);
+  color: var(--primary-strong);
   display: block;
   margin-top: 12rpx;
 }
@@ -227,9 +227,9 @@ const goDetail = () => {
 
 .my-badge {
   font-size: 20rpx;
-  color: #1296db;
-  border: 1rpx solid #1296db;
+  color: var(--info);
+  border: 1rpx solid var(--info);
   padding: 2rpx 8rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
 }
 </style>

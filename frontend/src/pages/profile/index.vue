@@ -368,7 +368,7 @@ const goProfile = (id: string) => {
 /* 1. 横幅（同"我的"：无照片时粉色渐变兜底） */
 .banner {
   height: 460rpx;
-  background: linear-gradient(160deg, #fbc6d0 0%, #f7a8bc 45%, #f2b8c8 100%);
+  background: var(--hero-gradient);
   position: relative;
   overflow: hidden;
 }
@@ -390,7 +390,7 @@ const goProfile = (id: string) => {
   height: 64rpx;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.25);
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 44rpx;
   display: flex;
   align-items: center;
@@ -400,7 +400,7 @@ const goProfile = (id: string) => {
 
 /* 2. 白色圆角面板（头像悬浮几何与"我的"一致） */
 .sheet {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 40rpx 40rpx 0 0;
   padding: 0 40rpx 40rpx;
   position: relative;
@@ -414,9 +414,9 @@ const goProfile = (id: string) => {
   display: inline-flex;
   position: relative;
   padding: 8rpx;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 50%;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-float);
 }
 .avatar {
   width: 176rpx;
@@ -427,7 +427,7 @@ const goProfile = (id: string) => {
   justify-content: center;
 }
 .avatar-img { width: 176rpx; height: 176rpx; }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: #ffffff; }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
 .v-badge {
   position: absolute;
   right: 4rpx;
@@ -435,7 +435,7 @@ const goProfile = (id: string) => {
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,24 +448,24 @@ const goProfile = (id: string) => {
 .nickname { font-size: 40rpx; font-weight: bold; color: var(--text-1); }
 .follow-btn {
   margin-left: auto;
-  background: var(--brand-red-dark);
-  color: #ffffff;
+  background: var(--primary-strong);
+  color: var(--text-inverse);
   font-size: 26rpx;
   font-weight: 600;
   padding: 14rpx 34rpx;
   border-radius: 36rpx;
 }
-.follow-btn.on { background: var(--brand-red-soft); color: var(--brand-red-dark); }
+.follow-btn.on { background: var(--primary-soft); color: var(--primary-strong); }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
-.school-line { color: var(--brand-red-dark); }
+.school-line { color: var(--primary-strong); }
 
 /* 统计行 */
 .stats-row {
   display: flex;
   margin-top: 30rpx;
-  background: #fafafb;
+  background: var(--bg-card-2);
   border-radius: 20rpx;
   padding: 24rpx 0;
 }
@@ -477,21 +477,21 @@ const goProfile = (id: string) => {
 .follow-list { margin-top: 30rpx; }
 .fl-head { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 8rpx 20rpx; }
 .fl-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.back-posts { font-size: 24rpx; color: var(--brand-red); }
-.user-row { display: flex; align-items: center; padding: 20rpx 8rpx; border-bottom: 1rpx solid #f7f7f7; }
+.back-posts { font-size: 24rpx; color: var(--primary); }
+.user-row { display: flex; align-items: center; padding: 20rpx 8rpx; border-bottom: 1rpx solid var(--border-light); }
 .user-row:last-child { border-bottom: none; }
-.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
+.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-inverse); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
 .u-avatar-img { width: 88rpx; height: 88rpx; }
 .u-meta { flex: 1; display: flex; align-items: center; gap: 12rpx; min-width: 0; }
 .u-name { font-size: 28rpx; color: var(--text-1); }
 .u-v { font-size: 20rpx; color: var(--text-3); }
-.mini-follow { background: var(--brand-red-dark); color: #fff; font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
+.mini-follow { background: var(--primary-strong); color: var(--text-inverse); font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
 
 /* 内容区（同"我的"） */
 .content-tabs {
   display: flex;
   margin-top: 36rpx;
-  border-bottom: 1rpx solid #f0f0f2;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .ct-item {
   flex: 1;
@@ -510,14 +510,14 @@ const goProfile = (id: string) => {
   width: 80rpx;
   height: 6rpx;
   border-radius: 3rpx;
-  background: var(--brand-red);
+  background: var(--primary);
 }
 
 .content-panel { margin-top: 30rpx; }
 .content-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
 
 .post-card {
-  background: #fafafb;
+  background: var(--bg-card-2);
   border-radius: 20rpx;
   padding: 26rpx;
   margin-top: 20rpx;
@@ -541,11 +541,11 @@ const goProfile = (id: string) => {
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-inner);
   flex-shrink: 0;
 }
 .pc-thumb-ph {
-  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  background: var(--soft-gradient);
   display: flex;
   align-items: center;
   justify-content: center;

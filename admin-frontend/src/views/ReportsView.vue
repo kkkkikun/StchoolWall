@@ -104,8 +104,8 @@ onMounted(() => load())
 
 <style scoped>
 .header-row { display: flex; justify-content: space-between; align-items: center; }
-.post-content { color: #303133; }
-.post-desc { font-size: 12px; color: #909399; margin-top: 4px; }
-.done-text { color: #c0c4cc; }
+.post-content { color: var(--el-text-color-primary); }
+.post-desc { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; }
+.done-text { color: var(--el-text-color-placeholder); }
 .load-more-row { margin-top: 16px; text-align: center; }
 </style>

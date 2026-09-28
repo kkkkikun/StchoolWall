@@ -30,9 +30,9 @@ interface Props {
 }
 defineProps<Props>()
 
-/** 选中深黑 / 未选中浅黑（2026-09-02 客户要求弃用粉色高亮） */
-const COLOR_ACTIVE = '#111111'
-const COLOR_NORMAL = '#a8a8a8'
+/** 主题C「极简杂志」：选中墨黑 / 未选中纸灰 */
+const COLOR_ACTIVE = '#191919'
+const COLOR_NORMAL = '#b8b5ad'
 
 const tabs = [
   { text: '首页', icon: 'home', path: '/pages/index/index' },

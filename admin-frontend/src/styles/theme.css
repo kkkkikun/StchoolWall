@@ -1,0 +1,53 @@
+/* ===== 鄂应墙管理后台 · 主题C「极简杂志」 =====
+   纸白 + 墨绿 + 墨黑：类 Notion/Stripe 编辑部风。细线框代替阴影，近直角，低饱和印刷色。
+   覆写 Element Plus 主色族 + 布局层令牌；图表配色见 src/theme.ts。 */
+
+:root {
+  /* —— Element Plus 主色族覆写 —— */
+  --el-color-primary: #1f5c45;
+  --el-color-primary-light-3: #4a7d68;
+  --el-color-primary-light-5: #749c8b;
+  --el-color-primary-light-7: #aebcb5;
+  --el-color-primary-light-8: #cdd9d2;
+  --el-color-primary-light-9: #edf2ef;
+  --el-color-primary-dark-2: #174a38;
+  --el-border-radius-base: 6px;
+
+  /* —— 布局层令牌 —— */
+  --app-bg: #faf9f6;               /* 主区域底：纸白 */
+  --app-aside-bg: #ffffff;         /* 侧边栏：纯白 + 细线 */
+  --app-aside-text: #4d4d4d;
+  --app-aside-active: #191919;     /* 激活文字：墨黑 */
+  --app-aside-active-bg: #f0eee8;  /* 激活底：米灰 */
+  --app-header-bg: #ffffff;
+  --app-header-border: 1px solid #e8e5dd;
+  --app-brand-grad: linear-gradient(135deg, #1f5c45, #2e7a5e);
+  --app-title-color: #191919;
+  --app-muted: #8c8c8c;
+  --app-card-radius: 6px;
+  --app-card-shadow: 0 0 0 1px #e8e5dd;
+}
+
+html, body, #app { height: 100%; }
+body {
+  background: var(--app-bg);
+  font-family: "PingFang SC", -apple-system, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+}
+
+/* —— 卡片：细线框，无阴影，小圆角 —— */
+.el-card {
+  border: 1px solid #e8e5dd;
+  border-radius: var(--app-card-radius);
+  box-shadow: none !important;
+}
+
+/* —— 按钮：方正小圆角，主按钮墨绿实心 —— */
+.el-button { border-radius: 8px; }
+
+/* —— 表格：白底细线，表头米灰 —— */
+.el-table { --el-table-header-bg-color: #f5f3ee; --el-table-header-text-color: #4d4d4d; }
+.el-table th.el-table__cell { font-weight: 600; }
+
+/* —— 弹窗/消息：细线框直角感 —— */
+.el-dialog { border-radius: var(--app-card-radius); box-shadow: 0 16px 48px rgba(25, 25, 25, 0.12); }
+.el-message-box { border-radius: var(--app-card-radius); }

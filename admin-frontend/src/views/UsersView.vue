@@ -203,18 +203,18 @@ onMounted(() => load())
 .pager { margin-top: 16px; justify-content: flex-end; }
 .detail-stats { margin: 16px 0; }
 .d-stat {
-  background: #f5f7fa; border-radius: 8px; padding: 12px 0;
+  background: var(--el-fill-color-light); border-radius: 8px; padding: 12px 0;
   display: flex; flex-direction: column; align-items: center;
 }
-.d-stat b { font-size: 20px; color: #303133; }
-.d-stat b.danger { color: #f73b43; }
-.d-stat span { font-size: 12px; color: #909399; margin-top: 2px; }
-.recent-title { margin: 12px 0 8px; color: #303133; }
+.d-stat b { font-size: 20px; color: var(--el-text-color-primary); }
+.d-stat b.danger { color: var(--el-color-primary); }
+.d-stat span { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 2px; }
+.recent-title { margin: 12px 0 8px; color: var(--el-text-color-primary); }
 .recent-post {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 10px 12px; background: #f5f7fa; border-radius: 6px; margin-bottom: 8px;
+  padding: 10px 12px; background: var(--el-fill-color-light); border-radius: 6px; margin-bottom: 8px;
 }
-.rp-content { font-size: 13px; color: #606266; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-content { font-size: 13px; color: var(--el-text-color-regular); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.muted { color: #c0c4cc; }
+.muted { color: var(--el-text-color-placeholder); }
 </style>

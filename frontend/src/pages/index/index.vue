@@ -104,7 +104,7 @@
           v-else
           class="ad-slide"
           :style="{
-            background: ad.bg || 'linear-gradient(135deg, #ef8a97, #f6b8c0)',
+            background: ad.bg || 'linear-gradient(135deg, #1f5c45, #2e7a5e)',
           }"
         >
           <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>

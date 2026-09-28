@@ -291,19 +291,19 @@ onMounted(() => load())
 <style scoped>
 .filter-card { margin-bottom: 16px; }
 .toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
-.selected-tip { font-size: 13px; color: #f73b43; }
+.selected-tip { font-size: 13px; color: var(--el-color-primary); }
 .content-cell { display: flex; align-items: flex-start; gap: 6px; }
 .pin-flag {
   flex-shrink: 0;
-  font-size: 11px; color: #fff; background: #f73b43;
+  font-size: 11px; color: #fff; background: var(--el-color-primary);
   padding: 1px 6px; border-radius: 4px; margin-top: 2px;
 }
 .featured-flag {
   flex-shrink: 0;
-  font-size: 11px; color: #e26d7d; background: #fdf0f2; border: 1px solid #ef8a97;
+  font-size: 11px; color: var(--el-color-primary-dark-2); background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-7);
   padding: 0 6px; border-radius: 4px; margin-top: 2px;
 }
-.content-text { color: #303133; }
-.stats-text { font-size: 12px; color: #909399; }
+.content-text { color: var(--el-text-color-primary); }
+.stats-text { font-size: 12px; color: var(--el-text-color-secondary); }
 .pager { margin-top: 16px; justify-content: flex-end; }
 </style>

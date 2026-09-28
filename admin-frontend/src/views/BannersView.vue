@@ -226,12 +226,12 @@ onMounted(() => load())
 .banner-thumb { width: 120px; height: 60px; border-radius: 6px; }
 .banner-grad {
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #ff5e62, #ff9966); font-size: 22px;
+  background: var(--app-brand-grad); font-size: 22px;
 }
 .tag-chip { margin-left: 8px; }
-.link-text { color: #409eff; font-size: 12px; }
-.muted { color: #909399; font-size: 12px; }
-.hint { font-size: 12px; color: #c0c4cc; margin-left: 8px; }
+.link-text { color: var(--el-color-primary); font-size: 12px; }
+.muted { color: var(--el-text-color-secondary); font-size: 12px; }
+.hint { font-size: 12px; color: var(--el-text-color-placeholder); margin-left: 8px; }
 .upload-row { display: flex; gap: 12px; align-items: center; width: 100%; }
 .url-input { flex: 1; }
 </style>

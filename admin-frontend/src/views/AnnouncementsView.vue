@@ -100,6 +100,6 @@ onMounted(() => load())
 
 <style scoped>
 .send-card { margin-bottom: 16px; }
-.content-text { color: #606266; font-size: 13px; }
+.content-text { color: var(--el-text-color-regular); font-size: 13px; }
 .pager { margin-top: 16px; justify-content: flex-end; }
 </style>

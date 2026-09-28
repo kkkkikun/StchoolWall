@@ -1,0 +1,59 @@
+/* ===== 鄂应墙管理后台 · 主题A「校园清新」 =====
+   薄荷绿 + 奶油白：轻快、干净、圆润。侧边栏浅色、卡片柔和绿晕。
+   覆写 Element Plus 主色族 + 布局层令牌；图表配色见 src/theme.ts。 */
+
+:root {
+  /* —— Element Plus 主色族覆写 —— */
+  --el-color-primary: #33b381;
+  --el-color-primary-light-3: #5fc49c;
+  --el-color-primary-light-5: #86d2b4;
+  --el-color-primary-light-7: #ade1cc;
+  --el-color-primary-light-8: #c3e9da;
+  --el-color-primary-light-9: #e8f7f0;
+  --el-color-primary-dark-2: #219a6b;
+
+  /* —— 形状与字体 —— */
+  --el-border-radius-base: 8px;
+
+  /* —— 布局层令牌（布局组件引用，主题间各自定义） —— */
+  --app-bg: #f2f8f4;               /* 主区域底 */
+  --app-aside-bg: #fbfefc;         /* 侧边栏底：近白薄荷 */
+  --app-aside-text: #43544c;       /* 侧边栏文字 */
+  --app-aside-active: #1e8a60;     /* 侧边栏激活文字 */
+  --app-aside-active-bg: #e8f7f0;  /* 侧边栏激活底 */
+  --app-header-bg: #ffffff;
+  --app-header-border: 1px solid #e8efe9;
+  --app-brand-grad: linear-gradient(135deg, #2fae7e, #8fdcb8);
+  --app-title-color: #1f2d27;
+  --app-muted: #93a49c;
+  --app-card-radius: 12px;
+  --app-card-shadow: 0 2px 12px rgba(47, 158, 108, 0.07);
+}
+
+html, body, #app { height: 100%; }
+body {
+  background: var(--app-bg);
+  font-family: "PingFang SC", -apple-system, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+}
+
+/* —— 卡片：去硬边框，柔绿晕影，统一圆角 —— */
+.el-card {
+  border: none;
+  border-radius: var(--app-card-radius);
+  box-shadow: var(--app-card-shadow) !important;
+}
+
+/* —— 按钮：胶囊化，主按钮带绿晕 —— */
+.el-button--primary {
+  --el-button-hover-bg-color: var(--el-color-primary-light-3);
+  box-shadow: 0 2px 10px rgba(33, 154, 107, 0.25);
+}
+.el-button { border-radius: 18px; }
+
+/* —— 表格：表头浅绿底，行悬停薄荷 —— */
+.el-table { --el-table-header-bg-color: #eef6f1; --el-table-header-text-color: #43544c; }
+.el-table th.el-table__cell { font-weight: 600; }
+
+/* —— 弹窗/消息圆角统一 —— */
+.el-dialog { border-radius: var(--app-card-radius); }
+.el-message-box { border-radius: var(--app-card-radius); }

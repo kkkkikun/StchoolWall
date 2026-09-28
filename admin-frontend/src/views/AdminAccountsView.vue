@@ -209,5 +209,5 @@ onMounted(() => load())
 <style scoped>
 .card-head { display: flex; align-items: center; justify-content: space-between; }
 .pager { margin-top: 16px; justify-content: flex-end; }
-.self-tip { color: #909399; font-size: 13px; }
+.self-tip { color: var(--el-text-color-secondary); font-size: 13px; }
 </style>

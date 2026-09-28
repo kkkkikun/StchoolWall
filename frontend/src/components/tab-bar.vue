@@ -30,9 +30,9 @@ interface Props {
 }
 defineProps<Props>()
 
-/** 选中深黑 / 未选中浅黑（2026-09-02 客户要求弃用粉色高亮） */
-const COLOR_ACTIVE = '#111111'
-const COLOR_NORMAL = '#a8a8a8'
+/** 主题A「校园清新」：选中品牌绿 / 未选中灰绿 */
+const COLOR_ACTIVE = '#219a6b'
+const COLOR_NORMAL = '#9aa8a0'
 
 const tabs = [
   { text: '首页', icon: 'home', path: '/pages/index/index' },
@@ -107,7 +107,7 @@ const onTap = (path: string) => {
 }
 
 .tab-label.active {
-  color: var(--text-1);
+  color: var(--primary-strong);
   font-weight: bold;
 }
 </style>

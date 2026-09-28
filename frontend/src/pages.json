@@ -6,7 +6,7 @@
 				"navigationStyle": "custom",
 				"enablePullDownRefresh": true,
 				"backgroundTextStyle": "dark",
-				"backgroundColor": "#f7f8fa"
+				"backgroundColor": "#f5f9f6"
 			}
 		},
 		{
@@ -153,6 +153,6 @@
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "鄂应墙",
 		"navigationBarBackgroundColor": "#FFFFFF",
-		"backgroundColor": "#f7f8fa"
+		"backgroundColor": "#f5f9f6"
 	}
 }

@@ -13,70 +13,70 @@ onHide(() => {
 });
 </script>
 <style>
-/* ===== 鄂应墙设计令牌 v2（语义化分层） =====
-   换肤三件套：本文件 + uni.scss + pages.json，页面样式一律引用变量，不写死颜色。
-   分层：品牌 → 背景表面 → 文本 → 边框 → 功能/点缀色 → 圆角 → 阴影 */
+/* ===== 鄂应墙设计令牌 · 主题A「校园清新」 =====
+   薄荷绿 + 奶油白：校园手账感。大圆角、柔和绿晕阴影、清新渐变。
+   换肤三件套：本文件 + uni.scss + pages.json。 */
 page {
   /* —— 品牌色 —— */
-  --primary: #ef8a97;            /* 主品牌色：头部/主按钮/激活态 */
-  --primary-strong: #e26d7d;     /* 深一档：角标/热标/按下态 */
-  --primary-soft: #fdf0f2;       /* 品牌浅底：标签/胶囊背景 */
-  --accent-warm: #f7b8a6;        /* 暖色点缀：渐变搭档 */
-  --accent-warm-strong: #f2a091; /* 暖色点缀深一档：渐变尾色 */
-  --primary-gradient: linear-gradient(135deg, #e8848f, #f6b8c0);
-  --primary-gradient-rev: linear-gradient(135deg, #f6b8c0, #e26d7d);
-  --hero-gradient: linear-gradient(160deg, #fbc6d0 0%, #f7a8bc 45%, #f2b8c8 100%);
-  --soft-gradient: linear-gradient(135deg, #fce4ec, #f8bbd0);
-  --card-gradient: linear-gradient(90deg, #fff7f8, #ffffff);
-  --shimmer-gradient: linear-gradient(90deg, #f5e7ea 25%, #fdf0f2 37%, #f5e7ea 63%);
-  --primary-alpha: rgba(226, 109, 125, 0.55);
+  --primary: #33b381;            /* 主品牌色：头部/主按钮/激活态 */
+  --primary-strong: #219a6b;     /* 深一档：角标/热标/按下态 */
+  --primary-soft: #e8f7f0;       /* 品牌浅底：标签/胶囊背景 */
+  --accent-warm: #8fdcb8;        /* 清爽点缀：渐变搭档（薄荷） */
+  --accent-warm-strong: #6fcba2; /* 点缀深一档：渐变尾色 */
+  --primary-gradient: linear-gradient(135deg, #2fae7e, #8fdcb8);
+  --primary-gradient-rev: linear-gradient(135deg, #8fdcb8, #219a6b);
+  --hero-gradient: linear-gradient(160deg, #a8e6cf 0%, #7fd4ab 45%, #62c99a 100%);
+  --soft-gradient: linear-gradient(135deg, #e3f9ee, #c5f0dc);
+  --card-gradient: linear-gradient(90deg, #f7fcfa, #ffffff);
+  --shimmer-gradient: linear-gradient(90deg, #e8f2ed 25%, #f4faf7 37%, #e8f2ed 63%);
+  --primary-alpha: rgba(33, 154, 107, 0.55);
 
   /* —— 背景表面 —— */
-  --bg-page: #f7f8fa;            /* 页面底 */
-  --bg-group: #fff9f5;           /* 组局页暖底 */
+  --bg-page: #f5f9f6;            /* 页面底：奶油薄荷灰 */
+  --bg-group: #f2faf5;           /* 组局页：更清爽的浅绿底 */
   --bg-card: #ffffff;            /* 卡片 */
-  --bg-card-2: #f2f3f5;          /* 卡内次级面：占位图/代码块/分段控件底 */
+  --bg-card-2: #eef3ef;          /* 卡内次级面：占位图/分段控件底 */
   --bg-input: #ffffff;           /* 输入框底 */
-  --bg-disabled: #ccc;           /* 禁用面 */
+  --bg-disabled: #c2ccc6;        /* 禁用面 */
 
   /* —— 文本 —— */
-  --text-1: #222222;             /* 主文本 */
-  --text-2: #555555;             /* 次级 */
-  --text-3: #999999;             /* 辅助/时间 */
-  --text-4: #b9bcc2;             /* 占位/禁用 */
+  --text-1: #1f2d27;             /* 主文本：墨绿黑 */
+  --text-2: #52655d;             /* 次级 */
+  --text-3: #93a49c;             /* 辅助/时间 */
+  --text-4: #b3c2ba;             /* 占位/禁用 */
   --text-inverse: #ffffff;       /* 品牌色/深底上的文字 */
 
   /* —— 边框 —— */
-  --border-light: #f0f0f0;       /* 常规发丝线 */
-  --border-strong: #e5e6eb;      /* 强分隔/控件描边 */
-  --border-primary-soft: #f2e7ea;/* 品牌色浅描边 */
+  --border-light: #e8efe9;       /* 常规发丝线 */
+  --border-strong: #d7e2da;      /* 强分隔/控件描边 */
+  --border-primary-soft: #cde9db;/* 品牌色浅描边 */
 
   /* —— 功能色 & 点缀 —— */
   --link: #1d9bf0;               /* 话题/链接 */
-  --info: #1296db;
-  --info-gradient: linear-gradient(135deg, #1296db 0%, #0066cc 100%);
-  --success: #07c160;
-  --warning: #ffb822;
-  --warning-soft: #fff9e6;
-  --danger: #ff5c7a;
-  --rank-2: #e8a23f;             /* 榜单第 2 名 */
-  --rank-3: #d9b23f;             /* 榜单第 3 名 */
+  --info: #3aa0d8;
+  --info-gradient: linear-gradient(135deg, #3aa0d8 0%, #2a7fb8 100%);
+  --success: #3cb878;
+  --warning: #f5a623;
+  --warning-soft: #fff6e6;
+  --danger: #f26d6d;
+  --rank-2: #f0a04b;             /* 榜单第 2 名 */
+  --rank-3: #e3b94f;             /* 榜单第 3 名 */
   --accent-violet: #8a5cf5;
   --accent-violet-strong: #6b46d6;
   --accent-violet-soft: #f1ecfe;
-  --accent-blue-soft: #e6f3ff;
+  --accent-blue-soft: #e8f4fd;
 
-  /* —— 圆角 —— */
-  --radius-card: 24rpx;
-  --radius-inner: 16rpx;         /* 卡内图/嵌套元素 */
-  --radius-btn: 44rpx;           /* 胶囊按钮 */
-  --radius-tag: 6rpx;            /* 角标/小标签 */
+  /* —— 圆角（清新主题整体加大一档） —— */
+  --radius-card: 28rpx;
+  --radius-inner: 20rpx;         /* 卡内图/嵌套元素 */
+  --radius-btn: 48rpx;           /* 胶囊按钮 */
+  --radius-tag: 8rpx;            /* 角标/小标签 */
 
-  /* —— 阴影 —— */
-  --shadow-card: 0 6rpx 18rpx rgba(239, 138, 151, 0.08);
-  --shadow-float: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
-  --shadow-primary: 0 2rpx 12rpx rgba(226, 109, 125, 0.18);
-  --shadow-primary-lg: 0 10rpx 26rpx rgba(239, 138, 151, 0.24);
+  /* —— 阴影（绿晕，柔和弥散） —— */
+  --shadow-card: 0 8rpx 20rpx rgba(47, 158, 108, 0.08);
+  --shadow-float: 0 6rpx 24rpx rgba(31, 77, 55, 0.08);
+  --shadow-primary: 0 4rpx 14rpx rgba(33, 154, 107, 0.22);
+  --shadow-primary-lg: 0 12rpx 28rpx rgba(33, 154, 107, 0.24);
 
   background-color: var(--bg-page);
   color: var(--text-1);

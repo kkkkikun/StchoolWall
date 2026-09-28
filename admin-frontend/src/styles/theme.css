@@ -1,85 +1,83 @@
-/* ===== 鄂应墙管理后台 · 主题B「夜间霓虹」 =====
-   深夜蓝黑 + 紫→青霓虹：控制台风（类 Linear/Vercel），玻璃拟态顶栏/侧栏。
-   基于 Element Plus dark 模式（main.ts 已加 html.dark），这里覆写主色族与布局令牌。
-   图表配色见 src/theme.ts。 */
+/* ===== 鄂应墙管理后台 · 主题B「X · Lights out」 =====
+   参考 X（Twitter）成熟设计语言：纯黑底、#16181c 表面、X 蓝 #1d9bf0、
+   全胶囊按钮、发丝分隔线 #2f3336、无弥散阴影。
+   基于 Element Plus dark 模式（main.ts 已加 html.dark）；图表配色见 src/theme.ts。 */
 
-/* —— 主色族：暗色上下直接给亮阶 —— */
+/* —— 主色族：X 蓝（暗色上下用 rgba 软底） —— */
 :root, html.dark {
-  --el-color-primary: #7c5cff;
-  --el-color-primary-light-3: #9d7bff;
-  --el-color-primary-light-5: #bda7ff;
-  --el-color-primary-light-7: #dccdff;
-  --el-color-primary-light-8: #ebddff;
-  --el-color-primary-light-9: rgba(124, 92, 255, 0.16);
-  --el-color-primary-dark-2: #6b46e8;
+  --el-color-primary: #1d9bf0;
+  --el-color-primary-light-3: #5aadf3;
+  --el-color-primary-light-5: #3b8fd9;
+  --el-color-primary-light-7: #1f4d75;
+  --el-color-primary-light-8: #173c5e;
+  --el-color-primary-light-9: rgba(29, 155, 240, 0.13);
+  --el-color-primary-dark-2: #1a8cd8;
   --el-border-radius-base: 8px;
 
   /* —— 布局层令牌 —— */
-  --app-bg: #0f1219;                /* 主区域底：深夜蓝黑 */
-  --app-aside-bg: #141824;          /* 侧边栏：略浮一层的夜色 */
-  --app-aside-text: #aab3c8;
-  --app-aside-active: #c4b5fd;      /* 激活文字：亮紫 */
-  --app-aside-active-bg: rgba(124, 92, 255, 0.14);
-  --app-header-bg: rgba(20, 24, 36, 0.85);
-  --app-header-border: 1px solid rgba(255, 255, 255, 0.07);
-  --app-brand-grad: linear-gradient(135deg, #7c5cff, #22d3ee);
-  --app-title-color: #e9ecf5;
-  --app-muted: #737e96;
-  --app-card-radius: 12px;
-  --app-card-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+  --app-bg: #000000;                /* 主区域底：纯黑 */
+  --app-aside-bg: #000000;          /* 侧边栏：纯黑（X 侧栏风格） */
+  --app-aside-text: #71767b;        /* X meta 灰 */
+  --app-aside-active: #e7e9ea;      /* 激活文字：近白（X 不用品牌色高亮导航） */
+  --app-aside-active-bg: #16181c;   /* 激活底：X 悬停填充灰 */
+  --app-header-bg: rgba(0, 0, 0, 0.85);
+  --app-header-border: 1px solid #2f3336;
+  --app-brand-grad: linear-gradient(135deg, #1d9bf0, #1a8cd8);
+  --app-title-color: #e7e9ea;
+  --app-muted: #71767b;
+  --app-card-radius: 16px;
+  --app-card-shadow: 0 0 0 1px #2f3336;
 }
 
-/* —— Element Plus 暗色表面校准（蓝黑系，替代默认纯灰黑） —— */
+/* —— Element Plus 暗色表面校准（X 黑灰系） —— */
 html.dark {
-  --el-bg-color: #171b26;           /* 卡片/面板 */
-  --el-bg-color-overlay: #1c2130;   /* 弹窗/下拉 */
-  --el-bg-color-page: #0f1219;
-  --el-text-color-primary: #e9ecf5;
-  --el-text-color-regular: #aab3c8;
-  --el-text-color-secondary: #737e96;
-  --el-text-color-placeholder: #4d5670;
-  --el-text-color-disabled: #4d5670;
-  --el-border-color: rgba(255, 255, 255, 0.14);
-  --el-border-color-light: rgba(255, 255, 255, 0.10);
-  --el-border-color-lighter: rgba(255, 255, 255, 0.07);
-  --el-border-color-extra-light: rgba(255, 255, 255, 0.06);
-  --el-fill-color: #202635;
-  --el-fill-color-light: #1c2130;
-  --el-fill-color-lighter: #171b26;
-  --el-fill-color-extra-light: rgba(255, 255, 255, 0.04);
-  --el-fill-color-blank: #171b26;
-  --el-mask-color: rgba(5, 8, 15, 0.65);
+  --el-bg-color: #16181c;
+  --el-bg-color-overlay: #202327;
+  --el-bg-color-page: #000000;
+  --el-text-color-primary: #e7e9ea;
+  --el-text-color-regular: #e7e9ea;
+  --el-text-color-secondary: #71767b;
+  --el-text-color-placeholder: #4c4f52;
+  --el-text-color-disabled: #4c4f52;
+  --el-border-color: #536471;
+  --el-border-color-light: #3e4144;
+  --el-border-color-lighter: #2f3336;
+  --el-border-color-extra-light: #2f3336;
+  --el-fill-color: #202327;
+  --el-fill-color-light: #16181c;
+  --el-fill-color-lighter: #000000;
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.03);
+  --el-fill-color-blank: #16181c;
+  --el-mask-color: rgba(0, 0, 0, 0.7);
 }
 
 html, body, #app { height: 100%; }
 body {
   background: var(--app-bg);
-  font-family: "PingFang SC", -apple-system, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
 }
 
-/* —— 卡片：深色浮层 + 细霓虹描边 —— */
+/* —— 卡片：X 式深灰面 + 发丝描边，无阴影 —— */
 .el-card {
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid #2f3336;
   border-radius: var(--app-card-radius);
-  box-shadow: var(--app-card-shadow) !important;
+  box-shadow: none !important;
 }
 
-/* —— 按钮：胶囊化，主按钮紫色辉光 —— */
-.el-button--primary {
-  box-shadow: 0 2px 14px rgba(124, 92, 255, 0.4);
-}
-.el-button { border-radius: 18px; }
+/* —— 按钮：全胶囊（X 签名），主按钮纯蓝无辉光 —— */
+.el-button--primary { box-shadow: none; }
+.el-button { border-radius: 9999px; }
 
-/* —— 表格：深色表头 + 夜色分隔线 —— */
+/* —— 表格：黑底发丝线，表头深灰 —— */
 .el-table {
-  --el-table-header-bg-color: #1c2130;
-  --el-table-header-text-color: #aab3c8;
-  --el-table-tr-bg-color: #171b26;
-  --el-table-row-hover-bg-color: #202635;
-  --el-table-border-color: rgba(255, 255, 255, 0.07);
+  --el-table-header-bg-color: #16181c;
+  --el-table-header-text-color: #71767b;
+  --el-table-tr-bg-color: #000000;
+  --el-table-row-hover-bg-color: #16181c;
+  --el-table-border-color: #2f3336;
 }
 .el-table th.el-table__cell { font-weight: 600; }
 
-/* —— 弹窗/消息圆角统一 —— */
-.el-dialog { border-radius: var(--app-card-radius); }
-.el-message-box { border-radius: var(--app-card-radius); }
+/* —— 弹窗/消息：X 深灰浮层 —— */
+.el-dialog { border-radius: var(--app-card-radius); border: 1px solid #2f3336; }
+.el-message-box { border-radius: 16px; }

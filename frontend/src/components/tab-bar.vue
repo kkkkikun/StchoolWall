@@ -30,9 +30,9 @@ interface Props {
 }
 defineProps<Props>()
 
-/** 主题B「夜间霓虹」：选中电紫 / 未选中夜灰 */
-const COLOR_ACTIVE = '#a78bfa'
-const COLOR_NORMAL = '#737e96'
+/** 主题B「X · Lights out」：选中近白 / 未选中 X 灰（X 底栏不用品牌色高亮） */
+const COLOR_ACTIVE = '#e7e9ea'
+const COLOR_NORMAL = '#71767b'
 
 const tabs = [
   { text: '首页', icon: 'home', path: '/pages/index/index' },
@@ -81,10 +81,10 @@ const onTap = (path: string) => {
   bottom: 0;
   z-index: 999;
   display: flex;
-  /* 主题B：玻璃拟态底栏（H5 毛玻璃，小程序降级为半透明深底） */
-  background-color: rgba(23, 27, 38, 0.88);
-  backdrop-filter: blur(20px);
-  border-top: 1rpx solid var(--border-strong);
+  /* 主题B（X）：纯黑底栏 + 发丝顶线（H5 轻毛玻璃） */
+  background-color: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
+  border-top: 1rpx solid var(--border-light);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -109,8 +109,7 @@ const onTap = (path: string) => {
 }
 
 .tab-label.active {
-  color: var(--primary-strong);
-  text-shadow: 0 0 12rpx rgba(124, 92, 255, 0.55);
+  color: var(--text-1);
   font-weight: bold;
 }
 </style>

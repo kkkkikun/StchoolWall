@@ -8,31 +8,31 @@
 /* 颜色变量 */
 
 /* 行为相关颜色 */
-$uni-color-primary: #a78bfa;
-$uni-color-success: #34d399;
-$uni-color-warning: #fbbf24;
-$uni-color-error: #fb7185;
+$uni-color-primary: #1d9bf0;
+$uni-color-success: #00ba7c;
+$uni-color-warning: #ffd400;
+$uni-color-error: #f4212e;
 
 /* 鄂应墙设计令牌（品牌专用，与 App.vue 同步维护） */
-$primary: #7c5cff;            // 主品牌色：头部/主按钮/tab 高亮
-$primary-strong: #a78bfa;     // 深一档：角标/热标/按下态
-$primary-soft: rgba(124, 92, 255, 0.16);       // 品牌浅底：标签背景
-$accent-warm: #22d3ee;        // 暖色点缀：渐变搭档
-$accent-warm-strong: #0ea5e9; // 暖色点缀深一档
-$bg-page: #0f1219;            // 页面灰底
-$bg-group: #12151f;           // 组局页暖米底
+$primary: #1d9bf0;            // 主品牌色：头部/主按钮/tab 高亮
+$primary-strong: #1a8cd8;     // 深一档：角标/热标/按下态
+$primary-soft: rgba(29, 155, 240, 0.14);       // 品牌浅底：标签背景
+$accent-warm: #00ba7c;        // 暖色点缀：渐变搭档
+$accent-warm-strong: #00a06a; // 暖色点缀深一档
+$bg-page: #000000;            // 页面灰底
+$bg-group: #000000;           // 组局页暖米底
 $bg-card: #ffffff;            // 卡片
-$bg-card-2: #202635;          // 卡内次级面
+$bg-card-2: #202327;          // 卡内次级面
 $radius-card: 24rpx;          // 卡片圆角
 $radius-inner: 16rpx;         // 卡内元素圆角
 $radius-btn: 44rpx;           // 胶囊按钮圆角
 $radius-tag: 6rpx;            // 角标/小标签圆角
-$text-1: #e9ecf5;             // 主文本
-$text-2: #aab3c8;             // 次级文本
-$text-3: #737e96;             // 辅助/时间
-$text-4: #4d5670;             // 占位/禁用
-$border-light: rgba(255, 255, 255, 0.07);       // 发丝线
-$border-strong: rgba(255, 255, 255, 0.14);      // 强分隔
+$text-1: #e7e9ea;             // 主文本
+$text-2: #71767b;             // 次级文本
+$text-3: #71767b;             // 辅助/时间
+$text-4: #4c4f52;             // 占位/禁用
+$border-light: #2f3336;       // 发丝线
+$border-strong: #536471;      // 强分隔
 
 /* 文字基本颜色 */
 $uni-text-color: #333; // 基本色

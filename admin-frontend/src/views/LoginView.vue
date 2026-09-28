@@ -62,33 +62,30 @@ const onLogin = async () => {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(60% 50% at 18% 22%, rgba(124, 92, 255, 0.28) 0%, transparent 60%),
-    radial-gradient(50% 45% at 82% 78%, rgba(34, 211, 238, 0.20) 0%, transparent 60%),
-    #0f1219;
+    radial-gradient(45% 40% at 50% 0%, rgba(29, 155, 240, 0.10) 0%, transparent 70%),
+    #000000;
 }
 .login-card {
   width: 380px;
-  background: rgba(23, 27, 38, 0.72);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 18px;
+  background: #16181c;
+  border: 1px solid #2f3336;
+  border-radius: 16px;
   padding: 40px 36px 28px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 60px rgba(124, 92, 255, 0.12);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
 }
 .login-header { text-align: center; margin-bottom: 28px; }
 .logo {
   width: 64px; height: 64px;
   margin: 0 auto 14px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #7c5cff, #22d3ee);
+  border-radius: 50%;
+  background: #1d9bf0;
   color: #fff;
-  font-size: 34px;
-  font-weight: bold;
+  font-size: 32px;
+  font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 26px rgba(124, 92, 255, 0.55);
 }
-h1 { font-size: 20px; color: #e9ecf5; }
-.sub { font-size: 12px; color: #737e96; margin-top: 6px; letter-spacing: 1px; }
-.login-btn { width: 100%; margin-top: 6px; border-radius: 22px; }
-.tip { font-size: 12px; color: #4d5670; text-align: center; margin-top: 16px; }
+h1 { font-size: 22px; color: #e7e9ea; font-weight: 800; }
+.sub { font-size: 12px; color: #71767b; margin-top: 6px; letter-spacing: 1px; }
+.login-btn { width: 100%; margin-top: 6px; border-radius: 9999px; font-weight: 700; }
+.tip { font-size: 12px; color: #4c4f52; text-align: center; margin-top: 16px; }
 </style>

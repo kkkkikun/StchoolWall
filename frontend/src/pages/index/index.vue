@@ -104,7 +104,7 @@
           v-else
           class="ad-slide"
           :style="{
-            background: ad.bg || 'linear-gradient(135deg, #7c5cff, #22d3ee)',
+            background: ad.bg || 'linear-gradient(135deg, #1d9bf0, #1a8cd8)',
           }"
         >
           <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>
@@ -394,9 +394,10 @@ const switchTab = (idx: number) => {
   padding-bottom: 40rpx;
 }
 
-/* 1. 红色头部（沉浸式） */
+/* 1. 顶栏（主题B·X：黑底 + 发丝底线，沉浸式） */
 .header-search-box {
-  background-color: var(--primary);
+  background-color: var(--bg-page);
+  border-bottom: 1rpx solid var(--border-light);
   display: flex;
   flex-direction: column;
 }
@@ -412,22 +413,21 @@ const switchTab = (idx: number) => {
   align-items: center;
 }
 
-/* 左上角火焰签到（LeetCode 式两态）：未签=描边幽灵胶囊，已签=白底实心 */
+/* 左上角火焰签到（主题B·X）：未签=灰描边胶囊，已签=深灰实心 + 蓝字 */
 .checkin-btn {
   flex-shrink: 0;
   height: 64rpx;
   padding: 0 18rpx;
   margin-right: 20rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.9);
-  border-radius: 34rpx;
+  border: 2rpx solid var(--border-strong);
+  border-radius: var(--radius-btn);
   display: flex;
   align-items: center;
   gap: 10rpx;
 }
 .checkin-btn.done {
-  background-color: var(--bg-card);
-  border-color: #ffffff;
-  box-shadow: var(--shadow-primary);
+  background-color: var(--bg-card-2);
+  border-color: var(--border-strong);
 }
 
 .checkin-icon {
@@ -445,17 +445,18 @@ const switchTab = (idx: number) => {
 .checkin-fallback {
   font-size: 26rpx;
   line-height: 1;
-  color: var(--text-inverse);
+  color: var(--text-2);
 }
 .checkin-btn.done .checkin-fallback {
   font-size: 30rpx;
+  color: var(--primary);
 }
 
 /* 右侧连签数字 */
 .checkin-count {
   font-size: 24rpx;
   font-weight: 700;
-  color: var(--text-inverse);
+  color: var(--text-2);
   line-height: 1;
 }
 .checkin-btn.done .checkin-count {
@@ -466,12 +467,11 @@ const switchTab = (idx: number) => {
   flex: 1;
   min-width: 0;
   height: 64rpx;
-  background-color: var(--bg-card);
-  border-radius: 32rpx;
+  background-color: var(--bg-card-2);
+  border-radius: var(--radius-btn);
   padding: 0 26rpx;
   display: flex;
   align-items: center;
-  box-shadow: var(--shadow-primary);
 }
 
 .icon-search {
@@ -493,9 +493,10 @@ const switchTab = (idx: number) => {
 
 .search-confirm {
   font-size: 26rpx;
+  font-weight: 600;
   color: var(--primary);
   padding-left: 20rpx;
-  border-left: 1rpx solid var(--border-light);
+  border-left: 1rpx solid var(--border-strong);
 }
 
 /* 2. 十大热帖（原"搭乘UFO"通知栏已删，2026-09-01 客户反馈） */

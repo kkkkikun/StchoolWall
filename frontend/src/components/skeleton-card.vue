@@ -11,13 +11,13 @@
 
 <style scoped>
 .skeleton-card {
-  background: var(--bg-card);
-  border-radius: var(--radius-card);
-  padding: 28rpx 24rpx;
-  margin-bottom: 20rpx;
+  /* 主题B（X）：与时间线行一致的黑底骨架 */
+  background: var(--bg-page);
+  padding: 24rpx 28rpx;
+  margin-bottom: 0;
   display: flex;
   gap: 20rpx;
-  box-shadow: var(--shadow-card);
+  border-bottom: 1rpx solid var(--border-light);
 }
 .sk-avatar {
   width: 72rpx;

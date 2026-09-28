@@ -181,10 +181,10 @@ const onFavorite = async () => {
 
 <style scoped>
 .feed-card {
-  background-color: var(--bg-card);
-  border-radius: var(--radius-card);
-  padding: 28rpx;
-  margin-bottom: 20rpx;
+  /* 主题B（X）：平铺时间线行——无卡片底、发丝分隔线 */
+  background-color: var(--bg-page);
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .feed-header { display: flex; align-items: center; justify-content: space-between; }
 .user-info { display: flex; align-items: center; flex: 1; }
@@ -227,7 +227,7 @@ const onFavorite = async () => {
   padding-top: 24rpx; justify-content: space-between;
 }
 .action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); }
-.action-item.on .act-num { color: var(--primary-strong); }
+.action-item.on .act-num { color: var(--like); }
 .act-icon { width: 36rpx; height: 36rpx; }
 .act-num { font-size: 24rpx; color: var(--text-2); }
 </style>

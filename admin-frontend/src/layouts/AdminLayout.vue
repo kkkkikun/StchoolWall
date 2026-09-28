@@ -109,11 +109,11 @@ const onCommand = async (cmd: string) => {
   background: var(--app-brand-grad);
   color: #fff; font-weight: bold;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 12px rgba(124, 92, 255, 0.5);
+  box-shadow: 0 2px 12px rgba(29, 155, 240, 0.35);
 }
 .brand-text { color: var(--app-title-color); font-size: 15px; font-weight: 600; }
 
-/* 菜单：夜色底 + 圆角胶囊激活态（颜色全走主题令牌） */
+/* 菜单：X 侧栏风——黑底、灰字、激活近白 + 悬停填充灰（颜色全走主题令牌） */
 .menu {
   border-right: none; flex: 1;
   --el-menu-bg-color: var(--app-aside-bg);

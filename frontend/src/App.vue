@@ -13,76 +13,77 @@ onHide(() => {
 });
 </script>
 <style>
-/* ===== 鄂应墙设计令牌 · 主题B「夜间霓虹」 =====
-   深夜蓝黑底 + 紫→青霓虹：玻璃拟态卡片、霓虹辉光、高对比文字。
+/* ===== 鄂应墙设计令牌 · 主题B「X · Lights out」 =====
+   参考 X（Twitter）成熟设计语言：纯黑底、X 蓝 #1d9bf0、胶囊控件、发丝分隔线、无弥散阴影。
    换肤三件套：本文件 + uni.scss + pages.json。 */
 page {
   color-scheme: dark;
 
-  /* —— 品牌色 —— */
-  --primary: #7c5cff;            /* 主品牌色：头部/主按钮/激活态（电紫） */
-  --primary-strong: #a78bfa;     /* 亮一档：深底上的强调文字/角标 */
-  --primary-soft: rgba(124, 92, 255, 0.16);   /* 品牌浅底（暗色下为半透紫） */
-  --accent-warm: #22d3ee;        /* 霓虹搭档：电青 */
-  --accent-warm-strong: #0ea5e9; /* 点缀深一档：渐变尾色 */
-  --primary-gradient: linear-gradient(135deg, #7c5cff, #22d3ee);
-  --primary-gradient-rev: linear-gradient(135deg, #22d3ee, #7c5cff);
-  --hero-gradient: linear-gradient(160deg, #312e81 0%, #6d28d9 50%, #0e7490 100%);
-  --soft-gradient: linear-gradient(135deg, rgba(124, 92, 255, 0.28), rgba(34, 211, 238, 0.18));
-  --card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
-  --shimmer-gradient: linear-gradient(90deg, #1c2030 25%, #262c40 37%, #1c2030 63%);
-  --primary-alpha: rgba(124, 92, 255, 0.55);
+  /* —— 品牌色（X Blue） —— */
+  --primary: #1d9bf0;            /* 主品牌色：X 蓝 */
+  --primary-strong: #1a8cd8;     /* 深一档：按下态 */
+  --primary-soft: rgba(29, 155, 240, 0.14);   /* 蓝色浅底 */
+  --like: #f918b6;               /* X 点赞粉 */
+  --accent-warm: #00ba7c;        /* 点缀：X 绿（转发色） */
+  --accent-warm-strong: #00a06a; /* 点缀深一档 */
+  --primary-gradient: linear-gradient(135deg, #1d9bf0, #1a8cd8);
+  --primary-gradient-rev: linear-gradient(135deg, #1a8cd8, #1d9bf0);
+  --hero-gradient: linear-gradient(160deg, #0d3a5c 0%, #1d6aa8 60%, #1d9bf0 130%);
+  --soft-gradient: linear-gradient(135deg, rgba(29, 155, 240, 0.20), rgba(0, 186, 124, 0.14));
+  --card-gradient: linear-gradient(180deg, #16181c, #16181c);
+  --shimmer-gradient: linear-gradient(90deg, #16181c 25%, #202327 37%, #16181c 63%);
+  --primary-alpha: rgba(29, 155, 240, 0.5);
 
-  /* —— 背景表面（玻璃拟态分层） —— */
-  --bg-page: #0f1219;            /* 页面底：深夜蓝黑 */
-  --bg-group: #12151f;           /* 组局页：略紫夜色 */
-  --bg-card: #171b26;            /* 卡片 */
-  --bg-card-2: #202635;          /* 卡内次级面：占位图/分段控件底 */
-  --bg-input: #1c2130;           /* 输入框底 */
-  --bg-disabled: #2a3042;        /* 禁用面 */
+  /* —— 背景表面（Lights out 纯黑分层） —— */
+  --bg-page: #000000;            /* 页面底：纯黑 */
+  --bg-group: #000000;           /* 组局页：同纯黑 */
+  --bg-card: #16181c;            /* 卡片：X 深灰面 */
+  --bg-card-2: #202327;          /* 次级面：搜索框/悬停填充 */
+  --bg-input: #000000;           /* 输入框底：X 式黑底描边 */
+  --bg-disabled: #2f3336;        /* 禁用面 */
 
-  /* —— 文本 —— */
-  --text-1: #e9ecf5;             /* 主文本：近白 */
-  --text-2: #aab3c8;             /* 次级 */
-  --text-3: #737e96;             /* 辅助/时间 */
-  --text-4: #4d5670;             /* 占位/禁用 */
-  --text-inverse: #ffffff;       /* 品牌色/深底上的文字 */
+  /* —— 文本（X 灰阶） —— */
+  --text-1: #e7e9ea;             /* 主文本：近白 */
+  --text-2: #71767b;             /* 次级：X meta 灰 */
+  --text-3: #71767b;             /* 辅助/时间 */
+  --text-4: #4c4f52;             /* 占位/禁用 */
+  --text-inverse: #ffffff;       /* 主按钮/蓝底上的文字 */
 
-  /* —— 边框（半透霓虹发丝线） —— */
-  --border-light: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-primary-soft: rgba(124, 92, 255, 0.35);
+  /* —— 边框（X 分隔线灰） —— */
+  --border-light: #2f3336;       /* 发丝分隔线 */
+  --border-strong: #536471;      /* 控件描边 */
+  --border-primary-soft: rgba(29, 155, 240, 0.4);
 
-  /* —— 功能色 & 点缀（霓虹系） —— */
-  --link: #4cc2ff;               /* 话题/链接 */
-  --info: #38bdf8;
-  --info-gradient: linear-gradient(135deg, #38bdf8 0%, #0369a1 100%);
-  --success: #34d399;
-  --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.12);
-  --danger: #fb7185;
-  --rank-2: #fbbf24;             /* 榜单第 2 名 */
-  --rank-3: #d4a437;             /* 榜单第 3 名 */
-  --accent-violet: #a78bfa;
-  --accent-violet-strong: #c4b5fd;
-  --accent-violet-soft: rgba(167, 139, 250, 0.16);
-  --accent-blue-soft: rgba(56, 189, 248, 0.14);
+  /* —— 功能色（X 官方功能色板） —— */
+  --link: #1d9bf0;               /* 话题/链接 */
+  --info: #1d9bf0;
+  --info-gradient: linear-gradient(135deg, #1d9bf0 0%, #1a8cd8 100%);
+  --success: #00ba7c;
+  --warning: #ffd400;
+  --warning-soft: rgba(255, 212, 0, 0.10);
+  --danger: #f4212e;
+  --rank-2: #ffd400;             /* 榜单第 2 名 */
+  --rank-3: #ff7a00;             /* 榜单第 3 名：X 橙 */
+  --accent-violet: #7856ff;      /* X 紫 */
+  --accent-violet-strong: #9a86ff;
+  --accent-violet-soft: rgba(120, 86, 255, 0.16);
+  --accent-blue-soft: rgba(29, 155, 240, 0.14);
 
-  /* —— 圆角 —— */
-  --radius-card: 24rpx;
-  --radius-inner: 16rpx;         /* 卡内图/嵌套元素 */
-  --radius-btn: 44rpx;           /* 胶囊按钮 */
-  --radius-tag: 6rpx;            /* 角标/小标签 */
+  /* —— 圆角（胶囊控件是 X 的签名） —— */
+  --radius-card: 16rpx;
+  --radius-inner: 12rpx;         /* 卡内图：X 媒体圆角 */
+  --radius-btn: 999rpx;          /* 全胶囊按钮 */
+  --radius-tag: 4rpx;            /* 角标：近直角 */
 
-  /* —— 阴影（深色投影 + 紫色辉光） —— */
-  --shadow-card: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
-  --shadow-float: 0 8rpx 28rpx rgba(0, 0, 0, 0.5);
-  --shadow-primary: 0 4rpx 16rpx rgba(124, 92, 255, 0.35);
-  --shadow-primary-lg: 0 12rpx 30rpx rgba(124, 92, 255, 0.4);
+  /* —— 阴影（X 无弥散阴影：发丝线代替） —— */
+  --shadow-card: none;
+  --shadow-float: 0 8rpx 24rpx rgba(0, 0, 0, 0.6);
+  --shadow-primary: none;
+  --shadow-primary-lg: none;
 
   background-color: var(--bg-page);
   color: var(--text-1);
-  font-family: -apple-system, "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 28rpx;
 }
 

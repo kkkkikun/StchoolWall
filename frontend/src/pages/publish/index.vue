@@ -1,5 +1,5 @@
 <template>
-  <view class="page-publish">
+  <view class="page-publish" :class="themeClass">
     <!-- 1. 热搜标签 -->
     <view class="hot-search-section">
       <view class="hot-label">
@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import TabBar from '@/components/tab-bar.vue'
 import { POST_CATEGORIES } from '@/utils/mock'
 import { getTags } from '@/api/tags'
@@ -84,6 +85,8 @@ import type { Tag } from '@/types/api'
 import { createPost } from '@/api/posts'
 import { tokenStorage } from '@/utils/storage'
 import { uploadFile } from '@/utils/request'
+
+const { themeClass } = useTheme()
 
 const tags = ref<Tag[]>([])
 const content = ref('')

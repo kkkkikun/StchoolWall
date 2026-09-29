@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="themeClass">
     <view class="type-tabs">
       <view
         v-for="tab in tabs"
@@ -28,9 +28,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import { get } from '@/utils/request'
 import PostCard from '@/components/post-card.vue'
+
+const { themeClass } = useTheme()
 
 interface Tab {
   label: string

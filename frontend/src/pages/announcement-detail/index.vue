@@ -1,5 +1,5 @@
 <template>
-  <view class="page-announcement">
+  <view class="page-announcement" :class="themeClass">
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
       <view class="header-row">
@@ -28,8 +28,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import { getNotificationDetail, readNotification, type NotificationItem } from '@/api/notification'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const loading = ref(true)

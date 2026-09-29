@@ -1,5 +1,5 @@
 <template>
-  <view class="page-profile">
+  <view class="page-profile" :class="themeClass">
     <view v-if="loading" class="state"><text>加载中…</text></view>
 
     <view v-else-if="!profile" class="state"><text>用户不存在</text></view>
@@ -202,6 +202,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import {
   getProfile, getFollowing, getFollowers, getUserPosts, followUser, unfollowUser,
@@ -209,6 +210,8 @@ import {
 } from '@/api/profile'
 import { myComments, myLikes, myFavorites, type MyCommentItem } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 // 沉浸式横幅：预留状态栏（H5 下为 0）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0

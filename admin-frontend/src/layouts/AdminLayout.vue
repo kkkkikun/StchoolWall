@@ -18,7 +18,14 @@
       <!-- 顶栏 -->
       <el-header class="header">
         <div class="breadcrumb">{{ currentTitle }}</div>
-        <el-dropdown @command="onCommand">
+        <div class="header-right">
+          <el-button circle text class="theme-btn" @click="toggleTheme">
+            <el-icon :size="18">
+              <Sunny v-if="isDark" />
+              <Moon v-else />
+            </el-icon>
+          </el-button>
+          <el-dropdown @command="onCommand">
           <span class="user-chip">
             <el-icon><UserFilled /></el-icon>
             {{ auth.adminName || '管理员' }}
@@ -31,6 +38,7 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        </div>
       </el-header>
 
       <!-- 内容 -->
@@ -46,7 +54,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { UserFilled, ArrowDown } from '@element-plus/icons-vue'
+import { UserFilled, ArrowDown, Sunny, Moon } from '@element-plus/icons-vue'
+import { useThemeStore } from '@/stores/theme'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
@@ -54,6 +63,7 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { isDark, toggle: toggleTheme } = useThemeStore()
 
 const menus = [
   { path: '/dashboard', title: '看板', icon: '📊' },
@@ -147,5 +157,7 @@ const onCommand = async (cmd: string) => {
   padding: 6px 12px; border-radius: 18px;
 }
 .user-chip:hover { background: var(--app-aside-active-bg); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.theme-btn { color: var(--app-aside-text); }
 .main { background: var(--app-bg); padding: 20px; overflow-y: auto; }
 </style>

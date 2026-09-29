@@ -1,5 +1,5 @@
 <template>
-  <view class="page-search">
+  <view class="page-search" :class="themeClass">
     <!-- 搜索头 -->
     <view class="search-head">
       <view class="back" @tap="goBack"><text>‹</text></view>
@@ -39,9 +39,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import FeedCard from '@/components/feed-card.vue'
 import type { PostBrief } from '@/types/api'
 import { searchPosts } from '@/api/posts'
+
+const { themeClass } = useTheme()
 
 const keyword = ref('')
 const lastQ = ref('')

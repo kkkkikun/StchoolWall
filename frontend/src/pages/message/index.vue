@@ -1,5 +1,5 @@
 <template>
-  <view class="page-message">
+  <view class="page-message" :class="themeClass">
     <!-- 1. 标题栏 -->
     <view class="message-header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
@@ -99,12 +99,15 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { unreadSummary, listNotifications, readAllNotifications, readNotification } from '@/api/notification'
 import type { NotificationItem, NotificationType } from '@/api/notification'
 import { getHotRanking, type HotUser } from '@/api/profile'
 import { tokenStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 // 沉浸式标题栏：预留状态栏高度（H5 下为 0，真机防标题被状态栏压住）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0

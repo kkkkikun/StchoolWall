@@ -1,5 +1,5 @@
 <template>
-  <view class="page-activity">
+  <view class="page-activity" :class="themeClass">
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
       <view class="header-row">
@@ -41,8 +41,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivity, type ActivityDetail } from '@/api/activity'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const loading = ref(true)

@@ -1,5 +1,5 @@
 <template>
-  <view class="page-info">
+  <view class="page-info" :class="themeClass">
     <view class="info-card">
       <text class="info-title">{{ content.title }}</text>
       <text v-for="(p, i) in content.paras" :key="i" class="info-para">{{ p }}</text>
@@ -15,7 +15,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+
+const { themeClass } = useTheme()
 
 type InfoType = 'community' | 'invite' | 'about' | 'contact' | 'privacy' | 'agreement'
 

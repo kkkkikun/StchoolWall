@@ -1,5 +1,5 @@
 <template>
-  <view class="page-detail">
+  <view class="page-detail" :class="themeClass">
     <view v-if="loading" class="state"><text>加载中…</text></view>
 
     <view v-else-if="post" class="body">
@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { PostDetail } from '@/types/api'
 import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
@@ -132,6 +133,8 @@ import {
   type CommentItem,
 } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 const post = ref<PostDetail | null>(null)
 const contentSegments = computed(() => parseHashtags(post.value?.content || ''))
@@ -367,7 +370,7 @@ const copyContact = () => {
 .follow-btn.on { background: var(--bg-card-2); color: var(--text-3); }
 
 .content { padding: 24rpx; }
-.content-text { font-size: 30rpx; color: var(--text-1); line-height: 1.7; white-space: pre-wrap; }
+.content-text { font-size: 38rpx; color: var(--text-1); line-height: 1.45; white-space: pre-wrap; }
 .content-text .hashtag { color: var(--link); }
 .images { display: flex; flex-wrap: wrap; gap: 12rpx; margin: 20rpx 0; }
 .post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: var(--bg-card-2); }
@@ -398,7 +401,7 @@ const copyContact = () => {
 .c-text { font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; display: block; line-height: 1.5; }
 
 .comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: var(--bg-card); border-top: 1rpx solid var(--border-light); padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
-.comment-input { flex: 1; height: 72rpx; background: var(--bg-page); border-radius: 36rpx; padding: 0 28rpx; font-size: 28rpx; }
+.comment-input { flex: 1; height: 72rpx; background: var(--pill-bg); border-radius: var(--radius-btn); padding: 0 28rpx; font-size: 28rpx; }
 .send-btn { margin-left: 16rpx; background: var(--primary); color: var(--text-inverse); font-size: 28rpx; padding: 0 32rpx; height: 72rpx; line-height: 72rpx; border-radius: 36rpx; }
 .send-btn.disabled { opacity: 0.4; }
 </style>

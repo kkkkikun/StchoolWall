@@ -1,5 +1,5 @@
 <template>
-  <view class="page-home">
+  <view class="page-home" :class="themeClass">
     <!-- 1. 顶部红色搜索（沉浸式：预留状态栏高度） -->
     <view class="header-search-box">
       <view
@@ -164,6 +164,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useTheme } from '@/utils/theme'
 import { onShow, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import FeedCard from "@/components/feed-card.vue";
 import TabBar from "@/components/tab-bar.vue";
@@ -173,6 +174,8 @@ import { getPosts, getHotPosts, getFeaturedPosts, getFollowingFeed } from "@/api
 import { getBanners, type BannerItem } from "@/api/banner";
 import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
+
+const { themeClass } = useTheme()
 
 // 顶部 tab：对齐参考稿（精选/最新/二手/失物）+ 保留功能入口（关注/精华）
 // 分类完整清单仍由 POST_CATEGORIES 提供（发布页选择器用），此处只是首页瘦身
@@ -501,39 +504,42 @@ const switchTab = (idx: number) => {
 
 /* 2. 十大热帖（原"搭乘UFO"通知栏已删，2026-09-01 客户反馈） */
 .hot-posts-section {
+  /* 主题B（X）：Trends 卡——标题行在上 + 细分隔 + 榜单（X What's happening 式） */
   background-color: var(--bg-card);
-  margin: 20rpx 24rpx 24rpx;
+  margin: 16rpx 24rpx 20rpx;
+  border: 1rpx solid var(--border-light);
   border-radius: var(--radius-card);
-  padding: 24rpx;
+  padding: 24rpx 28rpx 8rpx;
   display: flex;
-  align-items: stretch; /* 侧边徽章跟随 10 行列表高度 */
+  flex-direction: column;
 }
 
 .hot-side-banner {
-  width: 150rpx;
-  min-height: 150rpx; /* 兜底：短列表时色块至少装得下"十大热帖"标题，防文字溢出 */
-  background: var(--primary-gradient);
-  border-radius: var(--radius-inner);
-  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  background: transparent;
+  border-radius: 0;
+  justify-content: space-between;
   align-items: center;
   display: flex;
-  flex-direction: column;
-  color: var(--text-inverse);
+  flex-direction: row;
+  color: var(--text-1);
   flex-shrink: 0;
+  padding-bottom: 12rpx;
 }
 
 .hot-title {
   font-size: 30rpx;
-  font-weight: bold;
-  text-align: center;
-  width: 80rpx;
+  font-weight: 800;
+  text-align: left;
+  width: auto;
   line-height: 1.3;
 }
 
 .hot-arrow {
   font-size: 28rpx;
-  margin-top: 6rpx;
-  opacity: 0.8;
+  margin-top: 0;
+  color: var(--text-3);
 }
 
 /* 右侧主体：前 4 列表 + 「查看完整榜单」脚注 */
@@ -541,7 +547,7 @@ const switchTab = (idx: number) => {
   flex: 1;
   min-width: 0; /* 关键：允许整列收缩，否则被最长行撑爆，热标/浏览数被顶出屏 */
   overflow: hidden;
-  margin-left: 24rpx;
+  margin-left: 0;
   display: flex;
   flex-direction: column;
 }
@@ -583,14 +589,9 @@ const switchTab = (idx: number) => {
   color: var(--text-3);
 }
 
-.rank-1 {
-  color: var(--primary-strong);
-}
-.rank-2 {
-  color: var(--rank-2);
-}
-.rank-3 {
-  color: var(--rank-3);
+.rank-1, .rank-2, .rank-3 {
+  /* X Trends：名次一律灰 */
+  color: var(--text-3);
 }
 
 .hot-item-title {
@@ -725,32 +726,32 @@ const switchTab = (idx: number) => {
 
 .tab-item {
   display: inline-block;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: var(--text-2);
   margin-right: 36rpx;
-  padding-bottom: 12rpx;
+  padding: 20rpx 0 18rpx;
 }
 
 .tab-item.active {
   color: var(--text-1);
-  font-weight: bold;
-  border-bottom: 6rpx solid var(--primary);
+  font-weight: 700;
+  border-bottom: 8rpx solid var(--primary);
 }
 
 .tab-item.tab-category {
   margin-right: 16rpx;
-  padding: 8rpx 20rpx;
-  border-radius: 999rpx;
-  background: var(--bg-card);
-  border: 1rpx solid var(--border-primary-soft);
+  padding: 8rpx 22rpx;
+  border-radius: var(--radius-btn);
+  background: var(--pill-bg);
+  border: none;
   color: var(--text-2);
 }
 
 .tab-item.tab-category.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--text-inverse);
-  border-bottom: 1rpx solid var(--primary);
+  background: var(--pill-active-bg);
+  border-color: transparent;
+  color: var(--pill-active-text);
+  border-bottom: none;
 }
 
 /* 7. 信息流 */

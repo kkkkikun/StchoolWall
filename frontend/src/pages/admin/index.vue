@@ -1,5 +1,5 @@
 <template>
-  <view class="page-admin-deprecated">
+  <view class="page-admin-deprecated" :class="themeClass">
     <view class="card">
       <text class="icon">🖥️</text>
       <text class="title">管理后台已升级</text>
@@ -14,6 +14,9 @@
 </template>
 
 <script setup lang="ts">
+import { useTheme } from '@/utils/theme'
+
+const { themeClass } = useTheme()
 // 旧的内嵌管理页已下线（2026-08-31），运营管理统一走独立 Web 管理后台。
 // 保留本页作为入口提示，避免旧版本用户的直达链接 404。
 const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || location.origin + '/admin/'

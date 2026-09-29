@@ -15,7 +15,7 @@
         :src="customIcon(t.icon, current === i)"
         mode="aspectFit"
       />
-      <UiIcon v-else :name="t.icon" :size="36" :color="current === i ? COLOR_ACTIVE : COLOR_NORMAL" />
+      <UiIcon v-else :name="t.icon" :size="36" />
       <text class="tab-label" :class="{ active: current === i }">{{ t.text }}</text>
     </view>
   </view>
@@ -29,10 +29,6 @@ interface Props {
   current: number
 }
 defineProps<Props>()
-
-/** 主题B「X · Lights out」：选中近白 / 未选中 X 灰（X 底栏不用品牌色高亮） */
-const COLOR_ACTIVE = '#e7e9ea'
-const COLOR_NORMAL = '#71767b'
 
 const tabs = [
   { text: '首页', icon: 'home', path: '/pages/index/index' },
@@ -81,9 +77,8 @@ const onTap = (path: string) => {
   bottom: 0;
   z-index: 999;
   display: flex;
-  /* 主题B（X）：纯黑底栏 + 发丝顶线（H5 轻毛玻璃） */
-  background-color: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(12px);
+  /* 主题B（X）：底栏颜色随主题令牌（亮=白 / 夜=纯黑），发丝顶线 */
+  background-color: var(--bg-page);
   border-top: 1rpx solid var(--border-light);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -95,7 +90,9 @@ const onTap = (path: string) => {
   align-items: center;
   justify-content: center;
   height: 84rpx;
+  color: var(--text-2);
 }
+.tab-item.active { color: var(--text-1); }
 
 .tab-icon-img {
   width: 36rpx;
@@ -104,12 +101,12 @@ const onTap = (path: string) => {
 
 .tab-label {
   font-size: 18rpx;
-  color: var(--text-4);
+  color: inherit;
   margin-top: 2rpx;
 }
 
 .tab-label.active {
-  color: var(--text-1);
-  font-weight: bold;
+  color: inherit;
+  font-weight: 700;
 }
 </style>

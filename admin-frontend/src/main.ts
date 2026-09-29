@@ -4,12 +4,13 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './styles/theme.css'
+import { initTheme } from './stores/theme'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
 import router from './router'
 
-// 主题B「夜间霓虹」：全站深色（Element Plus dark 模式 + 自定义覆写见 styles/theme.css）
-document.documentElement.classList.add('dark')
+// 主题B「X」双模式：白天/夜晚（Element Plus dark 机制 + theme.css 覆写），持久化见 stores/theme.ts
+initTheme()
 
 const app = createApp(App)
 app.use(createPinia())

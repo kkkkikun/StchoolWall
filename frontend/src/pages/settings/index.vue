@@ -1,5 +1,5 @@
 <template>
-  <view class="page-settings">
+  <view class="page-settings" :class="themeClass">
     <!-- 账号卡片 -->
     <view class="account-card">
       <view class="avatar" :style="{ background: avatarColor }">
@@ -11,6 +11,18 @@
           <text v-if="user.is_verified" class="v-badge">✅ 已认证</text>
         </view>
         <text class="role-text">{{ roleText }}</text>
+      </view>
+    </view>
+
+    <!-- 外观 -->
+    <view class="group-card">
+      <view class="group-title"><text>外观</text></view>
+      <view class="cell">
+        <view class="cell-left">
+          <text class="cell-icon">🌙</text>
+          <text class="cell-title">深色模式</text>
+        </view>
+        <switch :checked="mode === 'dark'" color="#1d9bf0" @change="onToggleTheme" />
       </view>
     </view>
 
@@ -107,9 +119,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import { get, post, put } from '@/utils/request'
+
+const { themeClass, mode, setThemeMode } = useTheme()
+
+const onToggleTheme = (e: any) => setThemeMode(e.detail.value ? 'dark' : 'light')
 
 const loggedIn = ref(tokenStorage.isLoggedIn())
 const localInfo = userStorage.getUserInfo()
@@ -321,7 +338,9 @@ onUnmounted(() => {
 }
 
 .account-card {
-  background: var(--primary);
+  /* 主题B（X）：设置页账号行为扁平卡（不再整块品牌色） */
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-light);
   border-radius: var(--radius-card);
   padding: 36rpx 32rpx;
   display: flex;
@@ -339,9 +358,9 @@ onUnmounted(() => {
 .avatar-letter { font-size: 52rpx; font-weight: bold; color: var(--text-inverse); }
 .account-meta { margin-left: 26rpx; flex: 1; }
 .name-row { display: flex; align-items: center; gap: 12rpx; }
-.nickname { color: var(--text-inverse); font-size: 36rpx; font-weight: bold; }
-.v-badge { font-size: 20rpx; color: rgba(255, 255, 255, 0.9); }
-.role-text { color: rgba(255, 255, 255, 0.8); font-size: 24rpx; margin-top: 8rpx; }
+.nickname { color: var(--text-1); font-size: 36rpx; font-weight: 700; }
+.v-badge { font-size: 20rpx; color: var(--primary); font-weight: 600; }
+.role-text { color: var(--text-2); font-size: 24rpx; margin-top: 8rpx; }
 
 .group-card {
   background: var(--bg-card);

@@ -1,5 +1,5 @@
 <template>
-  <view class="page-create">
+  <view class="page-create" :class="themeClass">
     <view class="form-card">
       <!-- 类型 -->
       <view class="form-item">
@@ -50,7 +50,10 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { createParty, type PartyType } from '@/api/party'
+
+const { themeClass } = useTheme()
 
 const CATS = ['自习', '电影', '聚餐', '拼车', '拼单', '运动', '游戏', '旅行', '其他']
 

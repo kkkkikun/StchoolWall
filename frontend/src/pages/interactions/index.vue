@@ -1,5 +1,5 @@
 <template>
-  <view class="page-interactions">
+  <view class="page-interactions" :class="themeClass">
     <!-- 1. 头部：返回 + 标题 -->
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import {
@@ -75,6 +76,8 @@ import {
   type NotificationItem,
 } from '@/api/notification'
 import { tokenStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 

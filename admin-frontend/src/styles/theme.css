@@ -1,10 +1,37 @@
-/* ===== 鄂应墙管理后台 · 主题B「X · Lights out」 =====
-   参考 X（Twitter）成熟设计语言：纯黑底、#16181c 表面、X 蓝 #1d9bf0、
-   全胶囊按钮、发丝分隔线 #2f3336、无弥散阴影。
-   基于 Element Plus dark 模式（main.ts 已加 html.dark）；图表配色见 src/theme.ts。 */
+/* ===== 鄂应墙管理后台 · 主题B「X」白天/夜晚双模式 =====
+   参考 X（Twitter）设计系统：X 蓝 #1d9bf0、胶囊按钮、发丝分隔线、无弥散阴影。
+   默认 = X Light（白底，#0f1419 文字，#eff3f4 分隔）；
+   夜间 = X Lights out（纯黑 + #16181c），走 Element Plus 官方 dark 机制（html.dark）。
+   切换：stores/theme.ts + AdminLayout 顶栏按钮。图表配色见 src/theme.ts。 */
 
-/* —— 主色族：X 蓝（暗色上下用 rgba 软底） —— */
-:root, html.dark {
+/* ================= 亮色（X Light，默认） ================= */
+:root {
+  --el-color-primary: #1d9bf0;
+  --el-color-primary-light-3: #57a9f3;
+  --el-color-primary-light-5: #8ac4f7;
+  --el-color-primary-light-7: #b8dffb;
+  --el-color-primary-light-8: #cfe9fd;
+  --el-color-primary-light-9: #e8f4fd;
+  --el-color-primary-dark-2: #1a8cd8;
+  --el-border-radius-base: 8px;
+
+  /* —— 布局层令牌 —— */
+  --app-bg: #ffffff;
+  --app-aside-bg: #ffffff;
+  --app-aside-text: #536471;
+  --app-aside-active: #0f1419;
+  --app-aside-active-bg: rgba(15, 20, 25, 0.06);
+  --app-header-bg: #ffffff;
+  --app-header-border: 1px solid #eff3f4;
+  --app-brand-grad: linear-gradient(135deg, #1d9bf0, #1a8cd8);
+  --app-title-color: #0f1419;
+  --app-muted: #536471;
+  --app-card-radius: 16px;
+  --app-card-shadow: 0 0 0 1px #eff3f4;
+}
+
+/* ================= 夜间（X Lights out） ================= */
+html.dark {
   --el-color-primary: #1d9bf0;
   --el-color-primary-light-3: #5aadf3;
   --el-color-primary-light-5: #3b8fd9;
@@ -15,11 +42,11 @@
   --el-border-radius-base: 8px;
 
   /* —— 布局层令牌 —— */
-  --app-bg: #000000;                /* 主区域底：纯黑 */
-  --app-aside-bg: #000000;          /* 侧边栏：纯黑（X 侧栏风格） */
-  --app-aside-text: #71767b;        /* X meta 灰 */
-  --app-aside-active: #e7e9ea;      /* 激活文字：近白（X 不用品牌色高亮导航） */
-  --app-aside-active-bg: #16181c;   /* 激活底：X 悬停填充灰 */
+  --app-bg: #000000;
+  --app-aside-bg: #000000;
+  --app-aside-text: #71767b;
+  --app-aside-active: #e7e9ea;
+  --app-aside-active-bg: #16181c;
   --app-header-bg: rgba(0, 0, 0, 0.85);
   --app-header-border: 1px solid #2f3336;
   --app-brand-grad: linear-gradient(135deg, #1d9bf0, #1a8cd8);
@@ -27,10 +54,8 @@
   --app-muted: #71767b;
   --app-card-radius: 16px;
   --app-card-shadow: 0 0 0 1px #2f3336;
-}
 
-/* —— Element Plus 暗色表面校准（X 黑灰系） —— */
-html.dark {
+  /* —— Element Plus 暗色表面校准（X 黑灰系） —— */
   --el-bg-color: #16181c;
   --el-bg-color-overlay: #202327;
   --el-bg-color-page: #000000;
@@ -54,22 +79,30 @@ html.dark {
 html, body, #app { height: 100%; }
 body {
   background: var(--app-bg);
-  font-family: -apple-system, "Segoe UI", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, "Segoe UI", Roboto, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
 }
 
-/* —— 卡片：X 式深灰面 + 发丝描边，无阴影 —— */
+/* —— 卡片：发丝描边，无阴影（两模式一致的语言） —— */
 .el-card {
-  border: 1px solid #2f3336;
+  border: 1px solid #eff3f4;
   border-radius: var(--app-card-radius);
   box-shadow: none !important;
 }
+html.dark .el-card { border-color: #2f3336; }
 
 /* —— 按钮：全胶囊（X 签名），主按钮纯蓝无辉光 —— */
 .el-button--primary { box-shadow: none; }
 .el-button { border-radius: 9999px; }
 
-/* —— 表格：黑底发丝线，表头深灰 —— */
+/* —— 表格：发丝线 + 主题化表头 —— */
 .el-table {
+  --el-table-header-bg-color: #f7f9f9;
+  --el-table-header-text-color: #536471;
+  --el-table-tr-bg-color: #ffffff;
+  --el-table-row-hover-bg-color: #f7f9f9;
+  --el-table-border-color: #eff3f4;
+}
+html.dark .el-table {
   --el-table-header-bg-color: #16181c;
   --el-table-header-text-color: #71767b;
   --el-table-tr-bg-color: #000000;
@@ -78,6 +111,6 @@ body {
 }
 .el-table th.el-table__cell { font-weight: 600; }
 
-/* —— 弹窗/消息：X 深灰浮层 —— */
-.el-dialog { border-radius: var(--app-card-radius); border: 1px solid #2f3336; }
+/* —— 弹窗：圆角统一 —— */
+.el-dialog { border-radius: var(--app-card-radius); }
 .el-message-box { border-radius: 16px; }

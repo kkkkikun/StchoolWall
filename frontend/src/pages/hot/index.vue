@@ -1,5 +1,5 @@
 <template>
-  <view class="page-hot">
+  <view class="page-hot" :class="themeClass">
     <!-- 1. 头部（与首页/互动页同款粉色沉浸头） -->
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
@@ -48,9 +48,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { getHotPosts } from '@/api/posts'
 import type { PostBrief } from '@/types/api'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 

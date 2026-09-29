@@ -1,5 +1,5 @@
 <template>
-  <view class="page-oauth">
+  <view class="page-oauth" :class="themeClass">
     <view class="card">
       <text class="title">{{ statusText }}</text>
       <text class="desc">正在完成微信登录，请稍候…</text>
@@ -9,9 +9,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import { mpLogin } from '@/api/auth'
 import { tokenStorage, userStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 const statusText = ref('微信登录中…')
 

@@ -1,5 +1,5 @@
 <template>
-  <view class="page-hot-users">
+  <view class="page-hot-users" :class="themeClass">
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
       <view class="header-row">
@@ -33,8 +33,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import { getHotRanking, type HotUser } from '@/api/profile'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const users = ref<HotUser[]>([])

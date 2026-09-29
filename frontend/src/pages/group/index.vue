@@ -1,5 +1,5 @@
 <template>
-  <view class="page-group">
+  <view class="page-group" :class="themeClass">
     <!-- 0. 标题栏（沉浸式：预留状态栏，与消息页同款） -->
     <view class="page-header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
@@ -83,11 +83,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
 import { listParties, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 // 沉浸式标题栏：预留状态栏高度（H5 下为 0）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0

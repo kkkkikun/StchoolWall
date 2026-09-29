@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="themeClass">
     <view class="header">
       <text class="title">学籍认证</text>
       <text class="subtitle">通过正方教务系统验证您的学生身份</text>
@@ -44,8 +44,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { verifyStudent } from '@/api/auth'
 import { userStorage, tokenStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 const formData = ref({
   student_id: '',

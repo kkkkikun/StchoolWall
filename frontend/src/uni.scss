@@ -1,38 +1,38 @@
 /**
- * uni-app 内置样式变量 + 鄂应墙设计令牌 v2（SCSS 侧镜像）
+ * uni-app 内置样式变量 + 鄂应墙设计令牌（SCSS 侧镜像，X 亮色值）
  *
- * 与 App.vue 的 CSS 变量保持同值同义；换肤三件套：本文件 + App.vue + pages.json。
+ * 与 App.vue 的 CSS 变量保持同值同义；夜间模式的令牌覆写在 App.vue 的 .theme-dark 块。
  * 插件如使用 $uni-* 变量会自动跟随主题；业务代码优先用 CSS 变量（var(--xxx)）。
  */
 
 /* 颜色变量 */
 
-/* 行为相关颜色 */
+/* 行为相关颜色（X 官方功能色板） */
 $uni-color-primary: #1d9bf0;
 $uni-color-success: #00ba7c;
 $uni-color-warning: #ffd400;
 $uni-color-error: #f4212e;
 
-/* 鄂应墙设计令牌（品牌专用，与 App.vue 同步维护） */
-$primary: #1d9bf0;            // 主品牌色：头部/主按钮/tab 高亮
-$primary-strong: #1a8cd8;     // 深一档：角标/热标/按下态
-$primary-soft: rgba(29, 155, 240, 0.14);       // 品牌浅底：标签背景
-$accent-warm: #00ba7c;        // 暖色点缀：渐变搭档
-$accent-warm-strong: #00a06a; // 暖色点缀深一档
-$bg-page: #000000;            // 页面灰底
-$bg-group: #000000;           // 组局页暖米底
+/* 鄂应墙设计令牌（X 亮色镜像，与 App.vue 同步维护） */
+$primary: #1d9bf0;            // X 蓝：主按钮/链接/激活
+$primary-strong: #1a8cd8;     // 深一档：按下态
+$primary-soft: rgba(29, 155, 240, 0.12); // 蓝色软底
+$accent-warm: #00ba7c;        // X 转发绿
+$accent-warm-strong: #00a06a; // 点缀深一档
+$bg-page: #ffffff;            // 页面底：纯白
+$bg-group: #ffffff;           // 组局页
 $bg-card: #ffffff;            // 卡片
-$bg-card-2: #202327;          // 卡内次级面
-$radius-card: 24rpx;          // 卡片圆角
-$radius-inner: 16rpx;         // 卡内元素圆角
-$radius-btn: 44rpx;           // 胶囊按钮圆角
-$radius-tag: 6rpx;            // 角标/小标签圆角
-$text-1: #e7e9ea;             // 主文本
-$text-2: #71767b;             // 次级文本
-$text-3: #71767b;             // 辅助/时间
-$text-4: #4c4f52;             // 占位/禁用
-$border-light: #2f3336;       // 发丝线
-$border-strong: #536471;      // 强分隔
+$bg-card-2: #eff3f4;          // 次级面：搜索框/胶囊填充（X 招牌灰）
+$radius-card: 16rpx;          // 卡片圆角
+$radius-inner: 12rpx;         // 卡内元素圆角：X 媒体
+$radius-btn: 999rpx;          // 全胶囊按钮（X 签名）
+$radius-tag: 4rpx;            // 角标圆角
+$text-1: #0f1419;             // 主文本：X 近黑
+$text-2: #536471;             // 次级：X 灰蓝
+$text-3: #536471;             // 辅助/时间
+$text-4: #8b98a5;             // 占位/禁用
+$border-light: #eff3f4;       // 发丝分隔线
+$border-strong: #cfd9de;      // 控件描边
 
 /* 文字基本颜色 */
 $uni-text-color: #333; // 基本色

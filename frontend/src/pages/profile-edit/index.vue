@@ -1,5 +1,5 @@
 <template>
-  <view class="page-edit">
+  <view class="page-edit" :class="themeClass">
     <!-- 横幅预览（点击更换） -->
     <view class="banner-prev" @tap="changeImage('banners')">
       <image v-if="form.banner_url" class="banner-img" :src="form.banner_url" mode="aspectFill" />
@@ -62,9 +62,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { get, put, uploadFile } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 interface ProfileForm {
   nickname: string

@@ -195,7 +195,7 @@ const onFavorite = async () => {
 .avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
-.username { font-size: 28rpx; color: var(--text-1); font-weight: bold; }
+.username { font-size: 30rpx; color: var(--text-1); font-weight: 700; }
 .pinned-badge {
   margin-left: 10rpx;
   font-size: 18rpx;
@@ -214,10 +214,10 @@ const onFavorite = async () => {
   padding: 1rpx 10rpx;
   border-radius: var(--radius-tag);
 }
-.time-ago { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
+.time-ago { font-size: 24rpx; color: var(--text-2); margin-top: 4rpx; }
 .more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
 .feed-body { margin-top: 20rpx; }
-.feed-text { font-size: 29rpx; color: var(--text-1); line-height: 1.6; white-space: pre-wrap; }
+.feed-text { font-size: 30rpx; color: var(--text-1); line-height: 1.55; white-space: pre-wrap; }
 .feed-text .hashtag { color: var(--link); }
 .feed-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .img-ph { width: 200rpx; height: 200rpx; border-radius: var(--radius-inner); background: var(--bg-card-2); }

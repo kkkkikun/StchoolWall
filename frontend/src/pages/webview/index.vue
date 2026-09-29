@@ -1,5 +1,5 @@
 <template>
-  <view class="page-webview">
+  <view class="page-webview" :class="themeClass">
     <view v-if="!url" class="invalid">
       <text class="invalid-emoji">🔗</text>
       <text class="invalid-text">链接无效</text>
@@ -30,7 +30,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+
+const { themeClass } = useTheme()
 
 const url = ref('')
 

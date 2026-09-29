@@ -1,5 +1,5 @@
 <template>
-  <view class="page-tag-posts">
+  <view class="page-tag-posts" :class="themeClass">
     <view class="header">
       <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
       <view class="header-row">
@@ -40,12 +40,15 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import FeedCard from '@/components/feed-card.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
 import { getPosts, getFeaturedPosts, getFollowingFeed } from '@/api/posts'
 import { tokenStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
+
+const { themeClass } = useTheme()
 
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const tagName = ref('')

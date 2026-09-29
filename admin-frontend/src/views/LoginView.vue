@@ -63,16 +63,17 @@ const onLogin = async () => {
   justify-content: center;
   background:
     radial-gradient(45% 40% at 50% 0%, rgba(29, 155, 240, 0.10) 0%, transparent 70%),
-    #000000;
+    var(--app-bg);
 }
 .login-card {
   width: 380px;
-  background: #16181c;
-  border: 1px solid #2f3336;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter, #eff3f4);
   border-radius: 16px;
   padding: 40px 36px 28px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
 }
+html.dark .login-card { box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); }
 .login-header { text-align: center; margin-bottom: 28px; }
 .logo {
   width: 64px; height: 64px;
@@ -84,8 +85,8 @@ const onLogin = async () => {
   font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-h1 { font-size: 22px; color: #e7e9ea; font-weight: 800; }
-.sub { font-size: 12px; color: #71767b; margin-top: 6px; letter-spacing: 1px; }
+h1 { font-size: 22px; color: var(--el-text-color-primary); font-weight: 800; }
+.sub { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 6px; letter-spacing: 1px; }
 .login-btn { width: 100%; margin-top: 6px; border-radius: 9999px; font-weight: 700; }
-.tip { font-size: 12px; color: #4c4f52; text-align: center; margin-top: 16px; }
+.tip { font-size: 12px; color: var(--el-text-color-placeholder); text-align: center; margin-top: 16px; }
 </style>

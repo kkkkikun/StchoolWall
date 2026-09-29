@@ -1,5 +1,5 @@
 <template>
-  <view class="page-mine">
+  <view class="page-mine" :class="themeClass">
     <!-- 1. 粉色校园横幅（照片位：BANNER_IMG 配置，空则渐变兜底） -->
     <!-- 点击横幅直接更换（QQ式）；BANNER_IMG 为静态兜底图位 -->
     <view class="banner">
@@ -164,6 +164,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
@@ -172,6 +173,8 @@ import { getProfile } from '@/api/profile'
 import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
+
+const { themeClass } = useTheme()
 
 /**
  * 横幅照片更换位：把校园照片放到 src/static/（如 mine-banner.jpg）后填路径即可，

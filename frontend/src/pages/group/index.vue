@@ -215,8 +215,8 @@ const goCreate = () => {
 .page-group { background-color: var(--bg-page); padding: 20rpx 24rpx 48rpx; min-height: 100vh; }
 
 /* 0. 标题栏（全宽出血：负 margin 抵消页面根 padding，与消息页同款） */
-.page-header { background-color: var(--primary); margin: -20rpx -24rpx 0; }
-.page-title { display: block; padding: 30rpx 40rpx; text-align: center; color: var(--text-inverse); font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
+.page-header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); margin: -20rpx -24rpx 0; }
+.page-title { display: block; padding: 30rpx 40rpx; text-align: center; color: var(--text-1); font-size: 34rpx; font-weight: 700; letter-spacing: 2rpx; }
 
 .header-stats { display: flex; align-items: center; justify-content: space-between; font-size: 26rpx; color: var(--text-2); padding: 10rpx; }
 .highlight-num { color: var(--primary-strong); font-weight: bold; font-size: 32rpx; margin: 0 4rpx; }
@@ -224,7 +224,7 @@ const goCreate = () => {
 
 .action-cards { display: flex; justify-content: space-between; gap: 20rpx; margin-top: 20rpx; }
 .action-card { flex: 1; height: 132rpx; border-radius: var(--radius-card); padding: 0 28rpx; display: flex; align-items: center; justify-content: space-between; color: var(--text-inverse); box-shadow: var(--shadow-primary-lg); }
-.card-blue { background: linear-gradient(135deg, var(--primary), var(--accent-warm)); }
+.card-blue { background: var(--primary-gradient); }
 .card-orange { background: var(--primary-gradient-rev); }
 .card-title { font-size: 30rpx; font-weight: bold; }
 .card-icon { font-size: 44rpx; }

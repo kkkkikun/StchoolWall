@@ -105,8 +105,8 @@ html.dark .el-card { border-color: #2f3336; }
 html.dark .el-table {
   --el-table-header-bg-color: #16181c;
   --el-table-header-text-color: #71767b;
-  --el-table-tr-bg-color: #000000;
-  --el-table-row-hover-bg-color: #16181c;
+  --el-table-tr-bg-color: #16181c;
+  --el-table-row-hover-bg-color: #202327;
   --el-table-border-color: #2f3336;
 }
 .el-table th.el-table__cell { font-weight: 600; }

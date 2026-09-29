@@ -257,8 +257,8 @@ const onMessage = async (m: MsgRow) => {
 <style scoped>
 .page-message { background-color: var(--bg-page); min-height: 100vh; }
 
-.message-header { background-color: var(--primary); padding: 30rpx 40rpx; text-align: center; }
-.header-title { color: var(--text-inverse); font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
+.message-header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); padding: 30rpx 40rpx; text-align: center; }
+.header-title { color: var(--text-1); font-size: 34rpx; font-weight: 700; letter-spacing: 2rpx; }
 
 /* 面板（参考稿：白卡圆角 + 标题行 + 更多） */
 .panel { background: var(--bg-card); border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }

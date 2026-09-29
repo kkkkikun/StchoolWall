@@ -114,10 +114,10 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-tag-posts { min-height: 100vh; background-color: var(--bg-page); }
 
-.header { background-color: var(--primary); }
+.header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
+.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: var(--text-1); }
 .header-right { width: 80rpx; }
 
 .tabs { display: flex; background: var(--bg-card); padding: 0 16rpx; border-bottom: 1rpx solid var(--border-light); }

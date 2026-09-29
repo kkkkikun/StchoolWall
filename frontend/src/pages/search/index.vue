@@ -88,20 +88,22 @@ const goBack = () => uni.navigateBack()
 <style scoped>
 .page-search { min-height: 100vh; background: var(--bg-page); }
 .search-head {
-  background: var(--primary);
+  /* 主题B（X）：白/黑底 + 灰填充胶囊搜索框 */
+  background: var(--bg-page);
+  border-bottom: 1rpx solid var(--border-light);
   padding: 24rpx 24rpx 28rpx;
   display: flex;
   align-items: center;
 }
-.back { color: var(--text-inverse); font-size: 44rpx; width: 48rpx; text-align: center; }
+.back { color: var(--text-1); font-size: 44rpx; width: 48rpx; text-align: center; }
 .search-bar {
-  flex: 1; height: 68rpx; background: rgba(255,255,255,0.25); border-radius: 34rpx;
+  flex: 1; height: 68rpx; background: var(--pill-bg); border-radius: var(--radius-btn);
   padding: 0 24rpx; display: flex; align-items: center; margin: 0 16rpx;
 }
-.icon { font-size: 28rpx; color: var(--text-inverse); }
-.input { flex: 1; font-size: 26rpx; margin: 0 12rpx; color: var(--text-inverse); }
-.clear { color: rgba(255,255,255,0.8); font-size: 28rpx; }
-.search-btn { color: var(--text-inverse); font-size: 28rpx; }
+.icon { font-size: 28rpx; color: var(--text-3); }
+.input { flex: 1; font-size: 26rpx; margin: 0 12rpx; color: var(--text-1); }
+.clear { color: var(--text-3); font-size: 28rpx; }
+.search-btn { color: var(--primary); font-size: 28rpx; font-weight: 600; }
 
 .result-area { padding: 16rpx 0; }
 .tip { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 120rpx 40rpx; }

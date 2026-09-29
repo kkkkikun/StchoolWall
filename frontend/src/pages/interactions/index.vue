@@ -201,11 +201,11 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-interactions { min-height: 100vh; background-color: var(--bg-page); display: flex; flex-direction: column; }
 
-.header { background-color: var(--primary); }
+.header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); }
 .header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
-.header-right { font-size: 24rpx; color: var(--text-inverse); opacity: 0.85; }
+.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
+.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: var(--text-1); }
+.header-right { font-size: 24rpx; color: var(--text-2); }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: var(--bg-card); }

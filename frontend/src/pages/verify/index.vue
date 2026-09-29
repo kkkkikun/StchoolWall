@@ -95,7 +95,7 @@ const submit = async () => {
 <style scoped>
 .container {
   min-height: 100vh;
-  background: var(--bg-card-2);
+  background: var(--bg-page);
   padding-bottom: 120rpx;
 }
 

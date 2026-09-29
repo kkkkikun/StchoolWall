@@ -167,6 +167,7 @@ import { ref, computed } from "vue";
 import { useTheme } from '@/utils/theme'
 import { onShow, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import FeedCard from "@/components/feed-card.vue";
+import SkeletonCard from "@/components/skeleton-card.vue";
 import TabBar from "@/components/tab-bar.vue";
 import { AD_BANNERS, POST_CATEGORIES } from "@/utils/mock";
 import type { PostBrief } from "@/types/api";

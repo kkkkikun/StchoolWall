@@ -448,9 +448,9 @@ def login_via_ui(page):
     page.goto(f'{base_url}/#/pages/mine/index')
     page.wait_for_selector('.dev-login-row', timeout=8000)
     page.locator('.dev-capsule:has-text("登录 / 注册")').click()
-    page.wait_for_selector('.wl-card', timeout=5000)
+    page.wait_for_selector('.auth-form', timeout=5000)
     page.evaluate('''() => {
-        const inputs = document.querySelectorAll('.wl-card .wl-input input');
+        const inputs = document.querySelectorAll('.auth-form .auth-input input');
         ['detail_tester', 'password123'].forEach((v, i) => {
             const el = inputs[i];
             el.value = v;
@@ -458,9 +458,9 @@ def login_via_ui(page):
         });
     }''')
     page.wait_for_timeout(200)
-    page.locator('.wl-btn').click()
+    page.locator('.auth-submit').click()
     page.wait_for_timeout(1500)
-    if page.locator('.wl-mask').count() > 0:
+    if page.locator('.auth-form').count() > 0:
         raise ScenarioFailure('Mock 登录失败：弹窗未关闭')
 
 def goto_detail_via_feed(page):

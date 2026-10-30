@@ -281,66 +281,66 @@ with sync_playwright() as p:
         'evidence': f'04_mine_guest_light.png, URL={page.url}',
     })
 
-    # 6. H5 登录弹窗系列交互
-    print('6. 走查登录弹窗交互...')
+    # 6. 独立登录/注册页系列交互
+    print('6. 走查登录/注册页交互...')
     login_btn = page.locator('.dev-capsule:has-text("登录 / 注册")')
     if login_btn.count() > 0:
         login_btn.first.click()
-        page.wait_for_timeout(600)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/05_mine_login_modal_open.png')
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/05_auth_page_open.png')
         reports.append({
-            'step': '05_mine_login_modal_open',
-            'page': 'pages/mine/index (Modal)',
+            'step': '05_auth_page_open',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '05_mine_login_modal_open.png, 登录弹窗展开',
+            'evidence': '05_auth_page_open.png, 独立登录/注册页展开',
         })
 
-        # 空提交表单校验错误
-        page.locator('.wl-btn').click()
+        # 空提交表单校验错误（就地提示）
+        page.locator('.auth-submit').click()
         page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/06_mine_login_modal_error.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/06_auth_page_error.png')
         reports.append({
-            'step': '06_mine_login_modal_error',
-            'page': 'pages/mine/index (Modal)',
+            'step': '06_auth_page_error',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '06_mine_login_modal_error.png, 空提交校验错误提示正确',
+            'evidence': '06_auth_page_error.png, 空提交校验错误提示正确',
         })
 
         # 切换到注册
-        reg_link = page.locator('.wl-link:has-text("去注册")')
-        if reg_link.count() > 0:
-            reg_link.click()
+        reg_tab = page.locator('.auth-tab:has-text("注册")')
+        if reg_tab.count() > 0:
+            reg_tab.click()
             page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/07_mine_login_modal_register.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/07_auth_page_register.png')
         reports.append({
-            'step': '07_mine_login_modal_register',
-            'page': 'pages/mine/index (Modal)',
+            'step': '07_auth_page_register',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '07_mine_login_modal_register.png, 注册模式切换正常',
+            'evidence': '07_auth_page_register.png, 注册模式切换正常',
         })
 
         # 切换到找回密码
-        rec_link = page.locator('.wl-link:has-text("找回密码")')
+        rec_link = page.locator('.auth-link:has-text("忘记密码")')
         if rec_link.count() > 0:
             rec_link.click()
             page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/08_mine_login_modal_recovery.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/08_auth_page_recovery.png')
         reports.append({
-            'step': '08_mine_login_modal_recovery',
-            'page': 'pages/mine/index (Modal)',
+            'step': '08_auth_page_recovery',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '08_mine_login_modal_recovery.png, 找回码输入框渲染正常',
+            'evidence': '08_auth_page_recovery.png, 找回码输入框渲染正常',
         })
 
-        # 关闭弹窗
-        page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
-        page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/09_mine_login_modal_closed.png')
+        # 返回「我的」页
+        page.locator('.back-trigger').click()
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/09_auth_page_back.png')
         reports.append({
-            'step': '09_mine_login_modal_closed',
+            'step': '09_auth_page_back',
             'page': 'pages/mine/index',
             'status': 'PASS',
-            'evidence': '09_mine_login_modal_closed.png, 遮罩点击关闭弹窗正常',
+            'evidence': '09_auth_page_back.png, 返回箭头回到「我的」页',
         })
 
     # 7. 设置页面
@@ -388,21 +388,21 @@ with sync_playwright() as p:
         'evidence': f'12_mine_guest_dark.png, URL={page.url}',
     })
 
-    # 10. 暗黑模式登录弹窗
-    print('10. 走查暗黑模式登录弹窗...')
+    # 10. 暗黑模式登录/注册页
+    print('10. 走查暗黑模式登录页...')
     dark_login_btn = page.locator('.dev-capsule:has-text("登录 / 注册")')
     if dark_login_btn.count() > 0:
         dark_login_btn.first.click()
-        page.wait_for_timeout(600)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/13_mine_modal_dark.png')
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/13_auth_page_dark.png')
         reports.append({
-            'step': '13_mine_modal_dark',
-            'page': 'pages/mine/index (Dark Modal)',
+            'step': '13_auth_page_dark',
+            'page': 'pages/auth/index (Dark)',
             'status': 'PASS',
-            'evidence': '13_mine_modal_dark.png, 暗黑弹窗背景与输入框正常',
+            'evidence': '13_auth_page_dark.png, 暗黑登录页背景与输入框正常',
         })
-        page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
-        page.wait_for_timeout(500)
+        page.locator('.back-trigger').click()
+        page.wait_for_timeout(800)
 
     # 11. 返回首页（暗黑模式）
     print('11. 走查暗黑模式首页...')

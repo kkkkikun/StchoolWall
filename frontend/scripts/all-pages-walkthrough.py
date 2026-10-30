@@ -206,6 +206,7 @@ PAGES = [
     ('tag-posts', 'pages/tag-posts/index', '?id=1'),
     ('hot-users', 'pages/hot-users/index', ''),
     ('mine', 'pages/mine/index', ''),
+    ('auth', 'pages/auth/index', ''),
     ('post-detail', 'pages/post-detail/index', '?id=1'),
     ('search', 'pages/search/index', ''),
     ('party-create', 'pages/party-create/index', ''),

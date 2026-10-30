@@ -1,14 +1,17 @@
 # SNAPSHOT — SchoolWall 项目状态快照
 
-> 最后更新：2026-09-11 ｜ 分支：main ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-10-30 ｜ 分支：ui/theme-b-neon（主题B「X」双模式；生产化改造仍在工作区未提交） ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：新会话进入项目时的第一份"现在在哪"快照。规则全文见 `openspec/specs/`，本文件只记状态。
 
 ---
 
 ## 项目一句话
 
-SchoolWall（鄂应墙）—— 校园匿名墙 / 信息撮合平台，微信小程序 + FastAPI，核心是"微信静默授权 + 正方教务系统学籍实名"双 JWT 体系。
+SchoolWall（鄂应墙）—— 单校校园社区，Web→微信小程序→Android，固定昵称。统一身份/短会话，学生证私有材料人工核验；教务密码认证停用。PostgreSQL持久审核任务、腾讯云机器辅助与人工队列、独立MFA管理台、发布和恢复门禁。2026-10-16用户批准生产化改造，现仍在验收中，未真实发布。
 
+当前代码/测试/阻断见 docs/production/implementation-status.md、verification.md；活跃OpenSpec：production-multiplatform。下方历史栈与进度作为旧版本背景，依赖准确版本以锁文件为准。
+
+2026-10-30 进展：主前端npm audit高危清零（0 high/0 critical；管理台0 vulnerabilities）；新增浏览器级全量走查（学生端26页面×亮/暗53/53，管理台17路由×桌面/窄屏34/34，含横向溢出与WCAG对比度断言）；修复夜间模式文字色、输入占位符对比度、管理台Element Plus语义色，以及图片展示顺序缺陷（新增 media_assets.position 列，迁移 b7e2c4a91d30）。新增迁移与媒体顺序后端用例尚未在真实PostgreSQL执行。
 ---
 
 ## 技术栈

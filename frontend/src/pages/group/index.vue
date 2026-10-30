@@ -9,11 +9,11 @@
     <view class="action-cards">
       <view class="action-card card-blue" @tap="setMode('mine')">
         <text class="card-title">我加入的局</text>
-        <text class="card-icon">👥</text>
+        <image class="card-icon" src="/static/icons/common/group-inverse.svg" mode="aspectFit" />
       </view>
       <view class="action-card card-orange" @tap="goCreate">
         <text class="card-title">发起攒局</text>
-        <text class="card-icon">✚</text>
+        <image class="card-icon" src="/static/icons/common/plus-inverse.svg" mode="aspectFit" />
       </view>
     </view>
 
@@ -27,7 +27,7 @@
           :class="{ active: activeFilter === c.id }"
           @tap="onFilter(c)"
         >
-          <text class="tag-icon">{{ c.icon }}</text>
+          <image class="tag-icon" :src="c.icon" mode="aspectFit" />
           <text class="tag-name">{{ c.name }}</text>
         </view>
       </view>
@@ -61,7 +61,10 @@
             <text class="divider">·</text>
             <text class="post-date">{{ timeShort(p.created_at) }}</text>
             <text v-if="p.location" class="divider">·</text>
-            <text v-if="p.location" class="post-date">📍{{ p.location }}</text>
+            <view v-if="p.location" class="post-date post-loc">
+              <image class="loc-dot" src="/static/icons/common/location.svg" mode="aspectFit" />
+              <text>{{ p.location }}</text>
+            </view>
           </view>
           <view class="progress-section">
             <view class="progress-bar-bg">
@@ -89,7 +92,7 @@
           <view class="type-pill" :class="selectedParty.type === 'group' ? 'bg-red' : 'bg-orange'">
             <text>{{ selectedParty.type === 'group' ? '组局' : '拼单' }} · {{ selectedParty.category }}</text>
           </view>
-          <text class="close-x" @tap="selectedParty = null">✕</text>
+          <image class="close-x" src="/static/icons/common/close.svg" mode="aspectFit" @tap="selectedParty = null" />
         </view>
 
         <text class="modal-title">{{ selectedParty.title }}</text>
@@ -104,7 +107,10 @@
         </view>
 
         <view v-if="selectedParty.location" class="modal-loc-row">
-          <text class="loc-icon">📍 地点：</text>
+          <view class="loc-icon">
+            <image class="loc-dot" src="/static/icons/common/location.svg" mode="aspectFit" />
+            <text>地点：</text>
+          </view>
           <text class="loc-text">{{ selectedParty.location }}</text>
         </view>
 
@@ -152,16 +158,16 @@ const { themeClass } = useTheme()
 
 // 分类筛选（第 1 项=有空位=only_vacant，其余=分类）
 const categories = [
-  { id: 'vacant', icon: '⭐', name: '有空位' },
-  { id: '自习', icon: '📖', name: '自习' },
-  { id: '电影', icon: '🎬', name: '电影' },
-  { id: '聚餐', icon: '🍴', name: '聚餐' },
-  { id: '拼车', icon: '🚗', name: '拼车' },
-  { id: '拼单', icon: '🛍️', name: '拼单' },
-  { id: '运动', icon: '🏃', name: '运动' },
-  { id: '游戏', icon: '🎮', name: '游戏' },
-  { id: '旅行', icon: '🌴', name: '旅行' },
-  { id: '其他', icon: '⚙️', name: '其他' },
+  { id: 'vacant', icon: '/static/icons/party/star.svg', name: '有空位' },
+  { id: '自习', icon: '/static/icons/party/book.svg', name: '自习' },
+  { id: '电影', icon: '/static/icons/party/film.svg', name: '电影' },
+  { id: '聚餐', icon: '/static/icons/party/dining.svg', name: '聚餐' },
+  { id: '拼车', icon: '/static/icons/party/car.svg', name: '拼车' },
+  { id: '拼单', icon: '/static/icons/party/shopping.svg', name: '拼单' },
+  { id: '运动', icon: '/static/icons/party/running.svg', name: '运动' },
+  { id: '游戏', icon: '/static/icons/party/game.svg', name: '游戏' },
+  { id: '旅行', icon: '/static/icons/party/palm.svg', name: '旅行' },
+  { id: '其他', icon: '/static/icons/party/gear.svg', name: '其他' },
 ] as const
 
 const parties = ref<PartyItem[]>([])
@@ -317,7 +323,9 @@ const goCreate = () => {
   font-weight: bold;
 }
 .card-icon {
-  font-size: 44rpx;
+  width: 44rpx;
+  height: 44rpx;
+  margin-left: auto;
 }
 
 .filter-scroll {
@@ -341,6 +349,8 @@ const goCreate = () => {
   color: var(--text-2);
   white-space: nowrap;
   gap: 8rpx;
+  /* 分类多、可横向滚动：不压缩胶囊，否则分类名会被逐字竖排 */
+  flex-shrink: 0;
 }
 .tag-pill.active {
   border-color: var(--primary);
@@ -349,11 +359,15 @@ const goCreate = () => {
   font-weight: 600;
 }
 .tag-icon {
-  font-size: 26rpx;
-  line-height: 1;
+  width: 26rpx;
+  height: 26rpx;
+  flex-shrink: 0;
 }
 .tag-name {
   font-size: 24rpx;
+  flex-shrink: 0;
+  /* uni-app 的 <text> 默认 white-space: pre-wrap，需显式覆盖否则中文逐字换行 */
+  white-space: nowrap;
 }
 
 .tip {
@@ -432,6 +446,16 @@ const goCreate = () => {
 }
 .post-date {
   color: var(--text-3);
+}
+.post-loc {
+  display: inline-flex;
+  align-items: center;
+}
+.loc-dot {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 4rpx;
+  flex-shrink: 0;
 }
 
 .progress-section {
@@ -519,9 +543,10 @@ const goCreate = () => {
   font-weight: 700;
 }
 .close-x {
-  font-size: 36rpx;
-  color: var(--text-3);
+  width: 36rpx;
+  height: 36rpx;
   padding: 8rpx;
+  flex-shrink: 0;
 }
 .modal-title {
   font-size: 34rpx;
@@ -537,6 +562,7 @@ const goCreate = () => {
   color: var(--text-3);
   margin-bottom: 16rpx;
 }
+.loc-icon { display: inline-flex; align-items: center; }
 .modal-loc-row {
   font-size: 26rpx;
   color: var(--text-2);

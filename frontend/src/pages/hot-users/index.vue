@@ -4,7 +4,7 @@
 
     <view v-if="loading" class="state-box"><text class="state-text">加载中…</text></view>
     <view v-else-if="!users.length" class="state-box">
-      <text class="state-emoji">👥</text>
+      <image class="state-emoji" src="/static/icons/common/group.svg" mode="aspectFit" />
       <text class="state-text">暂无热门用户</text>
     </view>
     <view v-else class="user-list">
@@ -16,9 +16,12 @@
         </view>
         <view class="main">
           <text class="name">{{ u.nickname }}</text>
-          <text class="heat">🔥 {{ fmtHeat(u.heat) }}</text>
+          <view class="heat">
+            <image class="heat-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+            <text>{{ fmtHeat(u.heat) }}</text>
+          </view>
         </view>
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -67,7 +70,7 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .page-hot-users { min-height: 100vh; background-color: var(--bg-page); }
 
 .state-box { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
-.state-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.state-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 .state-text { font-size: 28rpx; color: var(--text-3); }
 
 .user-list { padding: 20rpx 24rpx; }
@@ -78,6 +81,7 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .avatar image { width: 100%; height: 100%; }
 .main { flex: 1; min-width: 0; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
-.heat { display: block; font-size: 24rpx; color: var(--primary-strong); margin-top: 6rpx; }
-.arrow { font-size: 40rpx; color: var(--text-4); }
+.heat { display: inline-flex; align-items: center; font-size: 24rpx; color: var(--primary-strong); margin-top: 6rpx; }
+.heat-icon { width: 24rpx; height: 24rpx; margin-right: 4rpx; flex-shrink: 0; }
+.arrow { width: 32rpx; height: 32rpx; flex-shrink: 0; }
 </style>

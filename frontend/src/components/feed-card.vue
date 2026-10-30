@@ -77,16 +77,16 @@ interface Props {
 const props = defineProps<Props>()
 
 /**
- * 操作栏图标更换位：不满意自带线条稿时，把新文件放进 src/static/icons/feed/，
- * 改下面的路径即可（正方形最佳；SVG 仅 H5，微信真机请用 PNG）。
+ * 操作栏图标：统一走 SVG 资源（emoji 在各系统字形不一，且无法跟随主题变色）。
+ * 图标几何由 scripts/gen_icons.py 统一生成，勿手改 .svg 文件。
  */
 const FEED_ICONS = {
-  comment: '/static/icons/feed/comment.svg',
-  heart: '/static/icons/feed/heart.svg',
-  heartOn: '/static/icons/feed/heart-on.svg',
-  view: '/static/icons/feed/view.svg',
-  bookmark: '/static/icons/feed/bookmark.svg',
-  bookmarkOn: '/static/icons/feed/bookmark-on.svg',
+  comment: '/static/icons/common/comment.svg',
+  heart: '/static/icons/common/heart.svg',
+  heartOn: '/static/icons/common/heart-on.svg',
+  view: '/static/icons/common/eye.svg',
+  bookmark: '/static/icons/common/bookmark.svg',
+  bookmarkOn: '/static/icons/common/bookmark-on.svg',
 }
 
 /** 计数格式化：≥1万 显示 x.x万（参考稿样式） */

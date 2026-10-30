@@ -3,7 +3,7 @@
     <!-- 0. 草稿箱恢复横幅 -->
     <view v-if="draftBannerVisible" class="draft-banner">
       <view class="draft-info">
-        <text class="draft-icon">📝</text>
+        <image class="draft-icon" src="/static/icons/common/note.svg" mode="aspectFit" />
         <text class="draft-text">检测到 {{ draftTimeText }} 未发布的草稿</text>
       </view>
       <view class="draft-actions">
@@ -21,7 +21,7 @@
         :class="{ active: selectedType === item.type }"
         @tap="onSelectType(item)"
       >
-        <text class="type-icon">{{ item.icon }}</text>
+        <image class="type-icon" :src="item.icon" mode="aspectFit" />
         <text class="type-label">{{ item.label }}</text>
       </view>
     </view>
@@ -29,7 +29,10 @@
     <!-- 2. 二手闲置价格输入 -->
     <view v-if="selectedType === 'second_hand'" class="extra-field-section">
       <view class="extra-field-row">
-        <text class="extra-label">💰 期望价格</text>
+        <view class="extra-label">
+          <image class="extra-icon" src="/static/icons/common/money.svg" mode="aspectFit" />
+          <text>期望价格</text>
+        </view>
         <input
           class="extra-input"
           type="digit"
@@ -63,13 +66,13 @@
     <!-- 4. 分类选择 -->
     <view class="section-selector" @tap="onSelectSection">
       <view class="selector-left">
-        <text class="icon-layers">▤</text>
+        <image class="icon-layers" src="/static/icons/common/layers-primary.svg" mode="aspectFit" />
         <view class="selector-meta">
           <text class="selector-title">{{ section || '选择分类' }}</text>
           <text class="selector-desc">选择合适的分类，能让更多同学看到哦~</text>
         </view>
       </view>
-      <text class="arrow-right">›</text>
+      <image class="arrow-right" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
     </view>
 
     <!-- 5. 正文输入 -->
@@ -93,15 +96,15 @@
           <text>…</text>
         </view>
         <view v-else-if="img.status === 'failed'" class="img-mask failed" @tap="retryUpload(i)">
-          <text>↑</text>
+          <image class="retry-icon" src="/static/icons/common/up-inverse.svg" mode="aspectFit" />
           <text class="fail-text">重试</text>
         </view>
         <view class="img-del" @tap="removeImage(i)">
-          <text>✕</text>
+          <image class="del-icon" src="/static/icons/common/close-inverse.svg" mode="aspectFit" />
         </view>
       </view>
       <view v-if="images.length < MAX_IMAGES" class="upload-box" @tap="onAddImage">
-        <text class="upload-icon">🖼️</text>
+        <image class="upload-icon" src="/static/icons/common/image.svg" mode="aspectFit" />
         <text class="upload-text">添加照片</text>
         <text class="upload-count">{{ images.length }}/{{ MAX_IMAGES }}</text>
       </view>
@@ -140,10 +143,10 @@ interface TypeOption {
 }
 
 const TYPE_OPTIONS: TypeOption[] = [
-  { type: 'general', label: '日常广场', icon: '💬', defaultCategory: '广场', placeholder: '在此处输入正文，分享校园新鲜事、吐槽或求助...' },
-  { type: 'second_hand', label: '二手闲置', icon: '🏷️', defaultCategory: '二手', placeholder: '描述闲置物品成色、转手原因、取货地点等...' },
-  { type: 'lost_found', label: '失物招领', icon: '🔍', defaultCategory: '失物', placeholder: '描述遗失/拾到物品特征、时间、地点及认领方式...' },
-  { type: 'carpool', label: '拼车出行', icon: '🚗', defaultCategory: '广场', placeholder: '描述出发地、目的地、出发时间、余位要求...' },
+  { type: 'general', label: '日常广场', icon: '/static/icons/publish/general.svg', defaultCategory: '广场', placeholder: '在此处输入正文，分享校园新鲜事、吐槽或求助...' },
+  { type: 'second_hand', label: '二手闲置', icon: '/static/icons/publish/second-hand.svg', defaultCategory: '二手', placeholder: '描述闲置物品成色、转手原因、取货地点等...' },
+  { type: 'lost_found', label: '失物招领', icon: '/static/icons/publish/lost.svg', defaultCategory: '失物', placeholder: '描述遗失/拾到物品特征、时间、地点及认领方式...' },
+  { type: 'carpool', label: '拼车出行', icon: '/static/icons/publish/carpool.svg', defaultCategory: '广场', placeholder: '描述出发地、目的地、出发时间、余位要求...' },
 ]
 
 const selectedType = ref<PostType>('general')
@@ -395,8 +398,10 @@ const onSubmit = async () => {
 }
 
 .draft-icon {
-  font-size: 28rpx;
+  width: 28rpx;
+  height: 28rpx;
   margin-right: 12rpx;
+  flex-shrink: 0;
 }
 
 .draft-text {
@@ -455,8 +460,10 @@ const onSubmit = async () => {
 }
 
 .type-icon {
-  font-size: 28rpx;
+  width: 28rpx;
+  height: 28rpx;
   margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .type-label {
@@ -486,10 +493,13 @@ const onSubmit = async () => {
 }
 
 .extra-label {
+  display: inline-flex;
+  align-items: center;
   font-size: 28rpx;
   color: var(--text-1);
   font-weight: 600;
 }
+.extra-icon { width: 28rpx; height: 28rpx; margin-right: 8rpx; flex-shrink: 0; }
 
 .extra-input {
   flex: 1;
@@ -564,11 +574,11 @@ const onSubmit = async () => {
 }
 
 .icon-layers {
-  font-size: 38rpx;
+  width: 38rpx;
+  height: 38rpx;
   margin-right: 20rpx;
   margin-top: 2rpx;
-  color: var(--primary);
-  line-height: 1;
+  flex-shrink: 0;
 }
 
 .selector-meta {
@@ -589,8 +599,9 @@ const onSubmit = async () => {
 }
 
 .arrow-right {
-  color: var(--text-3);
-  font-size: 32rpx;
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 /* 5. 正文 + 工具栏 */
@@ -640,7 +651,8 @@ const onSubmit = async () => {
 }
 
 .upload-icon {
-  font-size: 48rpx;
+  width: 48rpx;
+  height: 48rpx;
   margin-bottom: 12rpx;
 }
 
@@ -689,6 +701,8 @@ const onSubmit = async () => {
   font-size: 22rpx;
   margin-top: 6rpx;
 }
+.retry-icon { width: 32rpx; height: 32rpx; }
+.del-icon { width: 20rpx; height: 20rpx; }
 
 .img-del {
   position: absolute;
@@ -697,6 +711,9 @@ const onSubmit = async () => {
   width: 40rpx;
   height: 40rpx;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.5);
   color: var(--text-inverse);
   font-size: 22rpx;

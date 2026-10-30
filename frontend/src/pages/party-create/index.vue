@@ -15,7 +15,7 @@
         <text class="label">分类</text>
         <view class="picker-row">
           <text :class="form.category ? 'picker-val' : 'picker-ph'">{{ form.category || '选择分类' }}</text>
-          <text class="arrow">›</text>
+          <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
         </view>
       </view>
 
@@ -107,7 +107,8 @@ const onSubmit = async () => {
 .form-card { background: var(--bg-card); border-radius: var(--radius-card); padding: 8rpx 28rpx; }
 .form-item { padding: 28rpx 0; border-bottom: 1rpx solid var(--border-light); display: flex; align-items: center; }
 .form-card .form-item:last-child { border-bottom: none; }
-.label { width: 160rpx; font-size: 28rpx; color: var(--text-1); flex-shrink: 0; }
+/* min-width 保底对齐短标签，「地点（选填）」等长标签不再被逐字竖排 */
+.label { min-width: 160rpx; font-size: 28rpx; color: var(--text-1); flex-shrink: 0; white-space: nowrap; }
 .input { flex: 1; font-size: 28rpx; color: var(--text-1); }
 .textarea { flex: 1; font-size: 28rpx; color: var(--text-1); min-height: 120rpx; }
 .num { width: 120rpx; flex: none; }
@@ -119,7 +120,7 @@ const onSubmit = async () => {
 .picker-row { flex: 1; display: flex; align-items: center; justify-content: space-between; }
 .picker-val { font-size: 28rpx; color: var(--text-1); }
 .picker-ph { font-size: 28rpx; color: var(--text-4); }
-.arrow { color: var(--text-4); font-size: 32rpx; }
+.arrow { width: 28rpx; height: 28rpx; flex-shrink: 0; }
 
 .submit-bar { margin-top: 48rpx; padding: 0 16rpx; }
 .submit-btn { width: 100%; height: 92rpx; background: var(--primary); color: var(--text-inverse); border-radius: var(--radius-btn); font-size: 32rpx; font-weight: bold; line-height: 92rpx; box-shadow: var(--shadow-primary-lg); }

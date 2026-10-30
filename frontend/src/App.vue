@@ -23,6 +23,7 @@ page {
   --primary-strong: #1a8cd8;     /* 深一档：按下态 */
   --primary-soft: rgba(29, 155, 240, 0.12);   /* 蓝色软底（标签/徽章） */
   --like: #f918b6;               /* X 点赞粉 */
+  --favorite: #b8860b;           /* 收藏深金：白底 3.4:1，达 WCAG 非文本对比度 */
   --accent-warm: #00ba7c;        /* 点缀：X 转发绿 */
   --accent-warm-strong: #00a06a; /* 点缀深一档 */
   --primary-gradient: linear-gradient(135deg, #1d9bf0, #1a8cd8);

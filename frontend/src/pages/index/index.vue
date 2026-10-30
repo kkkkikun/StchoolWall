@@ -14,21 +14,10 @@
         <view class="checkin-btn" :class="{ done: checkedIn }" @tap="onCheckin">
           <view class="checkin-icon">
             <image
-              v-if="!checkedIn && CHECKIN_ICONS.outline"
               class="checkin-svg"
-              :src="CHECKIN_ICONS.outline"
+              :src="checkedIn ? CHECKIN_ICONS.burning : CHECKIN_ICONS.outline"
               mode="aspectFit"
             />
-            <image
-              v-else-if="checkedIn && CHECKIN_ICONS.burning"
-              class="checkin-svg"
-              :src="CHECKIN_ICONS.burning"
-              mode="aspectFit"
-            />
-            <!-- SVG 未配置时的兜底：轮廓态用描边圆+「签」，燃烧态用 🔥 -->
-            <text v-else class="checkin-fallback">{{
-              checkedIn ? "🔥" : "签"
-            }}</text>
           </view>
           <text class="checkin-count">{{ checkinLabel }}</text>
         </view>
@@ -55,7 +44,7 @@
     <view v-if="hotPosts.length" class="hot-posts-section" @tap="goHotList">
       <view class="hot-side-banner">
         <text class="hot-title">十大热帖</text>
-        <text class="hot-arrow">›</text>
+        <image class="hot-arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
       <view class="hot-main">
         <view class="hot-list">
@@ -111,7 +100,7 @@
           }"
         >
           <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
-          <text v-else class="ad-emoji">{{ ad.emoji || "📢" }}</text>
+          <image v-else class="ad-icon-img" src="/static/icons/common/notice-inverse.svg" mode="aspectFit" />
           <view class="ad-text">
             <text class="ad-title">{{ ad.title }}</text>
             <text class="ad-desc">{{ ad.desc }}</text>
@@ -225,9 +214,9 @@ const loadBanners = async () => {
  * 2. 把下面两行路径改成你的文件并解开注释，保存即生效（HMR 秒级热更）
  * 注意：SVG 在 H5 没问题；微信小程序真机不渲染 SVG，上真机请换 PNG（路径后缀改 .png 即可）
  */
-const CHECKIN_ICONS: { outline?: string; burning?: string } = {
-  // outline: "/static/checkin/flame-outline.svg", // 未签到：火焰轮廓（线条稿）
-  // burning: "/static/checkin/flame-burning.svg", // 已签到：燃烧的火焰（填充稿）
+const CHECKIN_ICONS = {
+  outline: '/static/icons/common/hot.svg',      // 未签到：火焰轮廓（线条稿）
+  burning: '/static/icons/common/hot-on.svg',   // 已签到：燃烧的火焰（填充稿）
 };
 
 const checkedIn = ref(false);
@@ -461,7 +450,7 @@ const switchTab = (idx: number) => {
   width: 36rpx;
   height: 36rpx;
 }
-/* 兜底字形：轮廓态「签」（描边风格），燃烧态 🔥 */
+/* 签到图标统一走 SVG：轮廓态/燃烧态两枚填充度不同的火焰 */
 .checkin-fallback {
   font-size: 26rpx;
   line-height: 1;
@@ -554,9 +543,9 @@ const switchTab = (idx: number) => {
 }
 
 .hot-arrow {
-  font-size: 28rpx;
-  margin-top: 0;
-  color: var(--text-3);
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
 }
 
 /* 右侧主体：前 4 列表 + 「查看完整榜单」脚注 */
@@ -679,10 +668,6 @@ const switchTab = (idx: number) => {
   flex: 1;
 }
 
-.ad-emoji {
-  font-size: 64rpx;
-  margin-right: 22rpx;
-}
 .ad-icon-img {
   width: 64rpx;
   height: 64rpx;

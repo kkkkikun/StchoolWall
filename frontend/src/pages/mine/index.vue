@@ -33,7 +33,10 @@
       <!-- 简介：编辑资料页可改；未设置时用默认文案 -->
       <view class="bio">
         <text>{{ user.bio || '热爱生活，热爱分享～' }}</text>
-        <text v-if="!user.bio">在校园里发现美好，记录点滴日常 ✨</text>
+        <view v-if="!user.bio" class="bio-tip">
+          <image class="bio-sparkle" src="/static/icons/state/sparkle.svg" mode="aspectFit" />
+          <text>在校园里发现美好，记录点滴日常</text>
+        </view>
       </view>
 
       <!-- 未登录：微信小程序登录入口 -->
@@ -104,11 +107,11 @@
               <view class="pc-meta">
                 <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                 <view class="pc-stat">
-                  <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
+                  <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.view_count) }}</text>
                 </view>
                 <view class="pc-stat">
-                  <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
+                  <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.comment_count) }}</text>
                 </view>
               </view>
@@ -202,10 +205,10 @@ const avatarUrl = ref('')
 const bannerUrl = ref('')
 
 const CONTENT_TABS = [
-  { key: 'posts', icon: '/static/icons/feed/post.svg' },
-  { key: 'comments', icon: '/static/icons/feed/comment.svg' },
-  { key: 'favorites', icon: '/static/icons/feed/bookmark.svg' },
-  { key: 'likes', icon: '/static/icons/feed/heart.svg' },
+  { key: 'posts', icon: '/static/icons/common/note.svg' },
+  { key: 'comments', icon: '/static/icons/common/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/common/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 
@@ -616,6 +619,8 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .gear-icon-img { width: 40rpx; height: 40rpx; }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.bio-tip { display: inline-flex; align-items: center; }
+.bio-sparkle { width: 26rpx; height: 26rpx; margin-right: 6rpx; flex-shrink: 0; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
 
 .dev-login-row { display: flex; gap: 16rpx; margin-top: 24rpx; }

@@ -15,7 +15,7 @@ export interface HotPost {
 /** 金刚区（首页宫格导航） */
 export interface MenuItem {
   name: string
-  icon: string // emoji
+  icon: string // SVG 资源路径
   badge?: string
   path?: string
 }
@@ -23,8 +23,7 @@ export interface MenuItem {
 /** 首页广告位（可滑动轮播） */
 export interface AdBanner {
   id: number
-  emoji?: string
-  icon?: string
+  icon?: string // SVG 资源路径
   title: string
   desc: string
   tag: string // 角标文字，如 "活动"/"热门"
@@ -35,7 +34,7 @@ export interface AdBanner {
 export interface Feed {
   id: number
   username: string
-  avatar: string // emoji 头像
+  avatar: string // SVG 资源路径（头像占位）
   avatarColor: string // 头像底色
   verified: boolean
   time: string
@@ -47,7 +46,7 @@ export interface Feed {
 /** 组局分类筛选 */
 export interface PartyCategory {
   id: number
-  icon: string
+  icon: string // SVG 资源路径
   name: string
   count: number
 }
@@ -70,7 +69,7 @@ export interface PartyItem {
 export interface MessageCategory {
   type: string
   name: string
-  icon: string
+  icon: string // SVG 资源路径
   colorClass: string
   unreadCount: number
 }
@@ -104,6 +103,6 @@ export interface MineStats {
 /** 个人页菜单项 */
 export interface MineMenu {
   name: string
-  icon: string
+  icon: string // SVG 资源路径
   action: string
 }

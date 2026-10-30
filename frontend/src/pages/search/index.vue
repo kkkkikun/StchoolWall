@@ -6,7 +6,7 @@
         <view class="back" @tap="goBack"><text>‹</text></view>
       </template>
       <view class="search-bar">
-        <text class="icon">🔍</text>
+        <image class="icon" src="/static/icons/common/search.svg" mode="aspectFit" />
         <input
           class="input"
           v-model="keyword"
@@ -17,7 +17,7 @@
           @input="onInput"
           @confirm="doSearch()"
         />
-        <text v-if="keyword" class="clear" @tap="clearSearch">✕</text>
+        <image v-if="keyword" class="clear" src="/static/icons/common/close.svg" mode="aspectFit" @tap="clearSearch" />
       </view>
       <template #right>
         <text class="search-btn" @tap="doSearch()">搜索</text>
@@ -67,7 +67,7 @@
     <view v-else class="result-area">
       <view v-if="loading" class="tip"><text>搜索中…</text></view>
       <view v-else-if="results.length === 0" class="tip">
-        <text class="empty-emoji">🔍</text>
+        <image class="empty-emoji" src="/static/icons/common/search.svg" mode="aspectFit" />
         <text class="empty-text">没有找到“{{ lastQ }}”相关的帖子</text>
         <text class="empty-sub">换个关键词试试，或点击上方热门搜索</text>
       </view>
@@ -224,8 +224,8 @@ onShow(() => {
 }
 
 .icon {
-  font-size: 28rpx;
-  color: var(--text-3);
+  width: 28rpx;
+  height: 28rpx;
   flex-shrink: 0;
 }
 
@@ -242,10 +242,9 @@ onShow(() => {
 }
 
 .clear {
-  color: var(--text-2);
-  font-size: 28rpx;
+  width: 28rpx;
+  height: 28rpx;
   padding: 8rpx 12rpx;
-  line-height: 1;
   flex-shrink: 0;
 }
 
@@ -351,7 +350,9 @@ onShow(() => {
 }
 
 .empty-emoji {
-  font-size: 64rpx;
+  width: 64rpx;
+  height: 64rpx;
+  opacity: 0.6;
 }
 
 .empty-text {

@@ -4,13 +4,14 @@
 
     <!-- 2. 规则说明条 -->
     <view class="intro-bar">
-      <text class="intro-text">🔥 近 7 天 · 赞×3 + 评论×2 + 浏览 加权排序</text>
+      <image class="intro-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+      <text class="intro-text">近 7 天 · 赞×3 + 评论×2 + 浏览 加权排序</text>
     </view>
 
     <!-- 3. 完整榜单 -->
     <view v-if="loading" class="state"><text>加载中…</text></view>
     <view v-else-if="!items.length" class="state">
-      <text class="state-emoji">🧊</text>
+      <image class="state-emoji" src="/static/icons/state/ice.svg" mode="aspectFit" />
       <text>本周还没有热帖，发一帖点燃它吧</text>
     </view>
     <view v-else class="rank-card">
@@ -28,11 +29,17 @@
             <text v-if="it.isHot" class="hot-tag">热</text>
           </view>
           <view class="line2">
-            <text class="meta">♡ {{ it.likes }} · 💬 {{ it.comments }}</text>
+            <view class="meta">
+              <image class="meta-icon" src="/static/icons/common/heart.svg" mode="aspectFit" />
+              <text>{{ it.likes }}</text>
+              <text class="meta-sep">·</text>
+              <image class="meta-icon" src="/static/icons/common/comment.svg" mode="aspectFit" />
+              <text>{{ it.comments }}</text>
+            </view>
             <text class="views">{{ it.reads }}</text>
           </view>
         </view>
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -117,6 +124,7 @@ const goBack = () =>
 }
 
 .intro-bar { padding: 20rpx 32rpx 4rpx; }
+.intro-icon { width: 24rpx; height: 24rpx; margin-right: 6rpx; flex-shrink: 0; }
 .intro-text { font-size: 22rpx; color: var(--text-3); }
 
 .rank-card {
@@ -177,10 +185,12 @@ const goBack = () =>
   justify-content: space-between;
   margin-top: 8rpx;
 }
-.meta { font-size: 22rpx; color: var(--text-3); }
+.meta { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--text-3); }
+.meta-icon { width: 22rpx; height: 22rpx; margin-right: 4rpx; flex-shrink: 0; }
+.meta-sep { margin: 0 8rpx; }
 .views { font-size: 22rpx; color: var(--text-3); }
 
-.arrow { font-size: 40rpx; color: var(--text-4); margin-left: 12rpx; }
+.arrow { width: 32rpx; height: 32rpx; margin-left: 12rpx; flex-shrink: 0; }
 
 .state {
   display: flex;
@@ -190,5 +200,5 @@ const goBack = () =>
   color: var(--text-3);
   font-size: 26rpx;
 }
-.state-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.state-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 </style>

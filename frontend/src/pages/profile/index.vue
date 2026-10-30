@@ -63,7 +63,10 @@
         <view v-if="section !== 'posts'" class="follow-list">
           <view class="fl-head">
             <text class="fl-title">{{ section === 'following' ? '关注的人' : '粉丝' }}（{{ list.length }}）</text>
-            <text class="back-posts" @tap="section = 'posts'">看帖子 ›</text>
+            <view class="back-posts" @tap="section = 'posts'">
+              <text>看帖子</text>
+              <image class="chev" src="/static/icons/common/arrow-right-primary.svg" mode="aspectFit" />
+            </view>
           </view>
           <view v-if="list.length === 0" class="empty"><text>暂无{{ section === 'following' ? '关注' : '粉丝' }}</text></view>
           <view v-for="u in list" :key="u.id" class="user-row" @tap="goProfile(u.id)">
@@ -117,11 +120,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -174,11 +177,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -224,10 +227,10 @@ const section = ref<'posts' | 'following' | 'followers'>('posts')
 // ===== 自己主页的内容四栏（与"我的"页同款）=====
 // 说明：产品上"转发"功能后端暂未实现，此位暂以「收藏」承担
 const CONTENT_TABS = [
-  { key: 'posts', icon: '/static/icons/feed/post.svg' },
-  { key: 'comments', icon: '/static/icons/feed/comment.svg' },
-  { key: 'favorites', icon: '/static/icons/feed/bookmark.svg' },
-  { key: 'likes', icon: '/static/icons/feed/heart.svg' },
+  { key: 'posts', icon: '/static/icons/common/note.svg' },
+  { key: 'comments', icon: '/static/icons/common/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/common/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 const contentTab = ref<ContentTab>('posts')
@@ -480,7 +483,8 @@ const goProfile = (id: string) => {
 .follow-list { margin-top: 30rpx; }
 .fl-head { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 8rpx 20rpx; }
 .fl-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.back-posts { font-size: 24rpx; color: var(--primary); }
+.back-posts { font-size: 24rpx; color: var(--primary); display: inline-flex; align-items: center; }
+.chev { width: 20rpx; height: 20rpx; margin-left: 2rpx; flex-shrink: 0; }
 .user-row { display: flex; align-items: center; padding: 20rpx 8rpx; border-bottom: 1rpx solid var(--border-light); }
 .user-row:last-child { border-bottom: none; }
 .u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-inverse); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }

@@ -33,7 +33,7 @@
         <view class="nav-left" @tap="handleBack">
           <slot name="left">
             <view v-if="showBack" class="back-trigger">
-              <text class="back-arrow">‹</text>
+              <image class="back-arrow" src="/static/icons/common/back.svg" mode="aspectFit" />
               <text v-if="backText" class="back-label">{{ backText }}</text>
             </view>
           </slot>
@@ -162,10 +162,9 @@ const handleBack = () => {
 }
 
 .back-arrow {
-  font-size: 56rpx;
-  line-height: 1;
-  color: var(--text-1);
-  font-weight: 300;
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
 }
 
 .back-label {

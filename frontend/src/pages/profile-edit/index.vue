@@ -3,15 +3,22 @@
     <!-- 横幅预览（点击更换） -->
     <view class="banner-prev" @tap="changeImage('banners')">
       <image v-if="form.banner_url" class="banner-img" :src="form.banner_url" mode="aspectFill" />
-      <view v-else class="banner-ph"><text>📷 点击设置主页横幅</text></view>
+      <view v-else class="banner-ph">
+        <image class="ph-icon" src="/static/icons/common/camera.svg" mode="aspectFit" />
+        <text>点击设置主页横幅</text>
+      </view>
     </view>
 
     <!-- 头像（点击更换） -->
     <view class="avatar-row">
       <view class="avatar-ring" @tap="changeImage('avatars')">
         <image v-if="form.avatar_url" class="avatar-img" :src="form.avatar_url" mode="aspectFill" />
-        <view v-else class="avatar-ph"><text>📷</text></view>
-        <view class="avatar-cam"><text>📷</text></view>
+        <view v-else class="avatar-ph">
+          <image class="ph-icon" src="/static/icons/common/camera.svg" mode="aspectFit" />
+        </view>
+        <view class="avatar-cam">
+          <image class="cam-icon" src="/static/icons/common/camera-inverse.svg" mode="aspectFit" />
+        </view>
       </view>
       <text class="avatar-tip">点击图片可更换</text>
     </view>
@@ -175,6 +182,7 @@ const onSave = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10rpx;
   font-size: 26rpx;
   color: var(--text-inverse);
   opacity: 0.9;
@@ -195,8 +203,10 @@ const onSave = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48rpx;
 }
+.ph-icon { width: 48rpx; height: 48rpx; flex-shrink: 0; }
+.banner-ph .ph-icon { width: 32rpx; height: 32rpx; }
+.cam-icon { width: 26rpx; height: 26rpx; }
 .avatar-cam {
   position: absolute;
   right: -2rpx;

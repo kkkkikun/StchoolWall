@@ -8,7 +8,7 @@ SchoolWall 学生端 H5 帖子详情 点赞/评论 交互真实浏览器验收
 
 场景：
   D1 详情加载（作者/正文/互动栏 4 项/评论列表）
-  D2 点赞：未赞→已赞（POST /posts/{id}/like，计数+1、♥），再点取消（DELETE，恢复）
+  D2 点赞：未赞→已赞（POST /posts/{id}/like，计数+1、实心心形图标），再点取消（DELETE，恢复）
   D3 空/纯空白评论：零评论请求（发送按钮 disabled 为现有设计反馈）
   D4 有效评论：恰好 1 次 POST、请求体正确、toast「评论成功」、新评论出现在列表、输入框清空
   D5 评论业务错误（code=400）：原样展示后端提示、输入内容保留、按钮恢复、重试成功
@@ -425,6 +425,17 @@ def fav_btn_class(page):
 def fav_btn_text(page):
     return page.locator('.action-bar .act').nth(1).inner_text().strip()
 
+def act_icon_src(page, idx=0):
+    """互动条图标的 SVG 资源路径。
+
+    图标已从 emoji 字形换成 <image src="*.svg">，uni-app H5 渲染成
+    <uni-image><img src="..."></uni-image>，因此取内部 img 的 src。
+    """
+    img = page.locator('.action-bar .act').nth(idx).locator('.act-icon img')
+    if img.count() == 0:
+        return ''
+    return img.first.get_attribute('src') or ''
+
 def comments_title(page):
     return page.locator('.comments-title').inner_text().strip()
 
@@ -509,15 +520,17 @@ try:
             page.wait_for_timeout(800)
             check(like_calls['post'] == 1, f'点赞应产生 1 次 POST like，实际 {like_calls["post"]}')
             check('16' in like_btn_text(page), f'点赞后计数应为 16，实际: {like_btn_text(page)}')
-            check('♥' in like_btn_text(page), '点赞后应显示已赞图标 ♥')
+            check('heart-on.svg' in act_icon_src(page, 0),
+                  f'点赞后应显示实心爱心图标 heart-on.svg，实际: {act_icon_src(page, 0)}')
             s2 = shot(page, 'post-detail-d2-liked.png')
 
             page.locator('.action-bar .act').first.click()
             page.wait_for_timeout(800)
             check(like_calls['delete'] == 1, f'取消赞应产生 1 次 DELETE like，实际 {like_calls["delete"]}')
             check('15' in like_btn_text(page), f'取消后计数应恢复 15，实际: {like_btn_text(page)}')
-            check('♡' in like_btn_text(page), '取消后应恢复空心图标 ♡')
-            print(f'   [通过] POST→16♥ / DELETE→15♡，方法与计数契约正确')
+            check('heart.svg' in act_icon_src(page, 0) and 'heart-on' not in act_icon_src(page, 0),
+                  f'取消后应恢复空心爱心图标 heart.svg，实际: {act_icon_src(page, 0)}')
+            print('   [通过] POST→16（实心心形）/ DELETE→15（空心心形），方法与计数契约正确')
             record('D2_like_toggle', 'PASS',
                    assertions={'post_like_calls': 1, 'delete_like_calls': 1,
                                'count_up': 16, 'count_back': 15}, screenshots=[s2])
@@ -664,7 +677,8 @@ try:
             page.wait_for_timeout(800)
             check(like_calls['post'] - before_post == 1, '应产生 1 次点赞请求')
             check('15' in like_btn_text(page), f'失败后计数应回滚为 15，实际: {like_btn_text(page)}')
-            check('♡' in like_btn_text(page), '失败后应回滚为未赞图标 ♡')
+            check('heart.svg' in act_icon_src(page, 0) and 'heart-on' not in act_icon_src(page, 0),
+                  f'失败后应回滚为未赞图标 heart.svg，实际: {act_icon_src(page, 0)}')
             t = toast_text(page)
             check('request:fail' not in t and 'Error' not in t,
                   f'点赞失败 toast 不得泄漏底层错误，实际: 「{t}」')
@@ -679,7 +693,8 @@ try:
             page.wait_for_timeout(800)
             check(like_calls['post'] - before_post == 1, '网络失败场景应产生 1 次点赞请求')
             check('15' in like_btn_text(page), f'网络失败后计数应回滚为 15，实际: {like_btn_text(page)}')
-            check('♡' in like_btn_text(page), '网络失败后应回滚为未赞图标 ♡')
+            check('heart.svg' in act_icon_src(page, 0) and 'heart-on' not in act_icon_src(page, 0),
+                  f'网络失败后应回滚为未赞图标 heart.svg，实际: {act_icon_src(page, 0)}')
             t2 = toast_text(page)
             check('request:fail' not in t2 and 'Error' not in t2,
                   f'点赞网络失败不得泄漏底层错误，实际: 「{t2}」')
@@ -702,8 +717,9 @@ try:
             page.locator('.action-bar .act').nth(1).click()
             page.wait_for_timeout(800)
             check(fav_calls['post'] - before == 1, '应产生 1 次收藏 POST')
-            check('on-fav' not in fav_btn_class(page), '网络失败后收藏状态应回滚（仍 ☆收藏）')
-            check('☆' in fav_btn_text(page), '图标应回滚为空心 ☆')
+            check('on-fav' not in fav_btn_class(page), '网络失败后收藏状态应回滚（仍为未收藏）')
+            check('star.svg' in act_icon_src(page, 1) and 'star-on' not in act_icon_src(page, 1),
+                  f'图标应回滚为空心星 star.svg，实际: {act_icon_src(page, 1)}')
             t = toast_text(page)
             check('request:fail' not in t and 'Error' not in t,
                   f'不得泄漏底层错误，实际: 「{t}」')
@@ -714,7 +730,8 @@ try:
             page.locator('.action-bar .act').nth(1).click()
             page.wait_for_timeout(800)
             check(fav_calls['post'] - before == 2, '重试应产生第 2 次收藏 POST')
-            check('on-fav' in fav_btn_class(page), '重试成功后应为已收藏态（★已藏）')
+            check('on-fav' in fav_btn_class(page) and 'star-on.svg' in act_icon_src(page, 1),
+                  f'重试成功后应为已收藏态（实心星 star-on.svg），实际: {act_icon_src(page, 1)}')
             check('已收藏' in toast_text(page), '成功 toast 应为「已收藏」')
             s_f1 = shot(page, 'post-detail-f1-favorited.png')
             print(f'   [通过] 网络失败回滚+友好提示（「{t}」），重试收藏成功')

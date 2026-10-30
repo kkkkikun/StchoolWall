@@ -1,7 +1,7 @@
 <template>
   <view class="page-admin-deprecated" :class="themeClass">
     <view class="card">
-      <text class="icon">🖥️</text>
+      <image class="icon" src="/static/icons/state/desktop.svg" mode="aspectFit" />
       <text class="title">管理后台已升级</text>
       <text class="desc">精细化管理已迁移到独立的 Web 管理后台，请在电脑浏览器中访问：</text>
       <view class="url-box" @tap="copyUrl">
@@ -39,7 +39,7 @@ const copyUrl = () => {
   flex-direction: column;
   align-items: center;
 }
-.icon { font-size: 80rpx; }
+.icon { width: 80rpx; height: 80rpx; }
 .title { font-size: 34rpx; font-weight: bold; color: var(--text-1); margin-top: 24rpx; }
 .desc { font-size: 26rpx; color: var(--text-3); margin-top: 16rpx; text-align: center; line-height: 1.6; }
 .url-box {

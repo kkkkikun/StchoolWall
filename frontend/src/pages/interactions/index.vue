@@ -26,7 +26,7 @@
     <!-- 3. 聚合列表：点击直达被互动的帖子 -->
     <scroll-view scroll-y class="list-area">
       <view v-if="items.length === 0" class="empty-state">
-        <text class="empty-emoji">💌</text>
+        <image class="empty-emoji" src="/static/icons/state/mail-heart.svg" mode="aspectFit" />
         <text class="empty-text">还没有互动消息</text>
       </view>
       <view
@@ -51,7 +51,7 @@
           </view>
         </view>
         <view v-if="!it.is_read" class="unread-dot" />
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
       <view class="list-foot" />
     </scroll-view>
@@ -226,10 +226,15 @@ const onMarkAllRead = async () => {
 .post-ref { font-size: 22rpx; color: var(--text-3); max-width: 380rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .time { font-size: 22rpx; color: var(--text-3); margin-left: 16rpx; }
 .unread-dot { position: absolute; left: 12rpx; top: 12rpx; width: 14rpx; height: 14rpx; border-radius: 50%; background: var(--primary-strong); }
-.arrow { font-size: 40rpx; color: var(--text-4); margin-left: 8rpx; align-self: center; }
+.arrow { width: 32rpx; height: 32rpx; margin-left: 8rpx; align-self: center; flex-shrink: 0; }
 
 .empty-state { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
-.empty-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.empty-emoji {
+  width: 96rpx;
+  height: 96rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.5;
+}
 .empty-text { font-size: 28rpx; color: var(--text-3); }
 .list-foot { height: 120rpx; }
 </style>

@@ -61,16 +61,20 @@
       <!-- 互动条 -->
       <view class="action-bar">
         <view class="act" :class="{ on: isLiked, 'on-like': isLiked }" @tap="onLike">
-          <text class="act-icon">{{ isLiked ? '♥' : '♡' }}</text><text>赞 {{ likeCount }}</text>
+          <image class="act-icon"
+                 :src="isLiked ? '/static/icons/common/heart-on.svg' : '/static/icons/common/heart.svg'"
+                 mode="aspectFit" /><text>赞 {{ likeCount }}</text>
         </view>
         <view class="act" :class="{ on: isFav, 'on-fav': isFav }" @tap="onFavorite">
-          <text class="act-icon">{{ isFav ? '★' : '☆' }}</text><text>{{ isFav ? '已藏' : '收藏' }}</text>
+          <image class="act-icon"
+                 :src="isFav ? '/static/icons/common/star-on.svg' : '/static/icons/common/star.svg'"
+                 mode="aspectFit" /><text>{{ isFav ? '已藏' : '收藏' }}</text>
         </view>
         <view class="act" @tap="focusComment">
-          <text class="act-icon">💬</text><text>评论</text>
+          <image class="act-icon" src="/static/icons/common/comment.svg" mode="aspectFit" /><text>评论</text>
         </view>
         <view class="act" @tap="onShare">
-          <text class="act-icon">↗</text><text>转发</text>
+          <image class="act-icon" src="/static/icons/common/share.svg" mode="aspectFit" /><text>转发</text>
         </view>
       </view>
 
@@ -119,7 +123,7 @@
     <view v-if="post" class="comment-input-bar">
       <view v-if="replyTarget" class="reply-target-tag">
         <text class="reply-tip">回复 @{{ replyTarget.user.nickname }}</text>
-        <text class="reply-cancel" @tap="cancelReply">✕</text>
+        <image class="reply-cancel" src="/static/icons/common/close.svg" mode="aspectFit" @tap="cancelReply" />
       </view>
       <input
         ref="commentInput"
@@ -738,21 +742,17 @@ const copyContact = () => {
 }
 
 .act.on-fav {
-  color: var(--warning);
+  color: var(--favorite);
 }
 
 .act-icon {
-  font-size: 34rpx;
+  width: 34rpx;
+  height: 34rpx;
   margin-right: 8rpx;
-  line-height: 1;
-  color: var(--text-2);
+  flex-shrink: 0;
 }
 
-.act.on .act-icon,
-.act.on-like .act-icon,
-.act.on-fav .act-icon {
-  color: inherit;
-}
+/* 图标颜色由 SVG 变体承载（点赞粉/收藏深金），这里只保留文字态 */
 
 .comments {
   padding: 28rpx;
@@ -895,9 +895,10 @@ const copyContact = () => {
 }
 
 .reply-cancel {
-  font-size: 20rpx;
-  color: var(--text-2);
+  width: 24rpx;
+  height: 24rpx;
   padding: 4rpx;
+  flex-shrink: 0;
 }
 
 .comment-input {

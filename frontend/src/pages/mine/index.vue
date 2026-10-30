@@ -25,7 +25,7 @@
             <text>编辑资料</text>
           </view>
           <view class="gear-btn" @tap="goSettings">
-            <text class="gear-icon">⚙️</text>
+            <image class="gear-icon-img" src="/static/icons/settings/gear.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -36,11 +36,19 @@
         <text v-if="!user.bio">在校园里发现美好，记录点滴日常 ✨</text>
       </view>
 
+      <!-- 未登录：微信小程序登录入口 -->
+      <!-- #ifdef MP-WEIXIN -->
+      <view v-if="!loggedIn" class="dev-login-row">
+        <view class="dev-capsule" :class="{ saving: wxLoggingIn }" @tap="doWxLogin">
+          <text>{{ wxLoggingIn ? '登录中…' : '微信登录' }}</text>
+        </view>
+      </view>
+      <!-- #endif -->
       <!-- 未登录：网页版登录入口（H5 部署用，注册/登录合一） -->
-      <!-- #ifdef H5 -->
+      <!-- #ifdef H5 || APP-PLUS -->
       <view v-if="!loggedIn" class="dev-login-row">
         <view class="dev-capsule" @tap="showWebLogin = true">
-          <text>🔑 登录 / 注册</text>
+          <text>登录 / 注册</text>
         </view>
       </view>
       <!-- #endif -->
@@ -50,15 +58,15 @@
           <text>一键登录（演示学生）</text>
         </view>
         <view class="dev-capsule admin" @tap="doDevLogin(true)">
-          <text>🛡️ 演示管理员</text>
+          <text>演示管理员</text>
         </view>
       </view>
       <!-- 未认证提示 / 管理员入口（功能性保留，弱化为细条） -->
       <view v-if="loggedIn && !isVerified" class="slim-tip" @tap="goVerify">
-        <text>🎓 学籍认证（发帖/互动需认证） ›</text>
+        <text>学籍认证（发帖/互动需认证） ›</text>
       </view>
       <view v-if="isAdmin" class="slim-tip admin" @tap="goAdmin">
-        <text>🛡️ 管理后台 ›</text>
+        <text>管理后台 ›</text>
       </view>
 
       <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一） -->
@@ -70,7 +78,7 @@
           :class="{ on: contentTab === t.key }"
           @tap="switchTab(t.key)"
         >
-          <text class="ct-icon">{{ t.icon }}</text>
+          <image class="ct-icon-img" :src="t.icon" mode="aspectFit" />
           <view v-if="contentTab === t.key" class="ct-underline" />
         </view>
       </view>
@@ -96,11 +104,11 @@
               <view class="pc-meta">
                 <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                 <view class="pc-stat">
-                  <text class="pc-stat-icon">👁</text>
+                  <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.view_count) }}</text>
                 </view>
                 <view class="pc-stat">
-                  <text class="pc-stat-icon">💬</text>
+                  <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.comment_count) }}</text>
                 </view>
               </view>
@@ -112,7 +120,7 @@
               mode="aspectFill"
             />
             <view v-else class="pc-thumb pc-thumb-ph">
-              <text>🖼</text>
+              <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
             </view>
           </view>
         </template>
@@ -141,19 +149,25 @@
     <TabBar :current="4" />
 
     <!-- 网页版登录弹窗（H5） -->
-    <!-- #ifdef H5 -->
+    <!-- #ifdef H5 || APP-PLUS -->
     <view v-if="showWebLogin" class="wl-mask" @tap="showWebLogin = false">
       <view class="wl-card" @tap.stop>
-        <text class="wl-title">登录 / 注册</text>
-        <text class="wl-sub">昵称即用户名，首次输入自动注册</text>
+        <text class="wl-title">{{ recoveryMode ? '找回账号密码' : (wlRegister ? '注册账号' : '登录') }}</text>
+        <text class="wl-sub">{{ recoveryMode ? '使用离线保存的单次找回码重置密码' : (wlRegister ? '注册密码至少 10 位' : '使用已注册的账号登录') }}</text>
         <input v-model="wlForm.username" class="wl-input" :maxlength="20" placeholder="用户名（2-20 字）"
                placeholder-class="ph" />
-        <input v-model="wlForm.password" class="wl-input" :maxlength="64" password placeholder="密码（至少 6 位）"
+        <input v-if="recoveryMode" v-model="recoveryCode" class="wl-input" :maxlength="64" placeholder="离线找回码（请勿转发）" placeholder-class="ph" />
+        <input v-model="wlForm.password"  class="wl-input" :maxlength="64" password :placeholder="recoveryMode || wlRegister ? '新密码（至少 10 位）' : '登录密码'"
                placeholder-class="ph" />
         <view class="wl-btn" :class="{ saving: wlSaving }" @tap="doWebLogin">
-          <text>{{ wlSaving ? '登录中…' : '进入鄂应墙' }}</text>
+          <text>{{ wlSaving ? '处理中…' : (recoveryMode ? '重置密码' : (wlRegister ? '注册并登录' : '进入鄂应墙')) }}</text>
         </view>
-        <view v-if="WECHAT_MP_APP_ID" class="wl-wechat" @tap="beginMpOAuth">
+        <view class="wl-links">
+          <text class="wl-link" @tap="toggleRegisterMode">{{ wlRegister ? '已有账号，去登录' : '没有账号，去注册' }}</text>
+          <text class="wl-sep">|</text>
+          <text class="wl-link" @tap="toggleRecoveryMode">{{ recoveryMode ? '返回登录' : '找回密码' }}</text>
+        </view>
+        <view v-if="IS_WEB && WECHAT_MP_APP_ID"   class="wl-wechat" @tap="beginMpOAuth">
           <text>微信登录（公众号）</text>
         </view>
       </view>
@@ -163,15 +177,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
-import { devLogin, webLogin } from '@/api/auth'
-import { getProfile } from '@/api/profile'
+import { devLogin, webLogin, register, storeLoginSession, recoverPassword, wxLoginAndStore } from '@/api/auth'
+import type { LoginResponse } from '@/api/auth'
+import { beginWechatOAuth, clientType } from '@/utils/platform-auth'
 import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { friendlyNetworkError } from '@/utils/errors'
 import type { PostBrief } from '@/types/api'
 
 const { themeClass } = useTheme()
@@ -186,10 +202,10 @@ const avatarUrl = ref('')
 const bannerUrl = ref('')
 
 const CONTENT_TABS = [
-  { key: 'posts', icon: '📄' },
-  { key: 'comments', icon: '💬' },
-  { key: 'favorites', icon: '🔖' },
-  { key: 'likes', icon: '🤍' },
+  { key: 'posts', icon: '/static/icons/feed/post.svg' },
+  { key: 'comments', icon: '/static/icons/feed/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/feed/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/feed/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 
@@ -371,13 +387,7 @@ const loadProfile = async () => {
 const doDevLogin = async (asAdmin: boolean) => {
   try {
     const res = await devLogin(asAdmin)
-    tokenStorage.setToken(res.access_token)
-    userStorage.setUserInfo({
-      id: res.user_info.id,
-      nickname: res.user_info.nickname,
-      role: res.role,
-      is_verified: res.user_info.is_verified,
-    })
+    await storeLoginSession(res)
     loggedIn.value = true
     isVerified.value = !!res.user_info.is_verified
     uni.showToast({ title: asAdmin ? '已登录（管理员）' : '已登录（演示）', icon: 'success' })
@@ -388,30 +398,89 @@ const doDevLogin = async (asAdmin: boolean) => {
   }
 }
 
+// ===== 微信小程序登录（MP-WEIXIN）：复用静默登录协议，支持退出后重新登录 =====
+const wxLoggingIn = ref(false)
+
+const doWxLogin = async () => {
+  if (wxLoggingIn.value) return
+  wxLoggingIn.value = true
+  try {
+    const success = await wxLoginAndStore()
+    if (success) {
+      loggedIn.value = true
+      const info = userStorage.getUserInfo()
+      isVerified.value = !!info?.is_verified
+      uni.showToast({ title: '登录成功', icon: 'success' })
+      loadedTabs.value.clear()
+      postLists.posts = []
+      postLists.favorites = []
+      postLists.likes = []
+      myCommentList.value = []
+      await loadProfile()
+    } else {
+      uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+    }
+  } catch {
+    uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+  } finally {
+    wxLoggingIn.value = false
+  }
+}
+
 // ===== 网页版登录（H5）：注册/登录合一，与 devLogin 共用落地流程 =====
 const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
+const IS_WEB = clientType() === 'web'
 const WECHAT_MP_APP_ID = import.meta.env.VITE_WECHAT_MP_APP_ID || ''
 const showWebLogin = ref(false)
 const wlSaving = ref(false)
+const wlRegister = ref(false)
+const recoveryMode = ref(false)
+const recoveryCode = ref('')
 const wlForm = ref({ username: '', password: '' })
+watch(showWebLogin, (visible) => {
+  if (!visible) { recoveryCode.value = ''; wlForm.value.password = ''; recoveryMode.value = false }
+})
+
+// 登录/注册成功响应的最小运行时校验：会话必需字段缺失视为异常响应，
+// 不落地不完整会话、不关弹窗（对照 utils/storage.ts 的 SessionData 契约）
+// 与 utils/storage.ts 的 StoredUserInfo['role'] 保持一致，不得自行扩大取值
+const VALID_SESSION_ROLES = ['guest', 'student', 'admin'] as const
+
+const isValidSessionResponse = (res: LoginResponse | null | undefined): res is LoginResponse =>
+  !!res &&
+  typeof res.access_token === 'string' && res.access_token.length > 0 &&
+  (VALID_SESSION_ROLES as readonly string[]).includes(res.role as string) &&
+  !!res.user_info &&
+  typeof res.user_info.id === 'string' && res.user_info.id.length > 0 &&
+  typeof res.user_info.nickname === 'string' &&
+  typeof res.user_info.is_verified === 'boolean'
+
+// 底层网络错误翻译成可重试的中文提示；后端明确返回的错误原样保留（规则见 utils/errors.ts）
+const friendlyLoginError = (e: unknown): string => friendlyNetworkError(e, '登录失败，请稍后重试')
 
 const doWebLogin = async () => {
+  // 请求进行中直接忽略后续点击：登录/注册/找回共用本入口，防重复提交
+  if (wlSaving.value) return
   const username = wlForm.value.username.trim()
   const password = wlForm.value.password
-  if (username.length < 2 || password.length < 6) {
-    uni.showToast({ title: '用户名≥2字，密码≥6位', icon: 'none' })
+  if (username.length < 2 || password.length < (wlRegister.value || recoveryMode.value ? 10 : 6)) {
+    uni.showToast({ title: wlRegister.value ? '用户名至少2字，密码至少10位' : '请输入有效账号和密码', icon: 'none' })
     return
   }
   wlSaving.value = true
   try {
-    const res = await webLogin(username, password)
-    tokenStorage.setToken(res.access_token)
-    userStorage.setUserInfo({
-      id: res.user_info.id,
-      nickname: res.user_info.nickname,
-      role: res.role,
-      is_verified: res.user_info.is_verified,
-    })
+    if (recoveryMode.value) {
+      if (!recoveryCode.value.trim()) throw new Error('请输入离线保存的找回码')
+      await recoverPassword(username, recoveryCode.value.trim(), password)
+      recoveryCode.value = ''
+      wlForm.value.password = ''
+      recoveryMode.value = false
+      uni.showToast({ title: '密码已重置，请登录', icon: 'success' })
+      return
+    }
+    const res = await (wlRegister.value ? register(username, password) : webLogin(username, password))
+    if (!isValidSessionResponse(res)) throw new Error('登录响应异常，请稍后重试')
+    await storeLoginSession(res)
     showWebLogin.value = false
     loggedIn.value = true
     isVerified.value = !!res.user_info.is_verified
@@ -419,23 +488,28 @@ const doWebLogin = async () => {
     loadedTabs.value.clear()
     await loadProfile()
   } catch (e) {
-    uni.showToast({ title: (e as Error).message || '登录失败', icon: 'none' })
+    uni.showToast({ title: friendlyLoginError(e), icon: 'none' })
   } finally {
     wlSaving.value = false
   }
 }
 
+// 模式切换：请求进行中锁定，防止在途请求期间换模式造成语义错乱或绕过防重
+const toggleRegisterMode = () => {
+  if (wlSaving.value) return
+  recoveryMode.value = false
+  wlRegister.value = !wlRegister.value
+}
+const toggleRecoveryMode = () => {
+  if (wlSaving.value) return
+  recoveryMode.value = !recoveryMode.value
+  wlRegister.value = false
+}
+
 // 公众号网页授权：跳转微信换取 code，回跳 oauth-callback 页完成登录
 const beginMpOAuth = () => {
-  if (!WECHAT_MP_APP_ID) {
-    uni.showToast({ title: '未配置公众号登录', icon: 'none' })
-    return
-  }
-  const redirect = window.location.origin + '/#/pages/oauth-callback/index'
-  const url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + WECHAT_MP_APP_ID +
-    '&redirect_uri=' + encodeURIComponent(redirect) +
-    '&response_type=code&scope=snsapi_base&state=eywall#wechat_redirect'
-  window.location.href = url
+  try { beginWechatOAuth(WECHAT_MP_APP_ID) }
+  catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
 }
 
 onShow(() => loadProfile())
@@ -537,8 +611,9 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   color: var(--text-1);
   background: var(--bg-card);
 }
-.gear-btn { padding: 8rpx; }
+.gear-btn { padding: 8rpx; display: flex; align-items: center; justify-content: center; }
 .gear-icon { font-size: 40rpx; line-height: 1; }
+.gear-icon-img { width: 40rpx; height: 40rpx; }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
@@ -552,6 +627,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   border-radius: 30rpx;
 }
 .dev-capsule.admin { background: var(--accent-violet); }
+.dev-capsule.saving { opacity: 0.6; pointer-events: none; }
 
 /* 网页版登录弹窗（H5） */
 .wl-mask {
@@ -574,12 +650,36 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .wl-title { font-size: 36rpx; font-weight: bold; color: var(--text-1); text-align: center; }
 .wl-sub { font-size: 22rpx; color: var(--text-3); text-align: center; margin-top: 10rpx; }
 .wl-input {
-  margin-top: 28rpx;
-  background: var(--bg-page);
+  margin-top: 24rpx;
+  background: var(--bg-card-2);
+  border: 1rpx solid var(--border-light);
   border-radius: var(--radius-inner);
   padding: 22rpx 26rpx;
   font-size: 28rpx;
   color: var(--text-1);
+  box-sizing: border-box;
+}
+.wl-input:focus {
+  border-color: var(--primary);
+}
+.ph {
+  color: var(--text-4);
+}
+.wl-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  margin-top: 28rpx;
+}
+.wl-link {
+  font-size: 26rpx;
+  color: var(--primary);
+  cursor: pointer;
+}
+.wl-sep {
+  font-size: 22rpx;
+  color: var(--text-4);
 }
 .wl-btn {
   margin-top: 36rpx;
@@ -590,6 +690,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   text-align: center;
   padding: 22rpx 0;
   border-radius: 40rpx;
+  cursor: pointer;
 }
 .wl-btn.saving { opacity: 0.6; }
 
@@ -619,7 +720,8 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   position: relative;
 }
 .ct-icon { font-size: 40rpx; line-height: 1; opacity: 0.55; }
-.ct-item.on .ct-icon { opacity: 1; }
+.ct-icon-img { width: 40rpx; height: 40rpx; opacity: 0.55; }
+.ct-item.on .ct-icon, .ct-item.on .ct-icon-img { opacity: 1; }
 .ct-underline {
   position: absolute;
   bottom: -2rpx;
@@ -655,6 +757,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .pc-date { font-size: 22rpx; color: var(--text-3); margin-right: auto; }
 .pc-stat { display: flex; align-items: center; gap: 6rpx; font-size: 22rpx; color: var(--text-3); }
 .pc-stat-icon { font-size: 24rpx; }
+.pc-stat-svg { width: 24rpx; height: 24rpx; flex-shrink: 0; }
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
@@ -669,18 +772,21 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   font-size: 48rpx;
   opacity: 0.7;
 }
+.pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
 .wl-wechat {
-  margin-top: 20rpx;
-  padding: 24rpx 0;
+  margin-top: 24rpx;
+  padding: 22rpx 0;
   border: 2rpx solid var(--success);
   border-radius: var(--radius-btn);
   text-align: center;
+  color: var(--success);
+  cursor: pointer;
 }
 .wl-wechat text {
   color: var(--success);
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
 }
 </style>

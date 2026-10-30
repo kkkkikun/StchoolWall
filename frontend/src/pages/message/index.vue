@@ -1,10 +1,7 @@
 <template>
   <view class="page-message" :class="themeClass">
-    <!-- 1. 标题栏 -->
-    <view class="message-header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <text class="header-title">消息</text>
-    </view>
+    <!-- 1. 标题栏（沉浸式：微信胶囊安全避让） -->
+    <CustomNavBar title="消息" :show-back="false" />
 
     <!-- 2. 热门用户榜（横滑 Top5，皇冠+TOP徽章+🔥热度） -->
     <view class="panel" v-if="hotUsers.length">
@@ -102,15 +99,13 @@ import { ref, computed } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { unreadSummary, listNotifications, readAllNotifications, readNotification } from '@/api/notification'
 import type { NotificationItem, NotificationType } from '@/api/notification'
 import { getHotRanking, type HotUser } from '@/api/profile'
 import { tokenStorage } from '@/utils/storage'
 
 const { themeClass } = useTheme()
-
-// 沉浸式标题栏：预留状态栏高度（H5 下为 0，真机防标题被状态栏压住）
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
 const loggedIn = tokenStorage.isLoggedIn()
 const hotUsers = ref<HotUser[]>([])

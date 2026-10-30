@@ -20,7 +20,12 @@
         <text>暂无帖子</text>
       </view>
       <view v-else>
-        <post-card v-for="post in posts" :key="post.id" :post="post" />
+        <post-card
+          v-for="post in posts"
+          :key="post.id"
+          :post="post"
+          @delete="onDeletePost"
+        />
       </view>
     </scroll-view>
   </view>
@@ -31,6 +36,7 @@ import { ref, onMounted } from 'vue'
 import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import { get } from '@/utils/request'
+import { deletePost } from '@/api/posts'
 import PostCard from '@/components/post-card.vue'
 
 const { themeClass } = useTheme()
@@ -58,12 +64,31 @@ const loadPosts = async () => {
     const res = await get<{ items: PostBrief[] }>('/posts/my', {
       status: currentStatus.value || undefined,
     })
-    posts.value = res.items
+    posts.value = (res.items || []).map((it) => ({ ...it, _is_my_post: true }))
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' })
   } finally {
     loading.value = false
   }
+}
+
+const onDeletePost = (id: number) => {
+  uni.showModal({
+    title: '删除帖子',
+    content: '确定要删除这条帖子吗？删除后将不再公开展示。',
+    confirmText: '删除',
+    confirmColor: '#f4212e',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await deletePost(id)
+        uni.showToast({ title: '已删除', icon: 'success' })
+        loadPosts()
+      } catch (e) {
+        uni.showToast({ title: (e as Error).message || '删除失败', icon: 'none' })
+      }
+    },
+  })
 }
 
 const switchStatus = (status: string) => {

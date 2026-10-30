@@ -23,7 +23,8 @@ export interface MenuItem {
 /** 首页广告位（可滑动轮播） */
 export interface AdBanner {
   id: number
-  emoji: string
+  emoji?: string
+  icon?: string
   title: string
   desc: string
   tag: string // 角标文字，如 "活动"/"热门"

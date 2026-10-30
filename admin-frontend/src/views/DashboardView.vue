@@ -1,8 +1,8 @@
 <template>
-  <div>
+  <div class="dashboard-page">
     <!-- 统计卡 -->
-    <el-row :gutter="16">
-      <el-col :span="4" v-for="card in cards" :key="card.label">
+    <el-row :gutter="16" class="stat-row">
+      <el-col :xs="12" :sm="8" :lg="4" v-for="card in cards" :key="card.label" class="stat-col">
         <el-card shadow="hover" class="stat-card" :class="{ warn: card.warn && Number(card.value) > 0 }">
           <div class="stat-value">{{ card.value }}</div>
           <div class="stat-label">{{ card.label }}</div>
@@ -28,10 +28,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ECharts } from 'echarts'
 import { getStats, getTrends, type AdminStats, type TrendPoint } from '@/api/stats'
 import { CHART_COLORS, CHART_TEXT, CHART_AXIS, CHART_SPLIT } from '@/theme'
+import { useThemeStore } from '@/stores/theme'
+
+const { isDark } = useThemeStore()
 
 const stats = ref<AdminStats | null>(null)
 const series = ref<TrendPoint[]>([])
@@ -52,6 +55,7 @@ const cards = computed(() => {
 const chartEl = ref<HTMLDivElement>()
 let chart: ECharts | null = null
 let echartsPromise: Promise<typeof import('echarts')> | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const getECharts = () => {
   // 按需异步加载 echarts：登录页/其他页面不承担图表体积
@@ -67,51 +71,139 @@ const renderChart = async () => {
   if (!chartEl.value) return
   const echarts = await getECharts()
   if (!chart) chart = echarts.init(chartEl.value)
-  const dates = series.value.map(p => p.date.slice(5))
+  ;(window as any).__chart = chart
+
+  const dates = (series.value || []).map(p => (p.date ? p.date.slice(5) : ''))
+  const textColor = isDark.value ? CHART_TEXT : '#536471'
+  const axisColor = isDark.value ? CHART_AXIS : '#cfd9de'
+  const splitColor = isDark.value ? CHART_SPLIT : '#eff3f4'
+
+  const containerW = chartEl.value.offsetWidth || 1000
+  const isMobile = containerW <= 500
+
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['帖子', '评论', '点赞', '新用户', '活跃用户'], textStyle: { color: CHART_TEXT } },
-    grid: { left: 40, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: dates, axisLabel: { color: CHART_TEXT }, axisLine: { lineStyle: { color: CHART_AXIS } } },
-    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: CHART_TEXT }, splitLine: { lineStyle: { color: CHART_SPLIT } } },
+    legend: {
+      data: ['帖子', '评论', '点赞', '新用户', '活跃用户'],
+      textStyle: { color: textColor, fontSize: isMobile ? 11 : 12 },
+      show: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 8,
+      width: isMobile ? Math.max(containerW - 24, 280) : undefined,
+      itemGap: isMobile ? 10 : 18,
+      itemWidth: isMobile ? 14 : 16,
+      itemHeight: 8,
+    },
+    grid: {
+      left: isMobile ? 36 : 45,
+      right: isMobile ? 12 : 20,
+      top: 25,
+      bottom: isMobile ? 72 : 62,
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: {
+        color: textColor,
+        fontSize: isMobile ? 11 : 12,
+        margin: 8,
+        interval: 'auto',
+      },
+      axisLine: { lineStyle: { color: axisColor } },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: { color: textColor },
+      splitLine: { lineStyle: { color: splitColor } },
+    },
     series: [
-      { name: '帖子', type: 'line', smooth: true, data: series.value.map(p => p.posts), itemStyle: { color: CHART_COLORS[0] } },
-      { name: '评论', type: 'line', smooth: true, data: series.value.map(p => p.comments), itemStyle: { color: CHART_COLORS[1] } },
-      { name: '点赞', type: 'line', smooth: true, data: series.value.map(p => p.likes), itemStyle: { color: CHART_COLORS[2] } },
-      { name: '新用户', type: 'line', smooth: true, data: series.value.map(p => p.new_users), itemStyle: { color: CHART_COLORS[3] } },
-      { name: '活跃用户', type: 'line', smooth: true, data: series.value.map(p => p.active_users), itemStyle: { color: CHART_COLORS[4] } },
+      { name: '帖子', type: 'line', smooth: true, data: (series.value || []).map(p => p.posts ?? 0), itemStyle: { color: CHART_COLORS[0] } },
+      { name: '评论', type: 'line', smooth: true, data: (series.value || []).map(p => p.comments ?? 0), itemStyle: { color: CHART_COLORS[1] } },
+      { name: '点赞', type: 'line', smooth: true, data: (series.value || []).map(p => p.likes ?? 0), itemStyle: { color: CHART_COLORS[2] } },
+      { name: '新用户', type: 'line', smooth: true, data: (series.value || []).map(p => p.new_users ?? 0), itemStyle: { color: CHART_COLORS[3] } },
+      { name: '活跃用户', type: 'line', smooth: true, data: (series.value || []).map(p => p.active_users ?? 0), itemStyle: { color: CHART_COLORS[4] } },
     ],
-  })
+  }, true)
 }
 
 const loadTrends = async () => {
   try {
     const res = await getTrends(days.value)
-    series.value = res.series
+    series.value = res?.series || []
     await renderChart()
   } catch { /* 拦截器已提示 */ }
 }
 
-const onResize = () => chart?.resize()
+const onResize = () => {
+  chart?.resize()
+  if (chartEl.value) {
+    renderChart()
+  }
+}
+
+watch(isDark, () => {
+  renderChart()
+})
 
 onMounted(() => {
   loadStats()
   loadTrends()
   window.addEventListener('resize', onResize)
+  if (chartEl.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      chart?.resize()
+      renderChart()
+    })
+    resizeObserver.observe(chartEl.value)
+  }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
+  resizeObserver?.disconnect()
   chart?.dispose()
 })
 </script>
 
 <style scoped>
-.stat-card { text-align: center; }
-.stat-value { font-size: 28px; font-weight: bold; color: var(--el-text-color-primary); }
-.stat-label { font-size: 13px; color: var(--el-text-color-secondary); margin-top: 4px; }
-.stat-card.warn .stat-value { color: var(--el-color-danger); }
-.trend-card { margin-top: 16px; }
-.trend-header { display: flex; justify-content: space-between; align-items: center; }
-.chart { height: 380px; }
+.dashboard-page {
+  width: 100%;
+}
+.stat-col {
+  margin-bottom: 16px;
+}
+.stat-card {
+  text-align: center;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat-card.warn .stat-value {
+  color: var(--el-color-danger);
+}
+.trend-card {
+  margin-top: 0;
+}
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chart {
+  height: 380px;
+  width: 100%;
+}
 </style>

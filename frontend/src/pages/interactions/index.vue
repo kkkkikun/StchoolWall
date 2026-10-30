@@ -1,16 +1,13 @@
 <template>
   <view class="page-interactions" :class="themeClass">
-    <!-- 1. 头部：返回 + 标题 -->
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">互动消息</text>
-        <view class="header-right" @tap="onMarkAllRead">
+    <!-- 1. 头部：安全避让自定义导航 -->
+    <CustomNavBar show-back title="互动消息" fallback-url="/pages/message/index">
+      <template #right>
+        <view class="mark-read-btn" @tap="onMarkAllRead">
           <text>全部已读</text>
         </view>
-      </view>
-    </view>
+      </template>
+    </CustomNavBar>
 
     <!-- 2. 筛选 chips：全部 / 赞 / 收藏 / 评论（抖音式聚合） -->
     <view class="chip-row">
@@ -58,16 +55,14 @@
       </view>
       <view class="list-foot" />
     </scroll-view>
-
-    <TabBar :current="3" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useTheme } from '@/utils/theme'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { onShow } from '@dcloudio/uni-app'
-import TabBar from '@/components/tab-bar.vue'
 import {
   listNotifications,
   readNotification,
@@ -78,8 +73,6 @@ import {
 import { tokenStorage } from '@/utils/storage'
 
 const { themeClass } = useTheme()
-
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
 type ChipKey = 'all' | 'like' | 'favorite' | 'comment'
 const active = ref<ChipKey>('all')
@@ -194,18 +187,12 @@ const onMarkAllRead = async () => {
     uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
   }
 }
-
-const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/message/index' }) })
 </script>
 
 <style scoped>
 .page-interactions { min-height: 100vh; background-color: var(--bg-page); display: flex; flex-direction: column; }
 
-.header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: var(--text-1); }
-.header-right { font-size: 24rpx; color: var(--text-2); }
+.mark-read-btn { font-size: 26rpx; color: var(--primary); font-weight: 500; padding: 6rpx 16rpx; border-radius: 20rpx; background: var(--primary-soft); }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: var(--bg-card); }

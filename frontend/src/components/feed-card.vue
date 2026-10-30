@@ -16,7 +16,7 @@
           <text class="time-ago">{{ timeAgo }} · {{ typeLabel }}</text>
         </view>
       </view>
-      <text class="more-action">···</text>
+      <text class="more-action" @tap.stop="onMoreAction">···</text>
     </view>
 
     <!-- 正文 -->
@@ -37,6 +37,7 @@
           :class="post.images.length === 1 ? 'img-single' : 'img-ph'"
           :src="img"
           :mode="post.images.length === 1 ? 'widthFix' : 'aspectFill'"
+          @tap.stop="previewImage(i)"
         />
       </view>
     </view>
@@ -139,6 +140,30 @@ const requireLogin = (): boolean => {
 }
 
 const onDetail = () => emit('detail', props.post.id)
+
+const previewImage = (index: number) => {
+  if (!props.post.images || props.post.images.length === 0) return
+  uni.previewImage({
+    urls: props.post.images,
+    current: index,
+  })
+}
+
+const onMoreAction = () => {
+  uni.showActionSheet({
+    itemList: ['复制正文', '查看详情/举报'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        uni.setClipboardData({
+          data: props.post.content,
+          success: () => uni.showToast({ title: '已复制文本', icon: 'success' }),
+        })
+      } else if (res.tapIndex === 1) {
+        onDetail()
+      }
+    },
+  })
+}
 
 const onLike = async () => {
   if (!requireLogin()) return

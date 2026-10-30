@@ -78,7 +78,7 @@ export interface PostCreate {
   post_type: PostType
   content: string
   category?: string
-  images?: string[]
+  media_ids?: string[]
   price?: number
   tag_ids?: number[]
 }
@@ -101,6 +101,10 @@ export interface UserInfo {
 /** 微信登录响应（对齐后端 wx_login / dev_login 返回） */
 export interface LoginResponse {
   access_token: string
+  refresh_token?: string
+  csrf_token?: string
+  session_id?: string
+  expires_in?: number
   role: UserRole
   user_info: { id: string; nickname: string; is_verified: boolean }
 }

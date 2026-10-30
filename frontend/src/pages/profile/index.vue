@@ -20,7 +20,7 @@
             <view v-else class="avatar" :style="{ background: avatarColor }">
               <text class="avatar-letter">{{ avatarLetter }}</text>
             </view>
-            <text v-if="profile.is_verified" class="v-badge">✅</text>
+            <text v-if="profile.is_verified" class="v-badge">已认证</text>
           </view>
         </view>
 
@@ -40,7 +40,7 @@
         <!-- 简介 + 认证学校 -->
         <view class="bio">
           <text>{{ profile.bio || '这位同学还没有简介～' }}</text>
-          <text v-if="profile.school" class="school-line">🎓 {{ profile.school }}</text>
+          <text v-if="profile.school" class="school-line">{{ profile.school }}</text>
         </view>
 
         <!-- 统计：帖子 / 关注 / 粉丝（可点） -->
@@ -73,7 +73,7 @@
             </view>
             <view class="u-meta">
               <text class="u-name">{{ u.nickname }}</text>
-              <text v-if="u.is_verified" class="u-v">✅ 已认证</text>
+              <text v-if="u.is_verified" class="u-v">已认证</text>
             </view>
             <view
               v-if="!u.is_following && !isSelfId(u.id)"
@@ -96,7 +96,7 @@
               :class="{ on: contentTab === t.key }"
               @tap="switchContentTab(t.key)"
             >
-              <text class="ct-icon">{{ t.icon }}</text>
+              <image class="ct-icon-img" :src="t.icon" mode="aspectFit" />
               <view v-if="contentTab === t.key" class="ct-underline" />
             </view>
           </view>
@@ -117,11 +117,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">👁</text>
+                    <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">💬</text>
+                    <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -133,7 +133,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <text>🖼</text>
+                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -174,11 +174,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">👁</text>
+                    <image class="pc-stat-svg" src="/static/icons/feed/view.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">💬</text>
+                    <image class="pc-stat-svg" src="/static/icons/feed/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -190,7 +190,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <text>🖼</text>
+                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -224,10 +224,10 @@ const section = ref<'posts' | 'following' | 'followers'>('posts')
 // ===== 自己主页的内容四栏（与"我的"页同款）=====
 // 说明：产品上"转发"功能后端暂未实现，此位暂以「收藏」承担
 const CONTENT_TABS = [
-  { key: 'posts', icon: '📄' },
-  { key: 'comments', icon: '💬' },
-  { key: 'favorites', icon: '🔖' },
-  { key: 'likes', icon: '🤍' },
+  { key: 'posts', icon: '/static/icons/feed/post.svg' },
+  { key: 'comments', icon: '/static/icons/feed/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/feed/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/feed/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 const contentTab = ref<ContentTab>('posts')
@@ -506,7 +506,8 @@ const goProfile = (id: string) => {
   position: relative;
 }
 .ct-icon { font-size: 40rpx; line-height: 1; opacity: 0.55; }
-.ct-item.on .ct-icon { opacity: 1; }
+.ct-icon-img { width: 40rpx; height: 40rpx; opacity: 0.55; }
+.ct-item.on .ct-icon, .ct-item.on .ct-icon-img { opacity: 1; }
 .ct-underline {
   position: absolute;
   bottom: -2rpx;
@@ -541,6 +542,7 @@ const goProfile = (id: string) => {
 .pc-date { font-size: 22rpx; color: var(--text-3); margin-right: auto; }
 .pc-stat { display: flex; align-items: center; gap: 6rpx; font-size: 22rpx; color: var(--text-3); }
 .pc-stat-icon { font-size: 24rpx; }
+.pc-stat-svg { width: 24rpx; height: 24rpx; flex-shrink: 0; }
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
@@ -555,6 +557,7 @@ const goProfile = (id: string) => {
   font-size: 48rpx;
   opacity: 0.7;
 }
+.pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
 </style>

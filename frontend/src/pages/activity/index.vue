@@ -1,13 +1,6 @@
 <template>
   <view class="page-activity" :class="themeClass">
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">活动详情</text>
-        <view class="header-right" />
-      </view>
-    </view>
+    <CustomNavBar show-back title="活动详情" />
 
     <view v-if="loading" class="state-box">
       <text class="state-text">加载中…</text>
@@ -43,11 +36,11 @@
 import { ref } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getActivity, type ActivityDetail } from '@/api/activity'
 
 const { themeClass } = useTheme()
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const loading = ref(true)
 const activity = ref<ActivityDetail | null>(null)
 
@@ -87,12 +80,6 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 
 <style scoped>
 .page-activity { min-height: 100vh; background-color: var(--bg-page); }
-
-.header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: var(--text-1); }
-.header-right { width: 80rpx; }
 
 .state-box { padding-top: 220rpx; display: flex; flex-direction: column; align-items: center; }
 .state-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }

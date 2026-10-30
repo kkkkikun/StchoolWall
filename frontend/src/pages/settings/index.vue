@@ -8,7 +8,7 @@
       <view class="account-meta">
         <view class="name-row">
           <text class="nickname">{{ user.nickname }}</text>
-          <text v-if="user.is_verified" class="v-badge">✅ 已认证</text>
+          <text v-if="user.is_verified" class="v-badge">已认证</text>
         </view>
         <text class="role-text">{{ roleText }}</text>
       </view>
@@ -19,7 +19,7 @@
       <view class="group-title"><text>外观</text></view>
       <view class="cell">
         <view class="cell-left">
-          <text class="cell-icon">🌙</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/moon.svg" mode="aspectFit" />
           <text class="cell-title">深色模式</text>
         </view>
         <switch :checked="mode === 'dark'" color="#1d9bf0" @change="onToggleTheme" />
@@ -31,49 +31,49 @@
       <view class="group-title"><text>通用</text></view>
       <view class="cell" @tap="onClearCache">
         <view class="cell-left">
-          <text class="cell-icon">🧹</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/broom.svg" mode="aspectFit" />
           <text class="cell-title">清除缓存</text>
         </view>
         <text class="cell-value">{{ cacheSize }}</text>
       </view>
       <view class="cell" @tap="goInfo('community')">
         <view class="cell-left">
-          <text class="cell-icon">🛡️</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/shield.svg" mode="aspectFit" />
           <text class="cell-title">社区规范</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view class="cell" @tap="goInfo('privacy')">
         <view class="cell-left">
-          <text class="cell-icon">🔒</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/lock.svg" mode="aspectFit" />
           <text class="cell-title">隐私政策</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view class="cell" @tap="goInfo('agreement')">
         <view class="cell-left">
-          <text class="cell-icon">📄</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
           <text class="cell-title">用户协议</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view class="cell" @tap="goInfo('invite')">
         <view class="cell-left">
-          <text class="cell-icon">🎁</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/gift.svg" mode="aspectFit" />
           <text class="cell-title">邀请校友</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view class="cell" @tap="goInfo('about')">
         <view class="cell-left">
-          <text class="cell-icon">ℹ️</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/info.svg" mode="aspectFit" />
           <text class="cell-title">关于我们</text>
         </view>
         <text class="cell-value">v1.0.0</text>
       </view>
       <view class="cell" @tap="goInfo('contact')">
         <view class="cell-left">
-          <text class="cell-icon">📞</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/phone.svg" mode="aspectFit" />
           <text class="cell-title">联系我们</text>
         </view>
         <text class="arrow">›</text>
@@ -83,29 +83,47 @@
     <!-- 账号操作 -->
     <view class="group-card">
       <view class="group-title"><text>账号</text></view>
+      <view v-if="loggedIn" class="cell" @tap="onRecoveryCodes">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" /><text class="cell-title">生成离线找回码</text></view><text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell" @tap="goBlocks">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/block.svg" mode="aspectFit" /><text class="cell-title">屏蔽的用户</text></view><text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell" @tap="goAppeals">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/appeal.svg" mode="aspectFit" /><text class="cell-title">申诉与处理记录</text></view><text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell" @tap="onSessions">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/device.svg" mode="aspectFit" /><text class="cell-title">登录设备与会话</text></view><text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell" @tap="onCreatePairing">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/link.svg" mode="aspectFit" /><text class="cell-title">生成跨端配对码</text></view><text class="arrow">›</text>
+      </view>
+      <view v-if="loggedIn" class="cell" @tap="onClaimPairing">
+        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" /><text class="cell-title">输入原账号配对码</text></view><text class="arrow">›</text>
+      </view>
       <view v-if="loggedIn" class="cell" @tap="onChangePassword">
         <view class="cell-left">
-          <text class="cell-icon">🔑</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" />
           <text class="cell-title">修改密码</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view v-if="loggedIn" class="cell danger-cell" @tap="onDeleteAccount">
         <view class="cell-left">
-          <text class="cell-icon">🗑️</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/trash.svg" mode="aspectFit" />
           <text class="cell-title danger-text">注销账号</text>
         </view>
         <text class="arrow">›</text>
       </view>
       <view v-if="loggedIn" class="cell danger-cell" @tap="onLogout">
         <view class="cell-left">
-          <text class="cell-icon">🚪</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/logout.svg" mode="aspectFit" />
           <text class="cell-title danger-text">退出登录</text>
         </view>
       </view>
       <view v-else class="cell" @tap="goLogin">
         <view class="cell-left">
-          <text class="cell-icon">🔑</text>
+          <image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" />
           <text class="cell-title">去登录</text>
         </view>
         <text class="arrow">›</text>
@@ -122,6 +140,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { logout, getSessions, revokeSession, createPairing, claimPairing, generateRecoveryCodes } from '@/api/auth'
 import { get, post, put } from '@/utils/request'
 
 const { themeClass, mode, setThemeMode } = useTheme()
@@ -169,12 +188,11 @@ const onClearCache = () => {
     success: (r) => {
       if (!r.confirm) return
       try {
-        uni.clearStorageSync()
-        // 登录态与用户信息回写（clearStorageSync 全清了）
-        const token = tokenStorage.getToken()
-        const info = userStorage.getUserInfo()
-        if (token) tokenStorage.setToken(token)
-        if (info) userStorage.setUserInfo(info)
+        const protectedKeys = new Set(['access_token', 'refresh_token', 'sw_android_refresh_encrypted',
+          'user_info', 'post_draft', 'schoolwall_publish_draft', 'theme-mode'])
+        for (const key of uni.getStorageInfoSync().keys) {
+          if (!protectedKeys.has(key)) uni.removeStorageSync(key)
+        }
       } catch { /* 忽略 */ }
       calcCache()
       uni.showToast({ title: '已清除', icon: 'success' })
@@ -188,10 +206,10 @@ const onLogout = () => {
     content: `确定退出「${user.value.nickname}」吗？`,
     confirmText: '退出',
     confirmColor: '#1d9bf0',
-    success: (r) => {
+    success: async (r) => {
       if (!r.confirm) return
-      tokenStorage.removeToken()
-      userStorage.removeUserInfo()
+      try { await logout() }
+      catch (error) { uni.showToast({ title: (error as Error).message || '退出失败，请重试', icon: 'none' }); return }
       loggedIn.value = false
       user.value = { nickname: '未登录', is_verified: false }
       uni.showToast({ title: '已退出', icon: 'success' })
@@ -225,6 +243,61 @@ const promptText = (title: string, placeholder: string): Promise<string | null> 
   })
 }
 
+const goBlocks = () => uni.navigateTo({ url: '/pages/blocks/index' })
+const goAppeals = () => uni.navigateTo({ url: '/pages/appeals/index' })
+const onRecoveryCodes = () => {
+  uni.showModal({ title: '生成离线找回码', content: '请先确认近期已登录。生成后旧码失效，新码仅显示一次；请抄写到安全的离线位置，勿发送给任何人。',
+    success: async (result) => {
+      if (!result.confirm) return
+      try {
+        const data = await generateRecoveryCodes()
+        uni.showModal({ title: '找回码（仅显示一次）',
+          content: data.codes.join('\n') + '\n每个码只能使用一次，请离线妥善保存。',
+          showCancel: false, confirmText: '我已保存' })
+      } catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
+    },
+  })
+}
+
+const onSessions = async () => {
+  try {
+    const data = await getSessions()
+    if (!data.items.length) return uni.showToast({ title: '暂无有效会话', icon: 'none' })
+    uni.showActionSheet({
+      itemList: data.items.slice(0, 6).map((item) =>
+        `${item.client_type} · ${item.created_at.slice(0, 16).replace('T', ' ')}${item.id === tokenStorage.getSessionId() ? '（当前）' : ''}`),
+      success: async ({ tapIndex }) => {
+        const item = data.items[tapIndex]
+        uni.showModal({ title: '撤销登录会话', content: '此设备将需要重新登录，确定撤销吗？',
+          success: async (result) => {
+            if (!result.confirm) return
+            try {
+              await revokeSession(item.id)
+              if (item.id === tokenStorage.getSessionId()) { userStorage.clear(); await refreshAuth() }
+              uni.showToast({ title: '会话已撤销', icon: 'success' })
+            } catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
+          },
+        })
+      },
+    })
+  } catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
+}
+const onCreatePairing = async () => {
+  try {
+    const result = await createPairing()
+    uni.showModal({ title: '跨端配对码', content: `${result.code}\n10 分钟内在另一端新账号的设置中输入。此码可绑定登录身份，请勿转发给他人。`, showCancel: false })
+  } catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
+}
+const onClaimPairing = async () => {
+  const code = await promptText('绑定原账号', '输入原账号生成的配对码')
+  if (!code) return
+  try {
+    await claimPairing(code.trim())
+    await refreshAuth()
+    uni.showToast({ title: '已绑定原账号', icon: 'success' })
+  } catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
+}
+
 const onChangePassword = async () => {
   if (!loggedIn.value) {
     uni.showToast({ title: '请先登录', icon: 'none' })
@@ -232,17 +305,16 @@ const onChangePassword = async () => {
   }
   const oldPwd = await promptText('修改密码', '请输入原密码')
   if (oldPwd === null) return
-  const newPwd = await promptText('修改密码', '请输入新密码（至少 6 位）')
+  const newPwd = await promptText('修改密码', '请输入新密码（至少 10 位）')
   if (newPwd === null) return
-  if (newPwd.length < 6) {
-    uni.showToast({ title: '新密码至少 6 位', icon: 'none' })
+  if (newPwd.length < 10) {
+    uni.showToast({ title: '新密码至少 10 位', icon: 'none' })
     return
   }
   try {
     await put('/user/password', { old_password: oldPwd, new_password: newPwd })
     uni.showToast({ title: '密码已更新，请重新登录', icon: 'success' })
-    tokenStorage.removeToken()
-    userStorage.removeUserInfo()
+    userStorage.clear()
     loggedIn.value = false
     setTimeout(() => uni.navigateBack(), 700)
   } catch (e) {
@@ -272,8 +344,7 @@ const onDeleteAccount = async () => {
   try {
     await post('/user/account/deactivate', { password: pwd || null })
     uni.showToast({ title: '账号已注销', icon: 'success' })
-    tokenStorage.removeToken()
-    userStorage.removeUserInfo()
+    userStorage.clear()
     loggedIn.value = false
     setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 700)
   } catch (e) {
@@ -383,6 +454,7 @@ onUnmounted(() => {
 .group-card .cell:last-child { border-bottom: none; }
 .cell-left { display: flex; align-items: center; }
 .cell-icon { font-size: 36rpx; margin-right: 22rpx; }
+.cell-icon-svg { width: 36rpx; height: 36rpx; margin-right: 22rpx; flex-shrink: 0; }
 .cell-title { font-size: 29rpx; color: var(--text-1); }
 .cell-value { font-size: 24rpx; color: var(--text-3); }
 .arrow { font-size: 32rpx; color: var(--text-4); }

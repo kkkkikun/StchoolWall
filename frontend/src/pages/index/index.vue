@@ -6,7 +6,10 @@
         class="status-bar-spacer"
         :style="{ height: statusBarHeight + 'px' }"
       />
-      <view class="search-row">
+      <view
+        class="search-row"
+        :style="capsulePaddingRight ? { paddingRight: capsulePaddingRight + 'px' } : undefined"
+      >
         <!-- 左上角：每日签到（LeetCode 式火焰两态：轮廓 → 燃烧） -->
         <view class="checkin-btn" :class="{ done: checkedIn }" @tap="onCheckin">
           <view class="checkin-icon">
@@ -99,7 +102,7 @@
           </view>
           <text v-if="ad.tag" class="ad-tag">{{ ad.tag }}</text>
         </view>
-        <!-- 无图 banner：emoji + 渐变背景（mock fallback 同款样式） -->
+        <!-- 无图 banner：emoji / 矢量图标 + 渐变背景（mock fallback 同款样式） -->
         <view
           v-else
           class="ad-slide"
@@ -107,7 +110,8 @@
             background: ad.bg || 'linear-gradient(135deg, #1d9bf0, #1a8cd8)',
           }"
         >
-          <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>
+          <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
+          <text v-else class="ad-emoji">{{ ad.emoji || "📢" }}</text>
           <view class="ad-text">
             <text class="ad-title">{{ ad.title }}</text>
             <text class="ad-desc">{{ ad.desc }}</text>
@@ -175,6 +179,7 @@ import { getPosts, getHotPosts, getFeaturedPosts, getFollowingFeed } from "@/api
 import { getBanners, type BannerItem } from "@/api/banner";
 import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
+import { getNavBarMetrics } from "@/utils/navbar";
 
 const { themeClass } = useTheme()
 
@@ -201,7 +206,7 @@ interface HotItem {
 }
 const hotPosts = ref<HotItem[]>([]);
 // 广告轮播：后端下发优先，失败/未配置时 fallback 到 mock（运营未配不白屏）
-const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([
+const adBanners = ref<(BannerItem & { bg?: string; emoji?: string; icon?: string })[]>([
   ...AD_BANNERS,
 ]);
 
@@ -267,8 +272,10 @@ const nextCursor = ref<number | null>(null);
 const hasMore = ref(false);
 const searchKeyword = ref("");
 
-// 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0;
+// 沉浸式头部与胶囊避让：状态栏高度与胶囊右内边距
+const navMetrics = getNavBarMetrics();
+const statusBarHeight = navMetrics.statusBarHeight;
+const capsulePaddingRight = navMetrics.capsulePaddingRight;
 
 const loadFeeds = async (refresh = false) => {
   if (loadingFeeds.value) return;
@@ -297,7 +304,7 @@ const loadFeeds = async (refresh = false) => {
 };
 
 onPullDownRefresh(async () => {
-  await loadFeeds(true);
+  await Promise.all([loadFeeds(true), loadHot(), loadBanners()]);
   uni.stopPullDownRefresh();
 });
 
@@ -308,25 +315,34 @@ onReachBottom(() => {
 const HOT_TITLE_MAX = 30; // 榜单标题截断长度（rpx 布局按单行省略，防长文挤压）
 const HOT_TAG_MIN_LIKES = 3; // 「热」标门槛：赞或评论 ≥3，避免 1 赞也挂热
 
+const fmtCount = (n?: number): string => {
+  const v = n || 0;
+  if (v < 10000) return String(v);
+  const w = v / 10000;
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, "")}万`;
+};
+
 const loadHot = async () => {
   try {
     // 首页只露前 4 名（完整十强在二级页 pages/hot/index）
     const list = await getHotPosts(4);
-    hotPosts.value = list.map((p, i) => ({
-      id: p.id,
-      rank: i + 1,
-      // 正文首行做标题，超长截断
-      title: (() => {
-        const firstLine = (p.content || "").split("\n").find((s) => s.trim()) || "（无文字）";
-        return firstLine.length > HOT_TITLE_MAX
-          ? firstLine.slice(0, HOT_TITLE_MAX) + "…"
-          : firstLine;
-      })(),
-      isHot:
-        (p.like_count || 0) >= HOT_TAG_MIN_LIKES ||
-        (p.comment_count || 0) >= HOT_TAG_MIN_LIKES,
-      reads: `${p.view_count || 0} 浏览`,
-    }));
+    hotPosts.value = list.slice(0, 4).map((p, i) => {
+      const firstLine =
+        (p.content || "").split("\n").find((s) => s.trim()) || "（无文字）";
+      return {
+        id: p.id,
+        rank: i + 1,
+        // 正文首行做标题，超长截断
+        title:
+          firstLine.length > HOT_TITLE_MAX
+            ? firstLine.slice(0, HOT_TITLE_MAX) + "…"
+            : firstLine,
+        isHot:
+          (p.like_count || 0) >= HOT_TAG_MIN_LIKES ||
+          (p.comment_count || 0) >= HOT_TAG_MIN_LIKES,
+        reads: `${fmtCount(p.view_count)} 浏览`,
+      };
+    });
   } catch {
     /* 热帖非关键，失败静默（整块由 v-if 隐藏） */
   }
@@ -492,7 +508,7 @@ const switchTab = (idx: number) => {
 }
 
 .search-placeholder {
-  color: var(--text-4);
+  color: var(--text-placeholder);
 }
 
 .search-confirm {
@@ -666,6 +682,12 @@ const switchTab = (idx: number) => {
 .ad-emoji {
   font-size: 64rpx;
   margin-right: 22rpx;
+}
+.ad-icon-img {
+  width: 64rpx;
+  height: 64rpx;
+  margin-right: 22rpx;
+  flex-shrink: 0;
 }
 
 .ad-text {

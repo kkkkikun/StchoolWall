@@ -34,7 +34,10 @@
 
     <view class="card-footer">
       <text class="time">{{ formatTime(post.created_at) }}</text>
-      <text v-if="post._is_my_post" class="my-badge">我的</text>
+      <view class="footer-actions">
+        <text v-if="post._is_my_post" class="del-text" @tap.stop="onDelete">删除</text>
+        <text v-if="post._is_my_post" class="my-badge">我的</text>
+      </view>
     </view>
   </view>
 </template>
@@ -83,6 +86,12 @@ const formatTime = (time: string) => {
   if (hours < 24) return `${hours}小时前`
   if (days < 7) return `${days}天前`
   return `${date.getMonth() + 1}-${date.getDate()}`
+}
+
+const emit = defineEmits<{ (e: 'delete', id: number): void }>()
+
+const onDelete = () => {
+  emit('delete', props.post.id)
 }
 
 const goDetail = () => {
@@ -223,6 +232,20 @@ const goDetail = () => {
 .time {
   font-size: 22rpx;
   color: var(--text-3);
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.del-text {
+  font-size: 22rpx;
+  color: #f4212e;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx;
+  background: rgba(244, 33, 46, 0.08);
 }
 
 .my-badge {

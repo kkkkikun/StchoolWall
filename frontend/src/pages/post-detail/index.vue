@@ -19,7 +19,8 @@
         <view v-if="canFollow" class="follow-btn" :class="{ on: isFollowing }" @tap="onFollow">
           <text>{{ isFollowing ? '已关注' : '+ 关注' }}</text>
         </view>
-        <text v-if="canReport" class="report-btn" @tap="onReport">举报</text>
+        <text v-if="isAuthor" class="del-btn" @tap="onDeletePost">删除</text>
+        <text v-else-if="canReport" class="report-btn" @tap="onAuthorActions">···</text>
       </view>
 
       <!-- 正文 -->
@@ -49,20 +50,20 @@
           <text class="contact-value" @tap="copyContact">{{ post.contact_info }}</text>
         </view>
         <view class="meta">
-          <text>{{ post.view_count || 0 }} 浏览</text>
+          <text class="meta-item"><text class="meta-num">{{ post.view_count || 0 }}</text> 浏览</text>
           <text class="dot">·</text>
-          <text>{{ likeCount }} 赞</text>
+          <text class="meta-item"><text class="meta-num">{{ likeCount }}</text> 赞</text>
           <text class="dot">·</text>
-          <text>{{ post.comment_count || 0 }} 评论</text>
+          <text class="meta-item"><text class="meta-num">{{ post.comment_count || 0 }}</text> 评论</text>
         </view>
       </view>
 
       <!-- 互动条 -->
       <view class="action-bar">
-        <view class="act" :class="{ on: isLiked }" @tap="onLike">
+        <view class="act" :class="{ on: isLiked, 'on-like': isLiked }" @tap="onLike">
           <text class="act-icon">{{ isLiked ? '♥' : '♡' }}</text><text>赞 {{ likeCount }}</text>
         </view>
-        <view class="act" :class="{ on: isFav }" @tap="onFavorite">
+        <view class="act" :class="{ on: isFav, 'on-fav': isFav }" @tap="onFavorite">
           <text class="act-icon">{{ isFav ? '★' : '☆' }}</text><text>{{ isFav ? '已藏' : '收藏' }}</text>
         </view>
         <view class="act" @tap="focusComment">
@@ -77,7 +78,12 @@
       <view class="comments">
         <view class="comments-title">评论 {{ post.comment_count || 0 }}</view>
         <view v-if="comments.length === 0" class="empty-comment"><text>暂无评论，来抢沙发～</text></view>
-        <view v-for="c in comments" :key="c.id" class="comment">
+        <view
+          v-for="c in comments"
+          :key="c.id"
+          class="comment"
+          @tap="onCommentTap(c)"
+        >
           <image v-if="c.user.avatar_url" class="c-avatar" :src="c.user.avatar_url" mode="aspectFill" />
           <view v-else class="c-avatar" :style="{ background: colorOf(c.user.nickname) }">
             <text class="c-letter">{{ (c.user.nickname || '?').slice(0, 1) }}</text>
@@ -85,23 +91,42 @@
           <view class="c-main">
             <view class="c-top">
               <text class="c-name">{{ c.user.nickname }}</text>
-              <text v-if="c.user_id === currentUserId" class="c-del" @tap="onDeleteComment(c.id)">删除</text>
+              <view class="c-right-acts">
+                <text v-if="c.user_id === currentUserId" class="c-del" @tap.stop="onDeleteComment(c.id)">删除</text>
+                <text v-else class="c-reply-btn" @tap.stop="onCommentTap(c)">回复</text>
+              </view>
             </view>
             <text class="c-text">{{ c.content }}</text>
           </view>
         </view>
+
+        <!-- 评论分页加载 / 到底提示 -->
+        <view v-if="hasMoreComments" class="comment-load-more" @tap="loadMoreComments">
+          <text>{{ loadingComments ? '加载中...' : '点击加载更多评论 ›' }}</text>
+        </view>
+        <view v-else-if="comments.length > 0" class="comment-no-more">
+          <text>已显示全部评论</text>
+        </view>
       </view>
+
+      <!-- 底部安全留白占位，防 fixed 评论输入栏遮挡 -->
+      <view class="bottom-spacer" />
     </view>
 
     <view v-else class="state"><text>帖子不存在或已删除</text></view>
 
     <!-- 底部评论输入 -->
     <view v-if="post" class="comment-input-bar">
+      <view v-if="replyTarget" class="reply-target-tag">
+        <text class="reply-tip">回复 @{{ replyTarget.user.nickname }}</text>
+        <text class="reply-cancel" @tap="cancelReply">✕</text>
+      </view>
       <input
         ref="commentInput"
         v-model="commentText"
         class="comment-input"
-        placeholder="说点什么…"
+        :placeholder="replyTarget ? `回复 @${replyTarget.user.nickname}:` : '说点什么…'"
+        placeholder-style="color: var(--text-2);"
         :maxlength="500"
         confirm-type="send"
         @confirm="onSendComment"
@@ -115,11 +140,12 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { onReachBottom } from '@dcloudio/uni-app'
 import { useTheme } from '@/utils/theme'
 import type { PostDetail } from '@/types/api'
 import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
-import { getPostDetail, reportPost } from '@/api/posts'
+import { getPostDetail, reportPost, deletePost } from '@/api/posts'
 import {
   listComments,
   createComment,
@@ -133,6 +159,8 @@ import {
   type CommentItem,
 } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { friendlyNetworkError } from '@/utils/errors'
+import { blockUser } from '@/api/blocks'
 
 const { themeClass } = useTheme()
 
@@ -141,6 +169,10 @@ const contentSegments = computed(() => parseHashtags(post.value?.content || ''))
 const onTag = (tag: string) => uni.navigateTo({ url: `/pages/tag-posts/index?name=${encodeURIComponent(tag)}` })
 const loading = ref(true)
 const comments = ref<CommentItem[]>([])
+const commentCursor = ref<number | null>(null)
+const hasMoreComments = ref(false)
+const loadingComments = ref(false)
+const replyTarget = ref<CommentItem | null>(null)
 const commentText = ref('')
 const sending = ref(false)
 const commentInput = ref<any>(null)
@@ -152,7 +184,8 @@ const isFav = ref(false)
 const isFollowing = ref(false)
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[post.value?.post_type || ''] || '动态')
-const canReport = computed(() => tokenStorage.isLoggedIn())
+const isAuthor = computed(() => !!(post.value?.user_id && currentUserId.value && post.value.user_id === currentUserId.value))
+const canReport = computed(() => tokenStorage.isLoggedIn() && !isAuthor.value)
 const canFollow = computed(() => {
   if (!tokenStorage.isLoggedIn() || !post.value?.user_id) return false
   return post.value.user_id !== currentUserId.value
@@ -199,17 +232,52 @@ const onFollow = async () => {
     uni.showToast({ title: prev ? '已取消关注' : '关注成功', icon: 'none' })
   } catch (e) {
     isFollowing.value = prev
-    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+    uni.showToast({ title: friendlyNetworkError(e, '操作失败'), icon: 'none' })
   }
 }
 
-const loadComments = async () => {
+const loadComments = async (append = false) => {
   if (!post.value) return
+  loadingComments.value = true
   try {
-    const res = await listComments(post.value.id)
-    comments.value = res.items
+    const cur = append ? (commentCursor.value || undefined) : undefined
+    const res = await listComments(post.value.id, cur)
+    comments.value = append ? [...comments.value, ...res.items] : res.items
+    commentCursor.value = res.next_cursor
+    hasMoreComments.value = res.has_more
   } catch {
     /* 忽略 */
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+const loadMoreComments = () => {
+  if (!hasMoreComments.value || loadingComments.value) return
+  loadComments(true)
+}
+
+onReachBottom(() => {
+  if (hasMoreComments.value && !loadingComments.value) {
+    loadMoreComments()
+  }
+})
+
+const onCommentTap = (c: CommentItem) => {
+  if (c.user_id === currentUserId.value) {
+    onDeleteComment(c.id)
+    return
+  }
+  replyTarget.value = c
+  if (!commentText.value.startsWith(`@${c.user.nickname}`)) {
+    commentText.value = `@${c.user.nickname} `
+  }
+}
+
+const cancelReply = () => {
+  replyTarget.value = null
+  if (commentText.value.startsWith('@')) {
+    commentText.value = ''
   }
 }
 
@@ -245,7 +313,7 @@ const onLike = async () => {
   } catch (e) {
     isLiked.value = prev
     likeCount.value += prev ? 1 : -1
-    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+    uni.showToast({ title: friendlyNetworkError(e, '操作失败'), icon: 'none' })
   }
 }
 
@@ -258,11 +326,46 @@ const onFavorite = async () => {
     uni.showToast({ title: prev ? '已取消收藏' : '已收藏', icon: 'none' })
   } catch (e) {
     isFav.value = prev
-    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+    uni.showToast({ title: friendlyNetworkError(e, '操作失败'), icon: 'none' })
   }
 }
 
-const onShare = () => uni.showToast({ title: '转发（开发中）', icon: 'none' })
+const onShare = () => {
+  // #ifdef MP-WEIXIN
+  uni.showToast({ title: '点击右上角 ··· 即可分享到微信', icon: 'none' })
+  // #endif
+  // #ifdef H5
+  if (typeof window !== 'undefined') {
+    uni.setClipboardData({
+      data: window.location.href,
+      success: () => uni.showToast({ title: '链接已复制，可分享给好友', icon: 'success' }),
+    })
+  }
+  // #endif
+}
+
+const onDeletePost = () => {
+  if (!post.value) return
+  uni.showModal({
+    title: '删除帖子',
+    content: '确定要删除这条帖子吗？删除后将不再公开展示。',
+    confirmText: '删除',
+    confirmColor: '#f4212e',
+    success: async (res) => {
+      if (!res.confirm || !post.value) return
+      try {
+        await deletePost(post.value.id)
+        uni.showToast({ title: '已删除', icon: 'success' })
+        setTimeout(() => {
+          uni.navigateBack()
+        }, 600)
+      } catch (e) {
+        uni.showToast({ title: friendlyNetworkError(e, '删除失败'), icon: 'none' })
+      }
+    },
+  })
+}
+
 const focusComment = () => uni.pageScrollTo({ scrollTop: 99999, duration: 200 })
 
 const onSendComment = async () => {
@@ -274,16 +377,17 @@ const onSendComment = async () => {
   try {
     const created = await createComment(post.value.id, text)
     commentText.value = ''
+    replyTarget.value = null
     if (created.status === 0) {
       // 灰词转人工：审核通过后才公开
       uni.showToast({ title: '已提交，审核通过后可见', icon: 'none' })
     } else {
       if (post.value) post.value.comment_count = (post.value.comment_count || 0) + 1
-      await loadComments()
+      await loadComments(false)
       uni.showToast({ title: '评论成功', icon: 'success' })
     }
   } catch (e) {
-    uni.showToast({ title: (e as Error).message || '评论失败', icon: 'none' })
+    uni.showToast({ title: friendlyNetworkError(e, '评论失败'), icon: 'none' })
   } finally {
     sending.value = false
   }
@@ -298,9 +402,9 @@ const onDeleteComment = (id: number) => {
       try {
         await deleteComment(id)
         if (post.value) post.value.comment_count = Math.max(0, (post.value.comment_count || 0) - 1)
-        await loadComments()
+        await loadComments(false)
       } catch (e) {
-        uni.showToast({ title: (e as Error).message || '删除失败', icon: 'none' })
+        uni.showToast({ title: friendlyNetworkError(e, '删除失败'), icon: 'none' })
       }
     },
   })
@@ -308,6 +412,26 @@ const onDeleteComment = (id: number) => {
 
 const goAuthor = () => {
   if (post.value?.user_id) uni.navigateTo({ url: `/pages/profile/index?id=${post.value.user_id}` })
+}
+
+const onAuthorActions = () => {
+  if (!post.value || !requireLogin()) return
+  uni.showActionSheet({ itemList: ['举报帖子', '屏蔽作者'], success: ({ tapIndex }) => {
+    if (tapIndex === 0) return onReport()
+    const authorId = post.value?.user_id
+    if (!authorId) return
+    uni.showModal({ title: '屏蔽作者', content: '屏蔽后将隐藏彼此内容并限制互动，可在设置中解除。',
+      success: async (result) => {
+        if (!result.confirm) return
+        try {
+          await blockUser(authorId)
+          post.value = null
+          comments.value = []
+          uni.showToast({ title: '已屏蔽', icon: 'success' })
+          setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 500)
+        } catch (error) { uni.showToast({ title: friendlyNetworkError(error, '操作失败'), icon: 'none' }) }
+      } })
+  } })
 }
 
 const onReport = () => {
@@ -320,7 +444,7 @@ const onReport = () => {
         await reportPost(post.value!.id, reason)
         uni.showToast({ title: '举报成功', icon: 'success' })
       } catch (e) {
-        uni.showToast({ title: (e as Error).message || '举报失败', icon: 'none' })
+        uni.showToast({ title: friendlyNetworkError(e, '举报失败'), icon: 'none' })
       }
     },
   })
@@ -353,55 +477,459 @@ const copyContact = () => {
 </script>
 
 <style scoped>
-.page-detail { min-height: 100vh; background: var(--bg-page); padding-bottom: 140rpx; }
-.state { text-align: center; padding: 120rpx 0; color: var(--text-3); font-size: 26rpx; }
+.page-detail {
+  min-height: 100vh;
+  background: var(--bg-page);
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
 
-.body { background: var(--bg-card); margin: 0; }
-.author { display: flex; align-items: center; padding: 28rpx 24rpx; border-bottom: 1rpx solid var(--border-light); }
-.avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; }
-.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
-.author-meta { flex: 1; display: flex; flex-direction: column; }
-.nickname { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.name-row { display: flex; align-items: center; }
-.featured-chip { margin-left: 12rpx; font-size: 18rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 1rpx 10rpx; border-radius: var(--radius-tag); }
-.sub { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
-.report-btn { font-size: 24rpx; color: var(--text-3); border: 1rpx solid var(--border-light); padding: 8rpx 20rpx; border-radius: 24rpx; }
-.follow-btn { font-size: 24rpx; color: var(--text-inverse); background: var(--primary); padding: 8rpx 24rpx; border-radius: 24rpx; margin-right: 16rpx; }
-.follow-btn.on { background: var(--bg-card-2); color: var(--text-3); }
+.state {
+  text-align: center;
+  padding: 120rpx 0;
+  color: var(--text-3);
+  font-size: 26rpx;
+}
 
-.content { padding: 24rpx; }
-.content-text { font-size: 38rpx; color: var(--text-1); line-height: 1.45; white-space: pre-wrap; }
-.content-text .hashtag { color: var(--link); }
-.images { display: flex; flex-wrap: wrap; gap: 12rpx; margin: 20rpx 0; }
-.post-image { width: 220rpx; height: 220rpx; border-radius: 12rpx; background: var(--bg-card-2); }
-.post-image-single { width: 100%; border-radius: 12rpx; background: var(--bg-card-2); }
-.price { font-size: 40rpx; font-weight: bold; color: var(--primary); display: block; margin-top: 16rpx; }
-.contact { background: var(--bg-page); padding: 16rpx 20rpx; border-radius: 12rpx; margin-top: 20rpx; }
-.contact-label { font-size: 24rpx; color: var(--text-3); }
-.contact-value { font-size: 28rpx; color: var(--primary); margin-left: 8rpx; font-weight: 500; }
-.meta { display: flex; align-items: center; margin-top: 24rpx; font-size: 22rpx; color: var(--text-3); }
-.dot { margin: 0 12rpx; }
+.body {
+  background: var(--bg-card);
+  margin: 0;
+  overflow-x: hidden;
+}
 
-.action-bar { display: flex; border-top: 1rpx solid var(--border-light); border-bottom: 16rpx solid var(--bg-page); padding: 20rpx 24rpx; justify-content: space-around; }
-.act { display: flex; align-items: center; color: var(--text-2); font-size: 26rpx; }
-.act.on { color: var(--primary); }
-.act-icon { font-size: 34rpx; margin-right: 8rpx; }
+.author {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
 
-.comments { padding: 24rpx; }
-.comments-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); margin-bottom: 20rpx; }
-.empty-comment { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 40rpx 0; }
-.comment { display: flex; padding: 20rpx 0; border-bottom: 1rpx solid var(--border-light); }
-/* 评论者头像/昵称与楼主同规格（X 式层级：作者一致，正文小一号） */
-.c-avatar { width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.c-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
-.c-main { flex: 1; }
-.c-top { display: flex; align-items: center; justify-content: space-between; }
-.c-name { font-size: 30rpx; color: var(--text-1); font-weight: bold; }
-.c-del { font-size: 22rpx; color: var(--text-3); }
-.c-text { font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; display: block; line-height: 1.5; }
+.avatar {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
-.comment-input-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: var(--bg-card); border-top: 1rpx solid var(--border-light); padding: 16rpx 24rpx; padding-bottom: calc(16rpx + env(safe-area-inset-bottom)); z-index: 100; }
-.comment-input { flex: 1; height: 72rpx; background: var(--pill-bg); border-radius: var(--radius-btn); padding: 0 28rpx; font-size: 28rpx; }
-.send-btn { margin-left: 16rpx; background: var(--primary); color: var(--text-inverse); font-size: 28rpx; padding: 0 32rpx; height: 72rpx; line-height: 72rpx; border-radius: 36rpx; }
-.send-btn.disabled { opacity: 0.4; }
+.avatar-letter {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: var(--text-inverse);
+}
+
+.author-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.nickname {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.featured-chip {
+  margin-left: 12rpx;
+  font-size: 18rpx;
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  border: 1rpx solid var(--primary);
+  padding: 1rpx 10rpx;
+  border-radius: var(--radius-tag);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sub {
+  font-size: 24rpx;
+  color: var(--text-2);
+  margin-top: 6rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-btn {
+  font-size: 24rpx;
+  color: var(--text-3);
+  border: 1rpx solid var(--border-light);
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-btn);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.del-btn {
+  font-size: 24rpx;
+  color: var(--danger);
+  border: 1rpx solid var(--danger);
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-btn);
+  background: rgba(244, 33, 46, 0.08);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.follow-btn {
+  font-size: 24rpx;
+  color: var(--text-inverse);
+  background: var(--primary);
+  padding: 10rpx 24rpx;
+  border-radius: var(--radius-btn);
+  margin-right: 16rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.follow-btn.on {
+  background: var(--bg-card-2);
+  color: var(--text-2);
+  border: 1rpx solid var(--border-light);
+}
+
+.content {
+  padding: 28rpx;
+  overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.content-text {
+  font-size: 34rpx;
+  color: var(--text-1);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  display: block;
+}
+
+.content-text .hashtag {
+  color: var(--link);
+  margin: 0 4rpx;
+}
+
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin: 24rpx 0;
+}
+
+.post-image {
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: var(--radius-inner);
+  background: var(--bg-card-2);
+  border: 1rpx solid var(--border-light);
+  box-sizing: border-box;
+}
+
+.post-image-single {
+  width: 100%;
+  max-height: 800rpx;
+  border-radius: var(--radius-inner);
+  background: var(--bg-card-2);
+  border: 1rpx solid var(--border-light);
+  box-sizing: border-box;
+}
+
+.price {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: var(--primary);
+  display: block;
+  margin-top: 16rpx;
+}
+
+.contact {
+  background: var(--bg-page);
+  border: 1rpx solid var(--border-light);
+  padding: 16rpx 20rpx;
+  border-radius: var(--radius-inner);
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.contact-label {
+  font-size: 24rpx;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.contact-value {
+  font-size: 28rpx;
+  color: var(--primary);
+  margin-left: 8rpx;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: var(--text-2);
+}
+
+.meta-item {
+  color: var(--text-2);
+}
+
+.meta-num {
+  color: var(--text-1);
+  font-weight: 600;
+  margin-right: 4rpx;
+}
+
+.dot {
+  margin: 0 12rpx;
+  color: var(--text-3);
+}
+
+.action-bar {
+  display: flex;
+  border-top: 1rpx solid var(--border-light);
+  border-bottom: 16rpx solid var(--bg-page);
+  padding: 24rpx 28rpx;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.act {
+  display: flex;
+  align-items: center;
+  color: var(--text-1);
+  font-size: 26rpx;
+  font-weight: 500;
+  padding: 8rpx 16rpx;
+  border-radius: var(--radius-btn);
+}
+
+.act:active {
+  background-color: var(--hover-fill);
+}
+
+.act.on {
+  color: var(--primary);
+}
+
+.act.on-like {
+  color: var(--like);
+}
+
+.act.on-fav {
+  color: var(--warning);
+}
+
+.act-icon {
+  font-size: 34rpx;
+  margin-right: 8rpx;
+  line-height: 1;
+  color: var(--text-2);
+}
+
+.act.on .act-icon,
+.act.on-like .act-icon,
+.act.on-fav .act-icon {
+  color: inherit;
+}
+
+.comments {
+  padding: 28rpx;
+}
+
+.comments-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: var(--text-1);
+  margin-bottom: 24rpx;
+}
+
+.empty-comment {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 26rpx;
+  padding: 60rpx 0;
+}
+
+.comment {
+  display: flex;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.c-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.c-letter {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: var(--text-inverse);
+}
+
+.c-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.c-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.c-name {
+  font-size: 28rpx;
+  color: var(--text-1);
+  font-weight: bold;
+}
+
+.c-right-acts {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.c-del {
+  font-size: 22rpx;
+  color: var(--text-2);
+  padding: 4rpx 8rpx;
+  font-weight: 500;
+}
+
+.c-reply-btn {
+  font-size: 22rpx;
+  color: var(--primary);
+  padding: 4rpx 8rpx;
+}
+
+.c-text {
+  font-size: 28rpx;
+  color: var(--text-1);
+  margin-top: 8rpx;
+  display: block;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.comment-load-more {
+  text-align: center;
+  padding: 28rpx 0;
+  color: var(--primary);
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.comment-no-more {
+  text-align: center;
+  padding: 28rpx 0;
+  color: var(--text-2);
+  font-size: 24rpx;
+}
+
+.bottom-spacer {
+  height: calc(140rpx + env(safe-area-inset-bottom));
+}
+
+.comment-input-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border-top: 1rpx solid var(--border-light);
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.reply-target-tag {
+  position: absolute;
+  top: -52rpx;
+  left: 24rpx;
+  background: var(--primary-soft);
+  border: 1rpx solid var(--border-primary-soft);
+  border-radius: var(--radius-btn);
+  padding: 6rpx 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.reply-tip {
+  font-size: 22rpx;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.reply-cancel {
+  font-size: 20rpx;
+  color: var(--text-2);
+  padding: 4rpx;
+}
+
+.comment-input {
+  flex: 1;
+  height: 72rpx;
+  background: var(--pill-bg);
+  border: 1rpx solid var(--border-light);
+  border-radius: var(--radius-btn);
+  padding: 0 28rpx;
+  font-size: 28rpx;
+  color: var(--text-1);
+  box-sizing: border-box;
+}
+
+.comment-input::placeholder {
+  color: var(--text-2);
+}
+
+.send-btn {
+  margin-left: 16rpx;
+  background: var(--primary);
+  color: var(--text-inverse);
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 0 32rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: var(--radius-btn);
+  white-space: nowrap;
+}
+
+.send-btn.disabled {
+  opacity: 0.4;
+}
 </style>

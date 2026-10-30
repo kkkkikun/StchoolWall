@@ -53,6 +53,7 @@ export const AD_BANNERS: AdBanner[] = [
   {
     id: 1,
     emoji: '🎓',
+    icon: '/static/icons/banner/grad.svg',
     title: '毕业季 · 鄂应专属',
     desc: '留下你的校园回忆，赢毕业礼包',
     tag: '活动',
@@ -61,6 +62,7 @@ export const AD_BANNERS: AdBanner[] = [
   {
     id: 2,
     emoji: '🎉',
+    icon: '/static/icons/banner/guide.svg',
     title: '迎新季 · 新生攻略',
     desc: '一键获取校园生存指南',
     tag: '热门',
@@ -69,6 +71,7 @@ export const AD_BANNERS: AdBanner[] = [
   {
     id: 3,
     emoji: '🛒',
+    icon: '/static/icons/banner/market.svg',
     title: '跳蚤集市 · 闲置流转',
     desc: '毕业季二手好物，低价淘',
     tag: '集市',
@@ -77,6 +80,7 @@ export const AD_BANNERS: AdBanner[] = [
   {
     id: 4,
     emoji: '📝',
+    icon: '/static/icons/banner/book.svg',
     title: '期末互助 · 真题共享',
     desc: '组队复习，资料一键互传',
     tag: '学习',

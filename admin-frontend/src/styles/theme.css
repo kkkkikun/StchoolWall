@@ -14,6 +14,18 @@
   --el-color-primary-light-9: #e8f4fd;
   --el-color-primary-dark-2: #1a8cd8;
   --el-border-radius-base: 8px;
+  --el-text-color-placeholder: #536471;
+
+  /* —— Element Plus 语义色换成 X 色系的「文字安全」版本 ——
+     默认 success #67c23a / warning #e6a23c / danger #f56c6c / info #909399
+     在白底上只有 2.0~3.1:1，标签与按钮文字看不清；这里保持色相、压深一档，
+     正文/标签达到 WCAG AA(>=4.5:1)，白字填充同样达标。 */
+  --el-color-success: #007a4d;
+  --el-color-warning: #a85b00;
+  --el-color-danger: #c93a3a;
+  --el-color-error: #c93a3a;
+  --el-color-info: #536471;
+  --el-text-color-secondary: #536471;
 
   /* —— 布局层令牌 —— */
   --app-bg: #ffffff;
@@ -62,7 +74,7 @@ html.dark {
   --el-text-color-primary: #e7e9ea;
   --el-text-color-regular: #e7e9ea;
   --el-text-color-secondary: #71767b;
-  --el-text-color-placeholder: #4c4f52;
+  --el-text-color-placeholder: #8b98a5;
   --el-text-color-disabled: #4c4f52;
   --el-border-color: #536471;
   --el-border-color-light: #3e4144;
@@ -114,3 +126,24 @@ html.dark .el-table {
 /* —— 弹窗：圆角统一 —— */
 .el-dialog { border-radius: var(--app-card-radius); }
 .el-message-box { border-radius: 16px; }
+
+/* —— 输入框占位文字高对比度保证（WCAG AA >= 4.5:1） —— */
+::placeholder,
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: var(--el-text-color-placeholder) !important;
+  opacity: 1;
+}
+
+/* —— 键盘聚焦可访问性 —— */
+:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--el-color-primary) !important;
+}
+.el-button:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}

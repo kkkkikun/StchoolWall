@@ -3,32 +3,38 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 const TOKEN_KEY = 'sw_admin_token'
+let accessToken = ''
+localStorage.removeItem(TOKEN_KEY)
+const csrf = () => document.cookie.split('; ').find(v => v.startsWith('sw_admin_csrf='))?.split('=')[1] || ''
 
 // 管理台可能部署在 /admin/ 子路径：401 跳登录需带 base，否则生产环境会 404
-const LOGIN_PATH = import.meta.env.BASE_URL.endsWith('/')
-  ? `${import.meta.env.BASE_URL}login`
-  : `${import.meta.env.BASE_URL}/login`
+const base = import.meta.env?.BASE_URL || '/'
+const LOGIN_PATH = base.endsWith('/') ? `${base}login` : `${base}/login`
 
 export function getToken(): string {
-  return localStorage.getItem(TOKEN_KEY) || ''
+  return accessToken || (csrf() ? '__cookie_session__' : '')
 }
 
 export function setToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token)
+  accessToken = token
 }
 
 export function clearToken() {
+  accessToken = ''
   localStorage.removeItem(TOKEN_KEY)
+  document.cookie = 'sw_admin_csrf=; Max-Age=0; Path=/'
 }
 
 const request = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
+  withCredentials: true,
 })
 
 request.interceptors.request.use((config) => {
   const token = getToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token && token !== '__cookie_session__') config.headers.Authorization = `Bearer ${token}`
+  if (csrf()) config.headers['X-CSRF-Token'] = csrf()
   return config
 })
 

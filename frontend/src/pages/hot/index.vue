@@ -1,14 +1,6 @@
 <template>
   <view class="page-hot" :class="themeClass">
-    <!-- 1. 头部（与首页/互动页同款粉色沉浸头） -->
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">十大热帖</text>
-        <view class="header-right" />
-      </view>
-    </view>
+    <CustomNavBar show-back title="十大热帖" />
 
     <!-- 2. 规则说明条 -->
     <view class="intro-bar">
@@ -50,12 +42,11 @@
 import { ref } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getHotPosts } from '@/api/posts'
 import type { PostBrief } from '@/types/api'
 
 const { themeClass } = useTheme()
-
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 
 interface HotRow {
   id: number
@@ -74,13 +65,20 @@ const loading = ref(true)
 const TITLE_MAX = 40 // 二级页行宽更大，截断上限比首页(30)宽
 const HOT_TAG_MIN = 3
 
+const fmtCount = (n?: number): string => {
+  const v = n || 0
+  if (v < 10000) return String(v)
+  const w = v / 10000
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, '')}万`
+}
+
 const load = async () => {
   loading.value = true
   try {
     const list: PostBrief[] = await getHotPosts(10)
     items.value = list.map((p, i) => {
       const firstLine =
-        (p.content || '').split('\n').find((s) => s.trim()) || '（无文字）'
+        (p.content || '').split('\n').find((s: string) => s.trim()) || '（无文字）'
       return {
         id: p.id,
         rank: i + 1,
@@ -93,7 +91,7 @@ const load = async () => {
           (p.comment_count || 0) >= HOT_TAG_MIN,
         likes: p.like_count || 0,
         comments: p.comment_count || 0,
-        reads: `${p.view_count || 0} 浏览`,
+        reads: `${fmtCount(p.view_count)} 浏览`,
       }
     })
   } catch {
@@ -117,13 +115,6 @@ const goBack = () =>
   min-height: 100vh;
   background: var(--bg-page);
 }
-
-/* 头部：粉色沉浸式，与首页/互动页统一 */
-.header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-1); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: var(--text-1); }
-.header-right { width: 100rpx; }
 
 .intro-bar { padding: 20rpx 32rpx 4rpx; }
 .intro-text { font-size: 22rpx; color: var(--text-3); }

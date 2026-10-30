@@ -44,13 +44,13 @@
     <view class="form-card">
       <view class="field">
         <text class="label">真实姓名</text>
-        <text class="readonly">{{ form.real_name || '未认证' }}</text>
+        <text class="readonly">为保护隐私不保留姓名</text>
       </view>
       <view class="field">
         <text class="label">学号</text>
-        <text class="readonly">{{ form.student_id || '未认证' }}</text>
+        <text class="readonly">仅保留不可逆身份指纹</text>
       </view>
-      <text class="ro-tip">认证信息由学籍认证产生，如需修改请重新认证或联系管理员</text>
+      <text class="ro-tip">学生证经人工核验，认证状态以服务器为准；如需申诉请联系支持</text>
     </view>
 
     <!-- 保存 -->
@@ -64,7 +64,7 @@
 import { ref } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
-import { get, put, uploadFile } from '@/utils/request'
+import { get, put, uploadMedia } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
 
 const { themeClass } = useTheme()
@@ -126,13 +126,11 @@ const changeImage = (kind: 'avatars' | 'banners') => {
       if (!filePath) return
       uni.showLoading({ title: '上传中…' })
       try {
-        const url = await uploadFile(filePath, kind)
-        const field = kind === 'avatars' ? 'avatar_url' : 'banner_url'
-        await put('/user/profile', { [field]: url })
-        if (kind === 'avatars') form.value.avatar_url = url
-        else form.value.banner_url = url
+        const media = await uploadMedia(filePath, kind)
+        const field = kind === 'avatars' ? 'avatar_media_id' : 'banner_media_id'
+        await put('/user/profile', { [field]: media.media_id })
         uni.hideLoading()
-        uni.showToast({ title: '已更新', icon: 'success' })
+        uni.showToast({ title: '图片已提交审核', icon: 'none' })
       } catch (e) {
         uni.hideLoading()
         uni.showToast({ title: (e as Error).message || '更换失败', icon: 'none' })
@@ -226,7 +224,7 @@ const onSave = async () => {
 .label { display: block; font-size: 24rpx; color: var(--text-3); margin-bottom: 12rpx; }
 .input { font-size: 28rpx; color: var(--text-1); }
 .textarea { font-size: 28rpx; color: var(--text-1); width: 100%; min-height: 100rpx; line-height: 1.6; }
-.ph { color: var(--text-4); }
+.ph { color: var(--text-placeholder); }
 .counter { position: absolute; right: 0; bottom: 26rpx; font-size: 20rpx; color: var(--text-3); }
 .readonly { font-size: 28rpx; color: var(--text-2); }
 .ro-tip { display: block; font-size: 20rpx; color: var(--text-3); padding: 16rpx 0 8rpx; line-height: 1.6; }

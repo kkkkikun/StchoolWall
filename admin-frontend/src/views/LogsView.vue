@@ -11,7 +11,7 @@
                         start-placeholder="开始" end-placeholder="结束" style="width: 340px" />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="load(true)">查询</el-button>
+        <el-button type="primary" @click="load(1)">查询</el-button>
       </el-form-item>
     </el-form>
 
@@ -45,8 +45,15 @@
       </el-table-column>
     </el-table>
 
-    <div class="load-more-row" v-if="hasMore">
-      <el-button @click="loadMore" :loading="loading">加载更多</el-button>
+    <div class="pagination-bar" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @change="() => load()"
+      />
     </div>
   </el-card>
 </template>
@@ -93,39 +100,40 @@ const actionLabel = (action: string) => ACTIONS.find(a => a.value === action)?.l
 const filters = reactive<{ action?: string }>({})
 const range = ref<[string, string] | null>(null)
 const items = ref<AdminLogItem[]>([])
-const cursor = ref<number | null>(null)
-const hasMore = ref(false)
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
 const loading = ref(false)
 
 const fmtTime = (t: string) => (t ? t.slice(0, 19).replace('T', ' ') : '')
 
-const load = async (reset = false) => {
+const load = async (targetPage?: number) => {
+  if (targetPage) page.value = targetPage
   loading.value = true
   try {
-    const params: Record<string, unknown> = {}
+    const params: Record<string, unknown> = {
+      page: page.value,
+      page_size: pageSize.value,
+    }
     if (filters.action) params.action = filters.action
     if (range.value) {
       params.time_start = range.value[0]
       params.time_end = range.value[1]
     }
-    if (!reset && cursor.value) params.cursor = cursor.value
     const data = await getLogs(params)
-    items.value = reset ? data.items : [...items.value, ...data.items]
-    cursor.value = data.next_cursor
-    hasMore.value = data.has_more
+    items.value = data.items
+    total.value = data.total ?? data.items.length
   } catch { /* 拦截器已提示 */ } finally {
     loading.value = false
   }
 }
 
-const loadMore = () => load(false)
-
-onMounted(() => load(true))
+onMounted(() => load(1))
 </script>
 
 <style scoped>
 .src-chip { margin-left: 6px; }
 .muted { color: var(--el-text-color-placeholder); }
 .detail-code { font-size: 12px; color: var(--el-text-color-secondary); word-break: break-all; }
-.load-more-row { margin-top: 16px; text-align: center; }
+.pagination-bar { margin-top: 20px; display: flex; justify-content: flex-end; }
 </style>

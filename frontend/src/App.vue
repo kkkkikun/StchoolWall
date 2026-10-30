@@ -46,6 +46,7 @@ page {
   --text-2: #536471;             /* 次级：X 灰蓝 */
   --text-3: #536471;             /* 辅助/时间 */
   --text-4: #8b98a5;             /* 占位/禁用 */
+  --text-placeholder: #5f6b78;   /* 输入占位：在白底与 #eff3f4 灰底上均达 WCAG AA */
   --text-inverse: #ffffff;       /* 品牌色/深底上的文字 */
 
   /* —— 边框（X Light 分隔线） —— */
@@ -88,7 +89,7 @@ page {
 
   background-color: var(--bg-page);
   color: var(--text-1);
-  font-family: -apple-system, "Segoe UI", Roboto, "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Helvetica Neue", Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
   font-size: 28rpx;
 }
 
@@ -96,6 +97,8 @@ page {
    各页面根节点绑定 .theme-dark 后，整套令牌随子树切换。 */
 .theme-dark {
   --primary-soft: rgba(29, 155, 240, 0.14);
+  /* 子树文字色：page{} 继承的是亮色近黑字，暗底上会看不见，必须随主题覆写 */
+  color: var(--text-1);
 
   --bg-page: #000000;            /* 纯黑 */
   --bg-group: #000000;
@@ -105,9 +108,10 @@ page {
   --bg-disabled: #2f3336;
 
   --text-1: #e7e9ea;             /* X 近白 */
-  --text-2: #71767b;             /* X meta 灰 */
-  --text-3: #71767b;
-  --text-4: #4c4f52;
+  --text-2: #8b98a5;             /* X meta 浅灰（高对比） */
+  --text-3: #71767b;             /* X 辅助灰 */
+  --text-4: #71767b;             /* 占位/禁用 */
+  --text-placeholder: #8b98a5;   /* 输入占位：深底上保持可读 */
 
   --border-light: #2f3336;       /* X 分隔线灰 */
   --border-strong: #536471;      /* 控件描边 */
@@ -146,6 +150,17 @@ page {
 
 /* 全局 image 去除默认间隙 */
 image { display: block; }
+
+/* ===== 输入占位统一走令牌 =====
+   uni 默认占位色是 #808080（浅底 3.95:1 / 深底 3.99:1，均不达 AA），
+   这里统一换成 --text-placeholder；小程序端通过 placeholder-class="ph" 生效。 */
+.uni-input-placeholder,
+.uni-textarea-placeholder {
+  color: var(--text-placeholder);
+}
+.ph {
+  color: var(--text-placeholder);
+}
 
 /* H5：夜间同步 <html> 底色，滚动溢出区域不露白 */
 /* #ifdef H5 */

@@ -11,8 +11,8 @@ export const useAuthStore = defineStore('auth', () => {
   const adminId = ref(localStorage.getItem('sw_admin_id') || '')
   const isAdmin = computed(() => loggedIn.value)
 
-  async function login(username: string, password: string) {
-    const data = await authApi.login(username, password)
+  async function login(username: string, password: string, totpCode?: string) {
+    const data = await authApi.login(username, password, totpCode)
     setToken(data.access_token) // 不落 token 守卫会弹回登录页
     loggedIn.value = true
     adminName.value = data.admin.nickname
@@ -24,7 +24,10 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  function logout() {
+  async function logout() {
+    if (getToken()) {
+      try { await authApi.logout() } catch { /* local session is cleared even if the server is unreachable */ }
+    }
     clearToken()
     loggedIn.value = false
     adminName.value = ''
@@ -46,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('sw_admin_id', me.id)
     } catch {
       // token 失效：清空并回登录页
-      logout()
+      await logout()
     }
   }
 

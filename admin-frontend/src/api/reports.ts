@@ -5,7 +5,12 @@ export interface AdminReport {
   id: number
   post_id: number
   post_content: string
+  post_full_content?: string
+  post_images?: string[]
+  post_type?: string
+  post_category?: string | null
   post_status: number
+  author?: { id: string; nickname: string }
   reporter: { id: string; nickname: string }
   reason: string
   description: string | null
@@ -14,9 +19,14 @@ export interface AdminReport {
 }
 
 export function getReports(params: Record<string, unknown>) {
-  return request.get<any, { items: AdminReport[]; next_cursor: number | null; has_more: boolean }>(
-    '/admin/reports', { params },
-  )
+  return request.get<any, {
+    items: AdminReport[]
+    next_cursor: number | null
+    has_more: boolean
+    total?: number
+    page?: number
+    page_size?: number
+  }>('/admin/reports', { params })
 }
 
 export function handleReport(id: number, action: 'dismiss' | 'ban_post' | 'ban_user') {

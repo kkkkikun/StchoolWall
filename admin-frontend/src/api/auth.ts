@@ -6,8 +6,8 @@ export interface LoginResult {
   admin: { id: string; username: string; nickname: string }
 }
 
-export function login(username: string, password: string) {
-  return request.post<any, LoginResult>('/admin/auth/login', { username, password })
+export function login(username: string, password: string, totpCode?: string) {
+  return request.post<any, LoginResult>('/admin/auth/login', { username, password, totp_code: totpCode || undefined })
 }
 
 export function changePassword(oldPassword: string, newPassword: string) {
@@ -27,3 +27,5 @@ export interface MeResult {
 export function me() {
   return request.get<any, MeResult>('/admin/auth/me')
 }
+
+export function logout() { return request.post('/admin/auth/logout') }

@@ -22,23 +22,23 @@
       <!-- 标题 -->
       <view class="form-item">
         <text class="label">标题</text>
-        <input class="input" v-model="form.title" placeholder="一句话说明（如：今晚图书馆自习）" :maxlength="60" />
+        <input class="input" v-model="form.title" placeholder="一句话说明（如：今晚图书馆自习）" :maxlength="60" placeholder-class="ph" />
       </view>
 
       <!-- 详情 -->
       <view class="form-item">
         <text class="label">详情</text>
-        <textarea class="textarea" v-model="form.content" placeholder="时间/地点/要求等详细说明" :maxlength="500" />
+        <textarea class="textarea" v-model="form.content" placeholder="时间/地点/要求等详细说明" :maxlength="500" placeholder-class="ph" />
       </view>
 
       <!-- 人数 + 地点 -->
       <view class="form-item">
         <text class="label">名额</text>
-        <input class="input num" type="number" v-model="form.total" placeholder="4" />
+        <input class="input num" type="number" v-model="form.total" placeholder="4" placeholder-class="ph" />
       </view>
       <view class="form-item">
         <text class="label">地点（选填）</text>
-        <input class="input" v-model="form.location" placeholder="如：东校区图书馆" :maxlength="50" />
+        <input class="input" v-model="form.location" placeholder="如：东校区图书馆" :maxlength="50" placeholder-class="ph" />
       </view>
     </view>
 

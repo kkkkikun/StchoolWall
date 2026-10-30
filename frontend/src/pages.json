@@ -147,6 +147,18 @@
 			"style": {
 				"navigationBarTitleText": "我的帖子"
 			}
+		},
+		{
+			"path": "pages/appeals/index",
+			"style": {
+				"navigationBarTitleText": "申诉与记录"
+			}
+		},
+		{
+			"path": "pages/blocks/index",
+			"style": {
+				"navigationBarTitleText": "屏蔽的用户"
+			}
 		}
 	],
 	"globalStyle": {

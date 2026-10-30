@@ -76,6 +76,30 @@ TBD - created by archiving change frontend-redesign. Update Purpose after archiv
 - **WHEN** 进入我的页
 - **THEN** 头像、昵称、学校胶囊、4 列统计数字、两组菜单卡片均从 mock 渲染，菜单区以负 margin 上浮覆盖红头
 
+### Requirement: 账号登录/注册独立页
+
+前端 MUST 提供独立账号页 `pages/auth/index` 承载登录、注册与找回密码三种模式，取代原「我的」页内的登录弹窗。
+
+#### Scenario: 进入账号页
+
+- **WHEN** 未登录用户在「我的」页点击「登录 / 注册」
+- **THEN** 跳转独立账号页 `pages/auth/index`，页面自带返回入口；宽屏（桌面 H5）下表单最大宽度 480px 居中，不拉满整屏
+
+#### Scenario: 三模式切换
+
+- **WHEN** 用户在账号页切换「登录 / 注册」标签或点击「忘记密码」
+- **THEN** 分别进入登录、注册、找回密码模式，主按钮文案与输入项随之变化（登录 2 项、注册 2 项、找回 3 项含找回码）；请求在途期间模式切换被锁定
+
+#### Scenario: 提交防重复与错误就地提示
+
+- **WHEN** 用户提交账号表单
+- **THEN** 请求在途期间忽略重复点击并置 saving 视觉态；输入校验失败、接口错误与网络异常都以页内就地提示呈现，不弹 toast 打断输入；登录成功后退回来源页
+
+#### Scenario: 会话响应契约校验
+
+- **WHEN** 登录/注册接口返回缺少 `access_token` / `role` / `user_info` 或 `role` 越界的响应
+- **THEN** 不落地会话、不写入用户信息，展示「登录响应异常，请稍后重试」
+
 ### Requirement: Mock 数据独立预览
 
 前端 MUST 在无后端的情况下独立预览，所有页面数据来自本地 mock。

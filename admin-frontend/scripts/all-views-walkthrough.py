@@ -184,10 +184,11 @@ def handle_api(route):
             'password_version': 1,
         })))
     elif '/admin/stats/trends' in url:
+        # 契约：{days: number, series: TrendPoint[]}（不是 {days: [...]}）
         days = [{'date': f'2026-10-{d:02d}', 'posts': d, 'comments': d * 2,
                  'likes': d * 3, 'new_users': d, 'active_users': d * 4} for d in range(1, 15)]
         route.fulfill(status=200, content_type='application/json',
-                      body=json.dumps(ok({'days': days, 'distribution': {'general': 5, 'second_hand': 3}})))
+                      body=json.dumps(ok({'days': 14, 'series': days})))
     elif '/admin/stats' in url:
         route.fulfill(status=200, content_type='application/json', body=json.dumps(ok({
             'pending_posts': 3, 'pending_reports': 2, 'posts_today': 12,
@@ -268,6 +269,7 @@ report = {
 console_errors: list[str] = []
 page_errors: list[str] = []
 brand_counts: dict[str, int] = {}
+charts: dict[str, int] = {}
 
 
 def check(cond, msg):
@@ -363,6 +365,22 @@ def measure(page):
     }''')
 
 
+def canvas_ink(page):
+    """统计 ECharts 画布上真正画出来的像素数：空图（只有轴线/图例）必须被发现。"""
+    return page.evaluate('''() => {
+        let ink = 0;
+        for (const c of document.querySelectorAll('canvas')) {
+            const ctx = c.getContext('2d');
+            if (!ctx || !c.width || !c.height) continue;
+            const data = ctx.getImageData(0, 0, c.width, c.height).data;
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] > 0) ink += 1;
+            }
+        }
+        return ink;
+    }''')
+
+
 def visit(page, name, route, mode):
     label = f'{name}[{mode}]'
     try:
@@ -376,6 +394,13 @@ def visit(page, name, route, mode):
         check(not m['clipped'], f'可见文字被裁切：{m["clipped"]}')
         check(not m['lowContrast'], f'文字对比度不足（WCAG AA）：{m["lowContrast"]}')
         brand_counts[mode] = brand_counts.get(mode, 0) + len(m['brandLowContrast'])
+        # 有 canvas 的页面（图表面板）必须真的画出像素，不能是空画布。
+        # 实测：空图（仅坐标轴/图例）桌面 2297 / 窄屏 1634 像素；
+        #       正常数据 桌面 22795 / 窄屏 10219 像素，阈值取 5000 留足余量。
+        if page.locator('canvas').count() > 0:
+            ink = canvas_ink(page)
+            check(ink > 5000, f'图表画布空白：仅有 {ink} 个非透明像素（疑似接口结构不匹配导致空图）')
+            charts[mode] = charts.get(mode, 0) + ink
         shot = f'all-views-{name}-{mode}.png'
         page.screenshot(path=os.path.join(ARTIFACTS_DIR, shot))
         report['screenshots'].append(shot)
@@ -420,6 +445,8 @@ with sync_playwright() as p:
     browser.close()
 
 ctx_errors = [e for e in console_errors if 'favicon' not in e.lower()]
+report['brand_color_contrast_notes'] = brand_counts
+report['chart_canvas_ink_pixels'] = charts
 report['console_errors'] = ctx_errors
 report['page_errors'] = page_errors
 report['unhandled_rejections'] = page_errors

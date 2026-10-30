@@ -85,7 +85,11 @@
         </el-table-column>
         <el-table-column label="互动" width="130">
           <template #default="{ row }">
-            <span class="stats-text">👍{{ row.like_count }} 💬{{ row.comment_count }} 👁{{ row.view_count }}</span>
+            <span class="stats-text">
+              <span class="stat"><el-icon><Pointer /></el-icon>{{ row.like_count }}</span>
+              <span class="stat"><el-icon><ChatDotRound /></el-icon>{{ row.comment_count }}</span>
+              <span class="stat"><el-icon><View /></el-icon>{{ row.view_count }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="发布时间" width="150">
@@ -122,7 +126,11 @@
         </el-table-column>
         <el-table-column label="互动" width="150">
           <template #default="{ row }">
-            <span class="stats-text">👍{{ row.like_count }} 💬{{ row.comment_count }} 👁{{ row.view_count }}</span>
+            <span class="stats-text">
+              <span class="stat"><el-icon><Pointer /></el-icon>{{ row.like_count }}</span>
+              <span class="stat"><el-icon><ChatDotRound /></el-icon>{{ row.comment_count }}</span>
+              <span class="stat"><el-icon><View /></el-icon>{{ row.view_count }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="100">
@@ -157,6 +165,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Pointer, ChatDotRound, View } from '@element-plus/icons-vue'
 import { getPosts, updatePostStatus, pinPost, featurePost, getFeatureCandidates, editPost, batchPostStatus, exportPosts, type AdminPost } from '@/api/posts'
 
 import { useRoute } from 'vue-router'
@@ -335,7 +344,8 @@ onMounted(() => {
   padding: 0 6px; border-radius: 4px; margin-top: 2px;
 }
 .content-text { color: var(--el-text-color-primary); }
-.stats-text { font-size: 12px; color: var(--el-text-color-secondary); }
+.stats-text { font-size: 12px; color: var(--el-text-color-secondary); display: inline-flex; align-items: center; gap: 12px; }
+.stat { display: inline-flex; align-items: center; gap: 4px; }
 .pager { margin-top: 16px; justify-content: flex-end; }
 
 /* 窄屏适配：固定像素宽的弹窗在 ≤560px 视口下会溢出，统一限宽 */

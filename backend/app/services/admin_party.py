@@ -7,7 +7,7 @@ from app.models.party import Party, PartyMember
 from app.models.user import User
 
 # admin 允许的组局状态流转：招募中/已满 → 关闭；关闭 → 恢复
-PARTY_STATUS_TRANSITIONS = {1: {-1}, 2: {-1}, -1: {1}}
+PARTY_STATUS_TRANSITIONS = {0: {1, -1}, 1: {-1}, 2: {-1}, -1: {1}}
 
 
 def _party_to_dict(p: Party, nick: str) -> dict:
@@ -65,15 +65,15 @@ async def list_parties_admin(
 
 async def admin_update_party_status(db: AsyncSession, party_id: int, new_status: int) -> Party | None | str:
     """组局状态流转；非法流转返回 'invalid'，不存在返回 None。"""
-    result = await db.execute(select(Party).where(Party.id == party_id))
+    result = await db.execute(select(Party).where(Party.id == party_id).with_for_update())
     party = result.scalar_one_or_none()
     if not party:
         return None
     allowed = PARTY_STATUS_TRANSITIONS.get(party.status, set())
     if new_status not in allowed:
         return "invalid"
-    party.status = new_status
-    await db.commit()
+    party.status = 2 if new_status == 1 and party.joined_count >= party.total else new_status
+    await db.flush()
     await db.refresh(party)
     return party
 
@@ -86,7 +86,7 @@ async def list_party_members_admin(
     page_size: int = 100,
 ) -> tuple[list[dict] | None, int]:
     """组局报名明细（仅 admin）。组局不存在返回 (None, 0)。"""
-    party = (await db.execute(select(Party).where(Party.id == party_id))).scalar_one_or_none()
+    party = await db.get(Party, party_id)
     if party is None:
         return None, 0
 

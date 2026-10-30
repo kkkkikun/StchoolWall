@@ -1,4 +1,5 @@
 from sqlalchemy import select, func, and_, text
+from sqlalchemy.orm import aliased
 from app.utils.query import escape_like
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,6 +8,8 @@ from app.models.post import Post
 from app.models.report import Report
 from app.models.user import User
 from app.services.notification import create_system_notification
+from app.services.media import entity_media, publish_entity_media, reject_entity_media
+from app.services.sessions import revoke_user_sessions
 
 
 async def list_reports(
@@ -14,17 +17,63 @@ async def list_reports(
     status: str | None = None,
     cursor: int | None = None,
     limit: int = 20,
-) -> tuple[list[dict], int | None, bool]:
+    *,
+    page: int | None = None,
+    page_size: int = 20,
+):
     conditions = []
     if status:
         conditions.append(Report.status == status)
+
+    AuthorUser = aliased(User)
+
+    def _row_to_dict(report, post, reporter, author_nick):
+        return {
+            "id": report.id,
+            "post_id": report.post_id,
+            "post_content": post.content[:100],
+            "post_full_content": post.content,
+            "post_images": post.images or [],
+            "post_type": post.post_type,
+            "post_category": post.category,
+            "post_status": post.status,
+            "author": {"id": str(post.user_id), "nickname": author_nick or "未知用户"},
+            "reporter": {"id": str(reporter.id), "nickname": reporter.nickname},
+            "reason": report.reason,
+            "description": report.description,
+            "status": report.status,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+        }
+
+    if page is not None:
+        total = await db.scalar(
+            select(func.count()).select_from(Report)
+            .join(Post, Report.post_id == Post.id)
+            .join(User, Report.reporter_id == User.id)
+            .where(*conditions)
+        ) or 0
+        stmt = (
+            select(Report, Post, User, AuthorUser.nickname)
+            .join(Post, Report.post_id == Post.id)
+            .join(User, Report.reporter_id == User.id)
+            .outerjoin(AuthorUser, Post.user_id == AuthorUser.id)
+            .where(*conditions)
+            .order_by(Report.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        rows = (await db.execute(stmt)).all()
+        items = [_row_to_dict(r, p, u, nick) for r, p, u, nick in rows]
+        return items, None, False, total
+
     if cursor:
         conditions.append(Report.id < cursor)
 
     stmt = (
-        select(Report, Post, User)
+        select(Report, Post, User, AuthorUser.nickname)
         .join(Post, Report.post_id == Post.id)
         .join(User, Report.reporter_id == User.id)
+        .outerjoin(AuthorUser, Post.user_id == AuthorUser.id)
         .where(*conditions)
         .order_by(Report.created_at.desc())
         .limit(limit + 1)
@@ -34,21 +83,7 @@ async def list_reports(
 
     has_more = len(rows) > limit
     rows = rows[:limit]
-
-    items = []
-    for report, post, reporter in rows:
-        items.append({
-            "id": report.id,
-            "post_id": report.post_id,
-            "post_content": post.content[:100],
-            "post_status": post.status,
-            "reporter": {"id": str(reporter.id), "nickname": reporter.nickname},
-            "reason": report.reason,
-            "description": report.description,
-            "status": report.status,
-            "created_at": report.created_at.isoformat() if report.created_at else None,
-        })
-
+    items = [_row_to_dict(r, p, u, nick) for r, p, u, nick in rows]
     next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
@@ -56,7 +91,7 @@ async def list_reports(
 async def handle_report(
     db: AsyncSession, report_id: int, action: str, admin_id=None
 ) -> dict | None:
-    result = await db.execute(select(Report).where(Report.id == report_id))
+    result = await db.execute(select(Report).where(Report.id == report_id).with_for_update())
     report = result.scalar_one_or_none()
     if not report:
         return None
@@ -65,7 +100,7 @@ async def handle_report(
         return {"error": "该举报已处理"}
 
     # Get the post and author
-    post_result = await db.execute(select(Post).where(Post.id == report.post_id))
+    post_result = await db.execute(select(Post).where(Post.id == report.post_id).with_for_update())
     post = post_result.scalar_one_or_none()
 
     if action == "dismiss":
@@ -74,16 +109,19 @@ async def handle_report(
         report.status = "resolved"
         if post:
             post.status = -1
-            await create_system_notification(db, post.user_id, "moderation", post_id=post.id)
+            await reject_entity_media(db, "post", post.id)
+            await create_system_notification(db, post.user_id, "moderation", post_id=post.id, commit=False)
     elif action == "ban_user":
         report.status = "resolved"
         if post:
             post.status = -1
-            await create_system_notification(db, post.user_id, "moderation", post_id=post.id)
+            await reject_entity_media(db, "post", post.id)
+            await create_system_notification(db, post.user_id, "moderation", post_id=post.id, commit=False)
             user_result = await db.execute(select(User).where(User.id == post.user_id))
             author = user_result.scalar_one_or_none()
             if author:
                 author.status = 0
+                await revoke_user_sessions(db, author.id)
 
     # 处理留痕
     if admin_id is not None:
@@ -91,7 +129,7 @@ async def handle_report(
     from sqlalchemy.sql import func as sa_func
     report.handled_at = sa_func.now()
 
-    await db.commit()
+    await db.flush()
     return {"report_id": report.id, "status": report.status, "post_id": report.post_id}
 
 
@@ -119,6 +157,7 @@ async def list_posts_admin(
     time_end=None,
     page: int | None = None,
     page_size: int = 20,
+    post_id: int | None = None,
 ) -> tuple[list[dict], int | None, bool, int | None]:
     """admin 帖子列表：全量（含待审/封禁/广告），多条件筛选。
 
@@ -126,6 +165,8 @@ async def list_posts_admin(
     - page 模式（Web 后台）：返回 (items, None, False, total)
     """
     conditions = []
+    if post_id is not None:
+        conditions.append(Post.id == post_id)
     if status is not None:
         conditions.append(Post.status == status)
     if q:
@@ -147,6 +188,7 @@ async def list_posts_admin(
             "post_type": p.post_type,
             "category": p.category,
             "content": p.content[:100],
+            "images": p.images or [],
             "images_count": len(p.images or []),
             "price": float(p.price) if p.price else None,
             "status": p.status,
@@ -195,13 +237,17 @@ async def list_posts_admin(
 
 async def admin_update_post(db: AsyncSession, post_id: int, data: dict) -> Post | None:
     """admin 编辑帖子（content/category/images/price 局部更新）。"""
-    result = await db.execute(select(Post).where(Post.id == post_id))
+    result = await db.execute(select(Post).where(Post.id == post_id).with_for_update())
     post = result.scalar_one_or_none()
     if not post:
         return None
+    if "images" in data and data["images"] is not None:
+        if any(url not in (post.images or []) for url in data["images"]):
+            from fastapi import HTTPException
+            raise HTTPException(400, "编辑仅可保留或移除原图；新增图片请重新上传审核")
     for field, value in data.items():
         setattr(post, field, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(post)
     return post
 
@@ -225,7 +271,7 @@ async def admin_update_post_status(
     db: AsyncSession, post_id: int, new_status: int
 ) -> Post | None | str:
     """admin 状态机流转；非法流转返回 'invalid'，不存在返回 None。"""
-    result = await db.execute(select(Post).where(Post.id == post_id))
+    result = await db.execute(select(Post).where(Post.id == post_id).with_for_update())
     post = result.scalar_one_or_none()
     if not post:
         return None
@@ -236,10 +282,20 @@ async def admin_update_post_status(
 
     old_status = post.status
     post.status = new_status
+    if new_status == 1:
+        for asset in await entity_media(db, "post", post.id):
+            if asset.status == "deleted":
+                raise ValueError("图片已删除，无法恢复")
+            asset.status = "approved"
+        urls = await publish_entity_media(db, "post", post.id)
+        if urls:
+            post.images = urls
+    else:
+        await reject_entity_media(db, "post", post.id)
     # 拒审/封禁（→ -1）通知作者；恢复/过审不通知
     if new_status == -1 and old_status in (0, 1):
-        await create_system_notification(db, post.user_id, "moderation", post_id=post.id)
-    await db.commit()
+        await create_system_notification(db, post.user_id, "moderation", post_id=post.id, commit=False)
+    await db.flush()
     await db.refresh(post)
     return post
 
@@ -361,8 +417,13 @@ async def update_user_role(
     user = result.scalar_one_or_none()
     if not user:
         return None
+    from app.config import settings
+    if settings.ENVIRONMENT == "production" and (new_role == "admin" or (new_role == "student" and not user.is_verified)):
+        from fastapi import HTTPException
+        raise HTTPException(400, "管理员使用独立账号；学生权限须先完成认证")
     user.role = new_role
-    await db.commit()
+    await revoke_user_sessions(db, user.id)
+    await db.flush()
     await db.refresh(user)
     return user
 
@@ -438,6 +499,7 @@ async def update_user_status(
         return "invalid"
 
     user.status = new_status
-    await db.commit()
+    await revoke_user_sessions(db, user.id)
+    await db.flush()
     await db.refresh(user)
     return user

@@ -60,6 +60,7 @@ def _patch_service(monkeypatch):
             yield s
 
     monkeypatch.setattr(service_module, "async_session", lambda: _ctx())
+    _patch_wechat(monkeypatch, "pass")
 
 
 def _patch_wechat(monkeypatch, text_verdict: str, image_verdict: str = "pass"):
@@ -158,7 +159,8 @@ class TestLocalRulesFlow:
         await _seed_word("垃圾人", "gray")
 
         pid = await _seed_post(student_user.id, "你真是个垃圾人", status=0)
-        await service_module.check_post_moderation(pid)
+        with pytest.raises(service_module.ManualReviewRequired):
+            await service_module.check_post_moderation(pid)
 
         assert await _get_post_status(pid) == 0
         rows = await _records(pid)
@@ -211,23 +213,23 @@ class TestLocalRulesFlow:
 
         assert await _get_post_status(pid) == -1
         rows = await _records(pid)
-        assert [(r[0], r[1]) for r in rows] == [("rule", "pass"), ("wechat", "reject")]
+        assert [(r[0], r[1]) for r in rows] == [("rule", "pass"), ("tencent", "reject")]
         assert rows[1][4] == "trace_x"
 
-    async def test_error_retry_single_record(self, monkeypatch, student_user: User):
+    async def test_transient_error_leaves_pending_for_durable_retry(self, monkeypatch, student_user: User):
         """微信 error 重试 3 次耗尽 → 仅 1 条 wechat/error 记录（防循环内重复写）。"""
         _patch_service(monkeypatch)
         _patch_wechat(monkeypatch, "error")
-        _patch_sleep(monkeypatch)
         monkeypatch.setattr(service_module, "_is_configured", lambda: True)
         monkeypatch.setattr(settings, "MODERATION_FAIL_OPEN", False)
 
         pid = await _seed_post(student_user.id, "网络故障时发布", status=0)
-        await service_module.check_post_moderation(pid)
+        with pytest.raises(service_module.ModerationRetry):
+            await service_module.check_post_moderation(pid)
 
         assert await _get_post_status(pid) == 0
         rows = await _records(pid)
-        assert [(r[0], r[1]) for r in rows] == [("rule", "pass"), ("wechat", "error")]
+        assert rows == []  # No successful moderation decision was committed.
 
 
 class TestFrequencyGuard:
@@ -239,13 +241,14 @@ class TestFrequencyGuard:
         await _seed_post(student_user.id, "第2帖", status=1)
 
         pid = await _seed_post(student_user.id, "第3帖", status=0)
-        await service_module.check_post_moderation(pid)
+        with pytest.raises(service_module.ManualReviewRequired):
+            await service_module.check_post_moderation(pid)
 
         assert await _get_post_status(pid) == 0
         rows = await _records(pid)
         assert rows[0][0] == "rule"
         assert rows[0][1] == "review"
-        assert "高频" in (rows[0][3] or "")
+        assert rows[0][3] == "posting_frequency"
 
     async def test_frequency_not_triggered(self, monkeypatch, student_user: User):
         """窗口内仅 1 帖 → 正常过审。"""

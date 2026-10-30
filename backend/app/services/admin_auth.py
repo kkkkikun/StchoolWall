@@ -14,12 +14,13 @@ from app.utils.security import create_access_token
 CONSOLE_SCOPE = "admin_console"
 
 
-def issue_console_token(admin: AdminUser) -> str:
+def issue_console_token(admin: AdminUser, mfa: bool = False) -> str:
     """签发 console 专用 JWT：sub=admin_user_id + scope + pwd_version，短时效。"""
     return create_access_token(
         {
             "sub": str(admin.id),
             "scope": CONSOLE_SCOPE,
+            "mfa": mfa,
             "pwd_version": admin.pwd_version,
         },
         expires_delta=timedelta(hours=settings.ADMIN_TOKEN_EXPIRE_HOURS),

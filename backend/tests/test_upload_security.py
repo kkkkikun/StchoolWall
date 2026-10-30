@@ -1,3 +1,4 @@
+from tests.production_helpers import image_bytes
 """上传安全测试：kind 白名单 / 服务端生成路径 / 逃逸拒绝 / 流式大小上限。
 
 安全目标：落盘路径完全由服务端生成（客户端不可指定），扩展名校验对象与
@@ -12,9 +13,18 @@ from httpx import AsyncClient
 from app.config import settings
 from app.models.user import User
 from app.utils.security import create_access_token
-from tests.conftest import auth_header
+from tests.conftest import auth_header, TestSession
+from app.models.media import MediaAsset
 
-FAKE_JPG = b"\xff\xd8\xff\xe0" + b"x" * 64
+
+@pytest.fixture(autouse=True)
+def private_media_dirs(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "STATIC_BASE_DIR", str(tmp_path / "static"))
+    monkeypatch.setattr(settings, "PRIVATE_MEDIA_DIR", str(tmp_path / "private"))
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", "local")
+
+
+FAKE_JPG = image_bytes()
 
 
 def _token(user: User) -> str:
@@ -54,15 +64,15 @@ class TestServerGeneratedPath:
             files=_files("photo.JPG"), headers=auth_header(_token(student_user)),
         )
         assert r.status_code == 200
-        url = r.json()["data"]["public_url"]
-        assert url.startswith("/static/avatars/")
-        rel = url[len("/static/"):]
-        parts = rel.split("/")
-        assert len(parts) == 3 and parts[1].isdigit()  # kind/年/uuid.ext
-        stem_ext = parts[2].split(".")
-        assert len(stem_ext[0]) == 32  # uuid4 hex
-        assert "." + stem_ext[-1].lower() in {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-        assert (Path(settings.STATIC_BASE_DIR) / rel).exists()
+        import uuid
+        from app.utils.storage import _private_path
+        result = r.json()["data"]
+        assert result["public_url"] is None and result["status"] == "quarantine"
+        async with TestSession() as db:
+            media = await db.get(MediaAsset, uuid.UUID(result["media_id"]))
+            assert media.owner_id == student_user.id and media.purpose == "avatars"
+            assert _private_path(media.storage_key).is_file()
+            assert not Path(settings.STATIC_BASE_DIR).exists()
 
     @pytest.mark.asyncio
     async def test_html_extension_rejected_no_file(self, client: AsyncClient, student_user: User):
@@ -89,7 +99,7 @@ class TestServerGeneratedPath:
         headers = auth_header(_token(student_user))
         r1 = await client.post("/api/v1/upload/direct?kind=banners", files=_files(), headers=headers)
         r2 = await client.post("/api/v1/upload/direct?kind=banners", files=_files(), headers=headers)
-        assert r1.json()["data"]["public_url"] != r2.json()["data"]["public_url"]
+        assert r1.json()["data"]["media_id"] != r2.json()["data"]["media_id"]
 
 
 class TestPathContainment:

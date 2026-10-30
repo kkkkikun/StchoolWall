@@ -83,7 +83,7 @@ class TestCreateTag:
     async def test_no_token_cannot_create(self, client: AsyncClient):
         """无 Token 不能创建"""
         r = await client.post("/api/v1/admin/tags", json={"name": "试试"})
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_empty_name_rejected(self, client: AsyncClient, admin_user: User):

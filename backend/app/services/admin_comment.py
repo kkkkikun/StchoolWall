@@ -60,20 +60,21 @@ async def list_comments_admin(
 
 async def admin_delete_comment(db: AsyncSession, comment_id: int) -> bool | None:
     """软删评论并同步维护帖子评论计数；不存在返回 None，重复删返回 False。"""
-    result = await db.execute(select(Comment).where(Comment.id == comment_id))
+    result = await db.execute(select(Comment).where(Comment.id == comment_id).with_for_update())
     comment = result.scalar_one_or_none()
     if not comment:
         return None
     if comment.status == -1:
         return False  # 已删除（幂等）
 
+    was_public = comment.status == 1
     comment.status = -1
-    # 维护冗余计数
-    await db.execute(
-        update(Post).where(Post.id == comment.post_id)
-        .values(comment_count=func.greatest(Post.comment_count - 1, 0))
-    )
-    await db.commit()
+    if was_public:
+        await db.execute(
+            update(Post).where(Post.id == comment.post_id)
+            .values(comment_count=func.greatest(Post.comment_count - 1, 0))
+        )
+    await db.flush()
     return True
 
 
@@ -88,12 +89,23 @@ async def admin_update_comment_status(db: AsyncSession, comment_id: int, new_sta
       （待审期间未计数未通知，语义与"过审才可见"一致）
     - 0→-1 / 1→-1 拒审/下架：计数 -1（若曾在计数中）
     """
-    comment = (await db.execute(select(Comment).where(Comment.id == comment_id))).scalar_one_or_none()
+    comment = (await db.execute(select(Comment).where(Comment.id == comment_id).with_for_update())).scalar_one_or_none()
     if not comment:
         return None, "评论不存在"
     allowed = COMMENT_STATUS_TRANSITIONS.get(comment.status, set())
     if new_status not in allowed:
         return comment, f"不允许的状态流转（{comment.status} → {new_status}）"
+
+    post = None
+    if comment.status == 0 and new_status == 1:
+        from app.services.blocks import blocked_between
+        post = (await db.execute(select(Post).where(
+            Post.id == comment.post_id,
+        ).with_for_update())).scalar_one_or_none()
+        if post is None or post.status != 1:
+            return comment, "帖子当前不可见，无法发布评论"
+        if await blocked_between(db, comment.user_id, post.user_id):
+            return comment, "存在拉黑关系，无法发布评论"
 
     old_status = comment.status
     comment.status = new_status
@@ -106,20 +118,19 @@ async def admin_update_comment_status(db: AsyncSession, comment_id: int, new_sta
         )
         await db.flush()
         from app.services.notification import create_notification
-        post = (await db.execute(select(Post).where(Post.id == comment.post_id))).scalar_one()
         if str(post.user_id) != str(comment.user_id):
             await create_notification(db, post.user_id, comment.user_id, "comment",
-                                      post_id=post.id, comment_id=comment.id)
+                                      post_id=post.id, comment_id=comment.id, commit=False)
         else:
-            await db.commit()
+            await db.flush()
     elif new_status == -1 and old_status == 1:
         await db.execute(
             update(Post).where(Post.id == comment.post_id)
             .values(comment_count=func.greatest(Post.comment_count - 1, 0))
         )
-        await db.commit()
+        await db.flush()
     else:
-        await db.commit()
+        await db.flush()
 
     await db.refresh(comment)
     return comment, None

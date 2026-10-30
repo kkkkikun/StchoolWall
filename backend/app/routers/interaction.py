@@ -1,3 +1,4 @@
+from app.services.runtime_controls import require_publishing
 """互动路由：评论 / 点赞 / 收藏 / 足迹 / 个人统计。
 
 挂在 /api/v1 下，与 posts 路由并存（路径不重叠）。
@@ -48,7 +49,7 @@ async def unlike_post(
 # ---- 评论 ----
 
 
-@router.post("/posts/{post_id}/comments")
+@router.post("/posts/{post_id}/comments", dependencies=[Depends(require_publishing)])
 async def create_comment(
     post_id: int,
     body: CommentCreate,
@@ -70,11 +71,12 @@ async def list_comments(
     post_id: int,
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     # 目标帖必须是公开可见状态（封禁/待审帖的评论不可读）
-    if not await svc._get_post(db, post_id):
+    if not await svc._get_post(db, post_id, viewer=user):
         raise HTTPException(status_code=404, detail="帖子不存在")
-    items, next_cursor, has_more = await svc.list_comments(db, post_id, cursor)
+    items, next_cursor, has_more = await svc.list_comments(db, post_id, cursor, viewer=user)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 

@@ -1,5 +1,6 @@
 # Web framework
-fastapi==0.115.6
+fastapi==0.143.2
+starlette==1.7.0
 uvicorn[standard]==0.34.0
 
 # Database
@@ -11,7 +12,7 @@ alembic==1.14.0
 redis[hiredis]==5.2.1
 
 # Auth & JWT
-pyjwt==2.10.1
+pyjwt==2.15.1
 
 # Settings
 pydantic-settings==2.7.1
@@ -27,9 +28,15 @@ beautifulsoup4==4.12.3
 
 # File upload / storage
 boto3==1.36.2
-python-multipart==0.0.20
+python-multipart==0.0.32
 
 # Testing
-pytest==8.3.4
-pytest-asyncio==0.24.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
 bcrypt==4.2.1
+
+Pillow==12.3.0
+cryptography==50.0.2
+tencentcloud-sdk-python==3.1.188
+cos-python-sdk-v5==1.9.44
+prometheus-client==0.23.1

@@ -81,15 +81,15 @@ class TestBodyCaps:
         assert r.status_code == 422
 
 
-class TestVerifyPasswordCap:
+class TestLegacyVerificationRetired:
 
-    async def test_password_length_capped(self, client, student_token):
+    async def test_password_endpoint_is_gone(self, client, student_token):
         r = await client.post(
             "/api/v1/auth/verify",
             json={"student_id": "2024001", "password": "x" * 101},
             headers=auth_header(student_token),
         )
-        assert r.status_code == 422
+        assert r.status_code == 410
 
 
 class TestWechatScoping:

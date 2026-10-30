@@ -26,7 +26,7 @@ class TestWebLogin:
         data = r.json()["data"]
         assert data["access_token"]
         assert data["role"] == "guest"
-        assert data["user_info"]["nickname"] == "xiaoming"
+        assert data["user_info"]["nickname"].startswith("校园同学_")
 
         user = await _get_user("xiaoming")
         assert user is not None

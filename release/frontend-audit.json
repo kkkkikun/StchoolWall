@@ -1,0 +1,363 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@dcloudio/uni-app": {
+      "name": "@dcloudio/uni-app",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-cloud",
+        "@dcloudio/uni-components",
+        "@dcloudio/uni-console",
+        "@dcloudio/uni-push",
+        "@dcloudio/uni-stat"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-app"
+      ],
+      "fixAvailable": {
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-app-plus": {
+      "name": "@dcloudio/uni-app-plus",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-app-uts",
+        "@dcloudio/uni-app-vite"
+      ],
+      "effects": [],
+      "range": ">=2.0.1-32920211122002",
+      "nodes": [
+        "node_modules/@dcloudio/uni-app-plus"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-app-plus",
+        "version": "0.0.253",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-app-uts": {
+      "name": "@dcloudio/uni-app-uts",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared",
+        "@dcloudio/uni-console"
+      ],
+      "effects": [
+        "@dcloudio/uni-app-plus"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-app-uts"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-app-plus",
+        "version": "0.0.253",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-app-vite": {
+      "name": "@dcloudio/uni-app-vite",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-app-vite"
+      ],
+      "fixAvailable": true
+    },
+    "@dcloudio/uni-cli-shared": {
+      "name": "@dcloudio/uni-cli-shared",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@intlify/core-base"
+      ],
+      "effects": [
+        "@dcloudio/uni-app-uts",
+        "@dcloudio/uni-app-vite",
+        "@dcloudio/uni-cloud",
+        "@dcloudio/uni-console",
+        "@dcloudio/uni-h5-vite",
+        "@dcloudio/uni-mp-compiler",
+        "@dcloudio/uni-mp-vite",
+        "@dcloudio/uni-mp-weixin",
+        "@dcloudio/uni-push",
+        "@dcloudio/uni-stat",
+        "@dcloudio/vite-plugin-uni"
+      ],
+      "range": ">=2.0.1-32920211122002",
+      "nodes": [
+        "node_modules/@dcloudio/uni-cli-shared"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-cli-shared",
+        "version": "0.2.994",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-cloud": {
+      "name": "@dcloudio/uni-cloud",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [
+        "@dcloudio/uni-components"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-cloud"
+      ],
+      "fixAvailable": {
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-components": {
+      "name": "@dcloudio/uni-components",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-cloud",
+        "@dcloudio/uni-h5"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-components"
+      ],
+      "fixAvailable": {
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-console": {
+      "name": "@dcloudio/uni-console",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [
+        "@dcloudio/uni-app"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-console"
+      ],
+      "fixAvailable": {
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-h5": {
+      "name": "@dcloudio/uni-h5",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-h5-vite"
+      ],
+      "effects": [],
+      "range": ">=2.0.1-32920211122002",
+      "nodes": [
+        "node_modules/@dcloudio/uni-h5"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-h5",
+        "version": "0.9.0",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-h5-vite": {
+      "name": "@dcloudio/uni-h5-vite",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [
+        "@dcloudio/uni-h5"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-h5-vite"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-h5",
+        "version": "0.9.0",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-mp-compiler": {
+      "name": "@dcloudio/uni-mp-compiler",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-mp-compiler"
+      ],
+      "fixAvailable": true
+    },
+    "@dcloudio/uni-mp-vite": {
+      "name": "@dcloudio/uni-mp-vite",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared",
+        "@dcloudio/uni-mp-compiler"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-mp-vite"
+      ],
+      "fixAvailable": true
+    },
+    "@dcloudio/uni-mp-weixin": {
+      "name": "@dcloudio/uni-mp-weixin",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-cli-shared",
+        "@dcloudio/uni-mp-compiler",
+        "@dcloudio/uni-mp-vite"
+      ],
+      "effects": [],
+      "range": ">=2.0.1-32920211122002",
+      "nodes": [
+        "node_modules/@dcloudio/uni-mp-weixin"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-mp-weixin",
+        "version": "0.0.973",
+        "isSemVerMajor": true
+      }
+    },
+    "@dcloudio/uni-push": {
+      "name": "@dcloudio/uni-push",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/uni-push"
+      ],
+      "fixAvailable": true
+    },
+    "@dcloudio/uni-stat": {
+      "name": "@dcloudio/uni-stat",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [],
+      "range": ">=2.0.1-32920211122002",
+      "nodes": [
+        "node_modules/@dcloudio/uni-stat"
+      ],
+      "fixAvailable": true
+    },
+    "@dcloudio/vite-plugin-uni": {
+      "name": "@dcloudio/vite-plugin-uni",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@dcloudio/vite-plugin-uni"
+      ],
+      "fixAvailable": {
+        "isSemVerMajor": true
+      }
+    },
+    "@intlify/core-base": {
+      "name": "@intlify/core-base",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1106453,
+          "name": "@intlify/core-base",
+          "dependency": "@intlify/core-base",
+          "title": "vue-i18n's escapeParameterHtml does not prevent DOM-based XSS through its tag attributes",
+          "url": "https://github.com/advisories/GHSA-x8qp-wqqm-57ph",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=9.0.0 <9.14.5"
+        },
+        {
+          "source": 1243629,
+          "name": "@intlify/core-base",
+          "dependency": "@intlify/core-base",
+          "title": "Vue I18n: `escapeParameter` does not escape named values when the same call also passes a list",
+          "url": "https://github.com/advisories/GHSA-8rc2-428q-7ww3",
+          "severity": "low",
+          "cwe": [
+            "CWE-79",
+            "CWE-116"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=9.0.0-beta.12 <11.4.14"
+        }
+      ],
+      "effects": [
+        "@dcloudio/uni-cli-shared"
+      ],
+      "range": "<=11.4.13",
+      "nodes": [
+        "node_modules/@intlify/core-base"
+      ],
+      "fixAvailable": {
+        "name": "@dcloudio/uni-cli-shared",
+        "version": "0.2.994",
+        "isSemVerMajor": true
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 17,
+      "high": 0,
+      "critical": 0,
+      "total": 17
+    },
+    "dependencies": {
+      "prod": 348,
+      "dev": 244,
+      "optional": 55,
+      "peer": 3,
+      "peerOptional": 0,
+      "total": 646
+    }
+  }
+}

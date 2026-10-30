@@ -1,0 +1,33 @@
+# Linux host networking reaches Nginx's loopback-only metrics listener.
+# Every web UI/exporter explicitly binds loopback; use an authenticated SSH tunnel.
+name: schoolwall-monitoring
+services:
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    network_mode: host
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.listen-address=127.0.0.1:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    network_mode: host
+    volumes: ["./blackbox.yml:/config/blackbox.yml:ro"]
+    command: ["--config.file=/config/blackbox.yml", "--web.listen-address=127.0.0.1:9115"]
+    restart: unless-stopped
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    network_mode: host
+    volumes: ["./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro"]
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=127.0.0.1:9093
+      - --cluster.listen-address=
+    restart: unless-stopped
+volumes:
+  prometheus_data:

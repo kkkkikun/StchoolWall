@@ -5,7 +5,7 @@
 """
 import uuid
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -43,6 +43,7 @@ class Favorite(Base):
 class Footprint(Base):
     """浏览足迹：用户查看帖子详情时记录一条。"""
     __tablename__ = "footprints"
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_footprints_user_post"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)

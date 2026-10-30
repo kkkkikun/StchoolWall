@@ -78,7 +78,10 @@ class TestUserRateLimits:
         import io
         _tighten(monkeypatch, 2)
         headers = auth_header(_token(student_user))
-        files = {"file": ("a.jpg", io.BytesIO(b"data"), "image/jpeg")}
+        from PIL import Image
+        output = io.BytesIO()
+        Image.new("RGB", (16, 16)).save(output, format="JPEG")
+        files = {"file": ("a.jpg", output.getvalue(), "image/jpeg")}
         for _ in range(2):
             r = await client.post("/api/v1/upload/direct?kind=posts", files=files, headers=headers)
             assert r.status_code == 200

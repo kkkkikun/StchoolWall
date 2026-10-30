@@ -51,7 +51,7 @@ class TestWxLogin:
         assert body["data"]["role"] == "guest"
         assert body["data"]["user_info"]["is_verified"] is False
         assert "access_token" in body["data"]
-        assert "鄂应学子_" in body["data"]["user_info"]["nickname"]
+        assert "校园同学_" in body["data"]["user_info"]["nickname"]
 
     @pytest.mark.asyncio
     async def test_returning_user_gets_existing_role(self, client: AsyncClient, student_user: User):
@@ -75,7 +75,7 @@ class TestWxLogin:
         )
         with patch("app.services.auth.httpx.AsyncClient", return_value=mock_client):
             r = await client.post("/api/v1/auth/login", json={"code": "bad_code"})
-        assert r.status_code == 200
+        assert r.status_code == 400
         body = r.json()
         assert body["code"] == 400
         assert "失败" in body["message"]
@@ -99,113 +99,19 @@ class TestWxLogin:
 
 
 class TestStudentVerify:
-    """学籍认证绑定"""
-
+    """Legacy academic verification never reads credentials or grants a role."""
     @pytest.mark.asyncio
-    async def test_verify_success(self, client: AsyncClient, guest_user: User):
-        """guest 认证成功 -> 升级为 student，real_name 落库"""
-        token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
-        mock_result = {"status": "success", "msg": "登录成功", "real_name": "测试张三"}
-        with patch("app.services.auth.verify_student", AsyncMock(return_value=mock_result)):
-            r = await client.post(
-                "/api/v1/auth/verify",
-                json={"student_id": "20249990001", "password": "test123"},
-                headers=auth_header(token),
-            )
-        assert r.status_code == 200
-        body = r.json()
-        assert body["code"] == 0
-        assert body["message"] == "认证成功"
-        assert body["data"]["role"] == "student"
-        assert "access_token" in body["data"]
-
-        # 验证数据库：real_name 和 is_verified 已落库
+    @pytest.mark.parametrize("payload", [
+        {"student_id": "20240001", "password": "old-password"},
+        {"student_id": "20240001", "password": "wrong-password"},
+        {"student_id": "20240001", "password": "x" * 10000},
+        {"password": "never-log-this"},
+        {}, {"student_id": None}, {"unknown": "value"},
+    ])
+    async def test_legacy_endpoint_retired(self, client, guest_user, guest_token, payload):
+        response = await client.post("/api/v1/auth/verify", json=payload, headers=auth_header(guest_token))
+        assert response.status_code == 410
+        assert "never-log-this" not in response.text
         async with TestSession() as db:
-            result = await db.execute(select(User).where(User.id == guest_user.id))
-            updated = result.scalar_one()
-            assert updated.real_name == "测试张三"
-            assert updated.is_verified is True
-            assert updated.student_id == "20249990001"
-            assert updated.role == "student"
-
-    @pytest.mark.asyncio
-    async def test_verify_wrong_password(self, client: AsyncClient, guest_user: User):
-        """教务系统密码错误 -> 认证失败"""
-        token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
-        mock_result = {"status": "fail", "msg": "登录失败: 用户名或密码错误"}
-        with patch("app.services.auth.verify_student", AsyncMock(return_value=mock_result)):
-            r = await client.post(
-                "/api/v1/auth/verify",
-                json={"student_id": "20249990001", "password": "wrong"},
-                headers=auth_header(token),
-            )
-        assert r.status_code == 200
-        body = r.json()
-        assert body["code"] == 400
-        assert "失败" in body["message"]
-
-    @pytest.mark.asyncio
-    async def test_verify_student_id_already_bound(self, client: AsyncClient, guest_user: User, student_user: User):
-        """学号已被其他用户绑定 -> 409"""
-        token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
-        r = await client.post(
-            "/api/v1/auth/verify",
-            json={"student_id": student_user.student_id, "password": "any"},
-            headers=auth_header(token),
-        )
-        assert r.status_code == 409
-
-    @pytest.mark.asyncio
-    async def test_verify_already_verified(self, client: AsyncClient, student_user: User):
-        """已完成认证的用户再次认证 -> 拒绝"""
-        token = create_access_token({"sub": str(student_user.id), "role": "student"})
-        r = await client.post(
-            "/api/v1/auth/verify",
-            json={"student_id": "2024NEW001", "password": "test"},
-            headers=auth_header(token),
-        )
-        assert r.status_code == 200
-        body = r.json()
-        assert body["code"] == 400
-        assert "已完成" in body["message"]
-
-    @pytest.mark.asyncio
-    async def test_verify_requires_token(self, client: AsyncClient):
-        """无 Token -> 403"""
-        r = await client.post(
-            "/api/v1/auth/verify",
-            json={"student_id": "20240001", "password": "test"},
-        )
-        assert r.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_verify_missing_fields(self, client: AsyncClient, guest_user: User):
-        """缺少必填字段 -> 422"""
-        token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
-        r = await client.post(
-            "/api/v1/auth/verify",
-            json={"student_id": "20240001"},
-            headers=auth_header(token),
-        )
-        assert r.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_verify_rate_limit_by_ip(self, client: AsyncClient, guest_user: User):
-        """IP 限流：超过 10 次/分钟 -> 429"""
-        token = create_access_token({"sub": str(guest_user.id), "role": "guest"})
-        mock_result = {"status": "fail", "msg": "登录失败"}
-
-        with patch("app.services.auth.verify_student", AsyncMock(return_value=mock_result)):
-            for _ in range(10):
-                r = await client.post(
-                    "/api/v1/auth/verify",
-                    json={"student_id": f"2024{_}", "password": "t"},
-                    headers=auth_header(token),
-                )
-            # 第 11 次应被限流
-            r = await client.post(
-                "/api/v1/auth/verify",
-                json={"student_id": "2024overflow", "password": "t"},
-                headers=auth_header(token),
-            )
-        assert r.status_code == 429
+            user = await db.get(User, guest_user.id)
+            assert user.role == "guest" and not user.is_verified

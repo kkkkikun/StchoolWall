@@ -55,10 +55,10 @@ async def test_dev_login_admin_role(client: AsyncClient):
         data = r.json()["data"]
         assert data["role"] == "admin"
 
-        # admin token 能访问管理接口
+        # 演示用户管理员令牌不再授权独立管理台
         headers = {"Authorization": f"Bearer {data['access_token']}"}
         stats = await client.get("/api/v1/admin/stats", headers=headers)
-        assert stats.status_code == 200
+        assert stats.status_code == 403
 
         # 学生/管理员是两个不同账号
         student = await client.post("/api/v1/auth/dev-login")

@@ -1,0 +1,28 @@
+# Copy off-repository. Owner must match the container postgres UID; mode 0600.
+# Keys and encryption passphrase must also have an independent secure escrow copy.
+[global]
+repo1-type=s3
+repo1-path=/schoolwall/production
+repo1-s3-bucket=REPLACE_PRIVATE_OFF_HOST_BUCKET
+repo1-s3-endpoint=REPLACE_S3_ENDPOINT
+repo1-s3-region=REPLACE_REGION
+repo1-s3-key=REPLACE_MINIMUM_PRIVILEGE_KEY
+repo1-s3-key-secret=REPLACE_SECRET
+repo1-s3-uri-style=host
+repo1-storage-verify-tls=y
+repo1-cipher-type=aes-256-cbc
+repo1-cipher-pass=REPLACE_WITH_INDEPENDENT_RANDOM_64_CHAR_SECRET
+repo1-retention-full=4
+repo1-retention-diff=7
+compress-type=gz
+archive-async=n
+process-max=2
+log-level-console=info
+log-path=/tmp/pgbackrest
+lock-path=/tmp/pgbackrest
+spool-path=/var/spool/pgbackrest
+
+[schoolwall]
+pg1-path=/var/lib/postgresql/data
+pg1-user=eywall
+pg1-database=ey_wall

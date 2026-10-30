@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.interaction import Comment, Favorite, Footprint, Like
 from app.models.post import Post
+from app.models.notification import Notification
+from app.services.jobs import enqueue_job
+from app.services.blocks import require_interaction, visible_author
 from app.models.user import User
 from app.services.notification import create_notification
 
@@ -16,17 +19,23 @@ from app.services.notification import create_notification
 # ---- 通用 ----
 
 
-async def _get_post(db: AsyncSession, post_id: int) -> Post | None:
+async def _get_post(db: AsyncSession, post_id: int, for_update: bool = False, actor_id=None, viewer: User | None = None) -> Post | None:
     """互动目标帖：必须存在且 status==1（封禁/待审帖不可被点赞评论收藏）。"""
-    r = await db.execute(select(Post).where(Post.id == post_id, Post.status == 1))
-    return r.scalar_one_or_none()
+    statement = select(Post).where(Post.id == post_id, Post.status == 1, visible_author(Post.user_id, viewer))
+    if for_update:
+        statement = statement.with_for_update()
+    r = await db.execute(statement)
+    post = r.scalar_one_or_none()
+    if post and actor_id is not None:
+        await require_interaction(db, actor_id, post.user_id)
+    return post
 
 
 # ---- 点赞（幂等） ----
 
 
 async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id)
+    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
     if not post:
         return None
 
@@ -46,10 +55,10 @@ async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
             .where(Post.id == post_id, Post.status == 1)
             .values(like_count=func.coalesce(Post.like_count, 0) + 1)
         )
+        if post.user_id != user.id:
+            db.add(Notification(user_id=post.user_id, actor_id=user.id, type="like", post_id=post_id))
         await db.commit()
         await db.refresh(post)
-        # 通知帖子作者（不通知自己）
-        await create_notification(db, post.user_id, user.id, "like", post_id=post_id)
     else:
         await db.commit()
         await db.refresh(post)
@@ -57,7 +66,7 @@ async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
 
 
 async def unlike_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id)
+    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
     if not post:
         return None
 
@@ -109,7 +118,7 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
     - gray：status=0 待审——不计数不通知，过审（admin）时补计数与通知
     - clean：status=1 即见，计数 + 通知帖子作者（不通知自己）
     """
-    post = await _get_post(db, post_id)
+    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
     if not post:
         return None
 
@@ -123,34 +132,31 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
         await db.commit()
         raise ValueError("评论包含违规内容，无法提交")
 
-    status = 0 if local_r.verdict == "review" else 1
+    status = 1 if user.role == "admin" and local_r.verdict == "pass" else 0
     c = Comment(post_id=post_id, user_id=user.id, content=content, status=status)
     db.add(c)
     await db.flush()
     add_moderation_record(db, post_id, "rule", local_r, matched=matched or None, comment_id=c.id)
-
-    if status == 1:
-        # 原子自增，避免并发评论丢失计数
+    if status == 0:
+        await enqueue_job(db, "moderate_comment", {"comment_id": c.id}, f"comment:{c.id}")
+    else:
         await db.execute(
-            update(Post)
-            .where(Post.id == post_id, Post.status == 1)
+            update(Post).where(Post.id == post_id, Post.status == 1)
             .values(comment_count=func.coalesce(Post.comment_count, 0) + 1)
         )
-        await db.commit()
-        await db.refresh(c)
-        await db.refresh(post)
-        # 通知帖子作者（不通知自己）
-        await create_notification(db, post.user_id, user.id, "comment", post_id=post.id, comment_id=c.id)
-    else:
-        await db.commit()
-        await db.refresh(c)
+        if post.user_id != user.id:
+            db.add(Notification(user_id=post.user_id, actor_id=user.id, type="comment",
+                                post_id=post_id, comment_id=c.id))
+    await db.commit()
+    await db.refresh(c)
+    await db.refresh(post)
     return _comment_dict(c, user.nickname, user.avatar_url, post.comment_count)
 
 
 async def list_comments(
-    db: AsyncSession, post_id: int, cursor: int | None = None, limit: int = 20
+    db: AsyncSession, post_id: int, cursor: int | None = None, limit: int = 20, viewer: User | None = None
 ) -> tuple[list[dict], int | None, bool]:
-    conds = [Comment.post_id == post_id, Comment.status == 1]
+    conds = [Comment.post_id == post_id, Comment.status == 1, visible_author(Comment.user_id, viewer)]
     if cursor:
         conds.append(Comment.id < cursor)
     stmt = (
@@ -170,22 +176,24 @@ async def list_comments(
 
 async def delete_comment(db: AsyncSession, user: User, comment_id: int) -> bool | None:
     """返回 None=未找到(404)，False=无权(403)，True=成功。"""
-    c = (await db.execute(select(Comment).where(Comment.id == comment_id))).scalar_one_or_none()
+    c = (await db.execute(select(Comment).where(Comment.id == comment_id).with_for_update())).scalar_one_or_none()
     if not c:
         return None
     if str(c.user_id) != str(user.id) and user.role != "admin":
         return False
-    c.status = -1  # 软删除
-    # 原子自减且不越过 0
-    await db.execute(
-        update(Post)
-        .where(
-            Post.id == c.post_id,
-            Post.status == 1,
-            func.coalesce(Post.comment_count, 0) > 0,
+    was_public = c.status == 1
+    c.status = -1
+    # A pending or already deleted comment was never included in the counter.
+    if was_public:
+        await db.execute(
+            update(Post)
+            .where(
+                Post.id == c.post_id,
+                Post.status == 1,
+                func.coalesce(Post.comment_count, 0) > 0,
+            )
+            .values(comment_count=func.coalesce(Post.comment_count, 0) - 1)
         )
-        .values(comment_count=func.coalesce(Post.comment_count, 0) - 1)
-    )
     await db.commit()
     return True
 
@@ -194,7 +202,7 @@ async def delete_comment(db: AsyncSession, user: User, comment_id: int) -> bool 
 
 
 async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id)
+    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
     if not post:
         return None
 
@@ -207,15 +215,14 @@ async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | No
         )
     ).rowcount == 1
 
+    if inserted and post.user_id != user.id:
+        db.add(Notification(user_id=post.user_id, actor_id=user.id, type="favorite", post_id=post_id))
     await db.commit()
-    if inserted:
-        # 通知帖子作者（不通知自己）；type=favorite，消息页互动聚合展示
-        await create_notification(db, post.user_id, user.id, "favorite", post_id=post_id)
     return {"favorited": True}
 
 
 async def unfavorite_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id)
+    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
     if not post:
         return None
     await db.execute(
@@ -245,7 +252,7 @@ async def list_favorites(
     db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
 ) -> tuple[list[dict], int | None, bool]:
     """收藏列表（按收藏时间倒序，游标用 Favorite.created_at 不可靠，改用 post.id）。"""
-    conds = [Favorite.user_id == user.id, Post.status == 1]
+    conds = [Favorite.user_id == user.id, Post.status == 1, visible_author(Post.user_id, user)]
     if cursor:
         conds.append(Favorite.post_id < cursor)
     stmt = (
@@ -269,7 +276,7 @@ async def list_my_likes(
     db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
 ) -> tuple[list[dict], int | None, bool]:
     """我点赞过的帖子（按点赞时间≈post_id 倒序）。"""
-    conds = [Like.user_id == user.id, Post.status == 1]
+    conds = [Like.user_id == user.id, Post.status == 1, visible_author(Post.user_id, user)]
     if cursor:
         conds.append(Like.post_id < cursor)
     stmt = (
@@ -326,23 +333,17 @@ async def list_my_comments(
 
 async def record_footprint(db: AsyncSession, user: User, post_id: int) -> None:
     """记录浏览足迹：同一 (user,post) 已有则更新 viewed_at，否则新增（应用级检查）。"""
-    fp = (await db.execute(
-        select(Footprint).where(Footprint.user_id == user.id, Footprint.post_id == post_id)
-    )).scalar_one_or_none()
-    if fp:
-        from sqlalchemy import update
-        await db.execute(
-            update(Footprint).where(Footprint.id == fp.id).values(viewed_at=func.now())
-        )
-    else:
-        db.add(Footprint(user_id=user.id, post_id=post_id))
+    await db.execute(
+        pg_insert(Footprint).values(user_id=user.id, post_id=post_id)
+        .on_conflict_do_update(constraint="uq_footprints_user_post", set_={"viewed_at": func.now()})
+    )
     await db.commit()
 
 
 async def list_footprints(
     db: AsyncSession, user: User, cursor: int | None = None, limit: int = 20
 ) -> tuple[list[dict], int | None, bool]:
-    conds = [Footprint.user_id == user.id, Post.status == 1]
+    conds = [Footprint.user_id == user.id, Post.status == 1, visible_author(Post.user_id, user)]
     if cursor:
         conds.append(Footprint.id < cursor)
     stmt = (

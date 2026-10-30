@@ -1,3 +1,5 @@
+import os
+from urllib.parse import urlparse
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -26,7 +28,14 @@ def set_test_environment():
     settings.ENVIRONMENT = original_env
 
 # ---- 测试数据库（NullPool 避免跨事件循环连接复用） ----
-TEST_DB_URL = settings.DATABASE_URL.replace("/ey_wall", "/ey_wall_test")
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL") or settings.TEST_DATABASE_URL
+TEST_REDIS_URL = os.environ.get("TEST_REDIS_URL") or settings.TEST_REDIS_URL
+if not TEST_DB_URL or not urlparse(TEST_DB_URL).path.endswith("_test"):
+    raise RuntimeError("TEST_DATABASE_URL must explicitly target a disposable *_test database")
+if not TEST_REDIS_URL or urlparse(TEST_REDIS_URL).path not in {"/13", "/14", "/15"}:
+    raise RuntimeError("TEST_REDIS_URL must explicitly select isolated test Redis DB 13/14/15")
+if TEST_DB_URL == settings.DATABASE_URL and settings.ENVIRONMENT != "test":
+    raise RuntimeError("Refusing to clean a non-test application database")
 test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
 TestSession = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -41,7 +50,7 @@ async def setup_database():
 @pytest_asyncio.fixture
 async def test_redis() -> AsyncGenerator[Redis, None]:
     """每个测试独立的 Redis 客户端"""
-    r = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    r = Redis.from_url(TEST_REDIS_URL, decode_responses=True)
     yield r
     await r.flushdb()
     await r.aclose()
@@ -77,7 +86,9 @@ async def _get_test_db():
 
 
 @pytest_asyncio.fixture
-async def client() -> AsyncGenerator[AsyncClient, None]:
+async def client(monkeypatch) -> AsyncGenerator[AsyncClient, None]:
+    import app.main as main_module
+    monkeypatch.setattr(main_module, "async_session", TestSession)
     app.dependency_overrides[get_db] = _get_test_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:

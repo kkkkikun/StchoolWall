@@ -1,3 +1,4 @@
+from tests.production_helpers import image_bytes
 """Upload 模块测试：上传配置、本地直传、权限控制、文件校验"""
 
 import io
@@ -8,6 +9,15 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from app.models.user import User
 from app.utils.security import create_access_token
 from tests.conftest import TestSession, auth_header
+
+
+@pytest.fixture(autouse=True)
+def private_media_dirs(tmp_path, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "STATIC_BASE_DIR", str(tmp_path / "static"))
+    monkeypatch.setattr(settings, "PRIVATE_MEDIA_DIR", str(tmp_path / "private"))
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", "local")
+
 
 
 # ============================================================
@@ -28,38 +38,24 @@ class TestGetUploadConfig:
         )
         assert r.status_code == 200
         data = r.json()["data"]
-        assert data["provider"] == "local"
+        assert data["provider"] == "proxy"
         assert data["method"] == "POST"
         assert "/api/v1/upload/direct" in data["upload_url"]
-        assert data["public_url"].startswith("/static/posts/")
+        assert data["public_url"] is None
         assert data["form_data"] is not None
-        assert "path" in data["form_data"]
+        assert "path" not in data["form_data"]
 
     @pytest.mark.asyncio
-    async def test_r2_config(self, client: AsyncClient, student_user: User):
-        """R2 模式返回 PUT 策略和预签名 URL"""
-        mock_url = "https://abc.r2.cloudflarestorage.com/ey-wall/posts/2026/test.jpg?X-Amz-..."
-        backend = MagicMock()
-        backend.get_upload_config = AsyncMock(return_value={
-            "provider": "r2",
-            "method": "PUT",
-            "upload_url": mock_url,
-            "form_data": None,
-            "public_url": "https://img.test.com/posts/2026/test.jpg",
-        })
-
-        with patch("app.routers.upload.get_storage_backend", return_value=backend):
-            token = create_access_token({"sub": str(student_user.id), "role": "student"})
-            r = await client.get(
-                "/api/v1/upload/config",
-                params={"filename": "photo.jpg", "content_type": "image/jpeg"},
-                headers=auth_header(token),
-            )
-            assert r.status_code == 200
-            data = r.json()["data"]
-            assert data["provider"] == "r2"
-            assert data["method"] == "PUT"
-            assert data["form_data"] is None
+    async def test_object_store_config_still_uses_verifying_proxy(self, client, student_user, monkeypatch):
+        from app.config import settings
+        monkeypatch.setattr(settings, "STORAGE_PROVIDER", "r2")
+        token = create_access_token({"sub": str(student_user.id), "role": "student"})
+        response = await client.get("/api/v1/upload/config",
+                                    params={"filename": "photo.jpg", "content_type": "image/jpeg"},
+                                    headers=auth_header(token))
+        assert response.status_code == 200
+        assert response.json()["data"]["provider"] == "proxy"
+        assert response.json()["data"]["public_url"] is None
 
     @pytest.mark.asyncio
     async def test_admin_can_get_config(self, client: AsyncClient, admin_user: User):
@@ -90,7 +86,7 @@ class TestGetUploadConfig:
             "/api/v1/upload/config",
             params={"filename": "img.jpg", "content_type": "image/jpeg"},
         )
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_invalid_file_type_rejected(self, client: AsyncClient, student_user: User):
@@ -137,7 +133,7 @@ class TestDirectUpload:
     async def test_upload_success(self, client: AsyncClient, student_user: User):
         """上传图片成功，返回 public_url"""
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
-        files = {"file": ("test.jpg", io.BytesIO(b"fake image data"), "image/jpeg")}
+        files = {"file": ("test.jpg", io.BytesIO(image_bytes()), "image/jpeg")}
         r = await client.post(
             "/api/v1/upload/direct?kind=posts",
             files=files,
@@ -145,13 +141,15 @@ class TestDirectUpload:
         )
         assert r.status_code == 200
         data = r.json()["data"]
-        assert data["public_url"].startswith("/static/posts/")
+        assert data["public_url"] is None
+        assert data["media_id"]
+        assert data["status"] == "quarantine"
 
     @pytest.mark.asyncio
     async def test_upload_png(self, client: AsyncClient, student_user: User):
         """上传 PNG 格式"""
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
-        files = {"file": ("img.png", io.BytesIO(b"\x89PNG\r\n"), "image/png")}
+        files = {"file": ("img.png", io.BytesIO(image_bytes("PNG")), "image/png")}
         r = await client.post(
             "/api/v1/upload/direct?kind=posts",
             files=files,
@@ -191,7 +189,7 @@ class TestDirectUpload:
             "/api/v1/upload/direct?kind=posts",
             files=files,
         )
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_upload_missing_path_rejected(self, client: AsyncClient, student_user: User):

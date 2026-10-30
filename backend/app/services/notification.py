@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.models.user import User
+from app.services.blocks import visible_author
 
 
 async def create_notification(
@@ -15,6 +16,7 @@ async def create_notification(
     type: str,
     post_id: int | None = None,
     comment_id: int | None = None,
+    commit: bool = True,
 ) -> Notification | None:
     """创建通知；不通知自己。"""
     if str(user_id) == str(actor_id):
@@ -24,7 +26,10 @@ async def create_notification(
         post_id=post_id, comment_id=comment_id,
     )
     db.add(n)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(n)
     return n
 
@@ -34,13 +39,17 @@ async def create_system_notification(
     user_id: uuid.UUID,
     type: str,
     post_id: int | None = None,
+    commit: bool = True,
 ) -> Notification:
     """系统通知（审核结果等）：actor_id 自指以落库，前端按 type 渲染系统文案、不显示 actor。"""
     n = Notification(
         user_id=user_id, actor_id=user_id, type=type, post_id=post_id,
     )
     db.add(n)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(n)
     return n
 
@@ -65,7 +74,7 @@ async def get_notification(db: AsyncSession, user: User, notif_id: int) -> dict 
     result = await db.execute(
         select(Notification, User.nickname)
         .join(User, Notification.actor_id == User.id)
-        .where(Notification.id == notif_id, Notification.user_id == user.id)
+        .where(Notification.id == notif_id, Notification.user_id == user.id, visible_author(Notification.actor_id, user))
     )
     row = result.first()
     if not row:
@@ -78,17 +87,17 @@ async def list_notifications(
     db: AsyncSession, user: User, type: str | None = None,
     cursor: int | None = None, limit: int = 20,
 ) -> tuple[list[dict], int | None, bool]:
-    conds = [Notification.user_id == user.id]
+    conds = [Notification.user_id == user.id, visible_author(Notification.actor_id, user)]
     if type:
         conds.append(Notification.type == type)
     if cursor:
         conds.append(Notification.id < cursor)
-    # 未读在前，再按时间倒序
+    # A changing read flag cannot be part of an id-only keyset cursor.
     stmt = (
         select(Notification, User.nickname)
         .join(User, Notification.actor_id == User.id)
         .where(*conds)
-        .order_by(Notification.is_read.asc(), Notification.id.desc())
+        .order_by(Notification.id.desc())
         .limit(limit + 1)
     )
     rows = (await db.execute(stmt)).all()
@@ -103,7 +112,7 @@ async def unread_summary(db: AsyncSession, user: User) -> dict:
     """按消息页 4 类聚合未读数（im 恒 0，私信未实现）。"""
     stmt = (
         select(Notification.type, func.count())
-        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
+        .where(Notification.user_id == user.id, Notification.is_read.is_(False), visible_author(Notification.actor_id, user))
         .group_by(Notification.type)
     )
     rows = (await db.execute(stmt)).all()
@@ -122,7 +131,7 @@ async def unread_summary(db: AsyncSession, user: User) -> dict:
 async def mark_all_read(db: AsyncSession, user: User) -> int:
     result = await db.execute(
         update(Notification)
-        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
+        .where(Notification.user_id == user.id, Notification.is_read.is_(False), visible_author(Notification.actor_id, user))
         .values(is_read=True)
     )
     await db.commit()
@@ -131,7 +140,7 @@ async def mark_all_read(db: AsyncSession, user: User) -> int:
 
 async def mark_read(db: AsyncSession, user: User, notif_id: int) -> bool:
     n = (await db.execute(
-        select(Notification).where(Notification.id == notif_id, Notification.user_id == user.id)
+        select(Notification).where(Notification.id == notif_id, Notification.user_id == user.id, visible_author(Notification.actor_id, user))
     )).scalar_one_or_none()
     if not n:
         return False

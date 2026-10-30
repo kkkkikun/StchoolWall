@@ -49,4 +49,4 @@ class TestMyPosts:
 
     async def test_requires_login(self, client: AsyncClient):
         resp = await client.get("/api/v1/posts/my")
-        assert resp.status_code == 403
+        assert resp.status_code == 401

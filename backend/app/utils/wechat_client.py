@@ -125,28 +125,28 @@ async def img_sec_check(image_bytes: bytes, filename: str) -> dict:
 
 
 async def load_image_bytes(url: str) -> tuple[bytes, str]:
-    """取图片二进制：/static/ 开头读本地磁盘；http(s) 用 httpx 下载。
+    """Read legacy static images only, with containment and a pre-read size cap.
 
-    Returns:
-        (bytes, filename)
-
-    Raises:
-        WechatClientError: 下载失败或超过 1M。
+    New media uses opaque IDs and private storage; outbound URL fetching is forbidden.
     """
-    if url.startswith("/static/"):
-        path = Path(".") / url.lstrip("/")
-        if not path.exists():
-            raise WechatClientError(f"本地图片不存在: {url}")
-        data = path.read_bytes()
-    elif url.startswith(("http://", "https://")):
-        async with httpx.AsyncClient(trust_env=False, timeout=HTTP_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(url)
-        resp.raise_for_status()
-        data = resp.content
-    else:
-        raise WechatClientError(f"不支持的图片地址: {url}")
+    import asyncio
+    from urllib.parse import unquote
 
+    if not url.startswith("/static/"):
+        raise WechatClientError("仅允许本站受控媒体")
+    relative = unquote(url[len("/static/"):])
+    base = Path(settings.STATIC_BASE_DIR).resolve()
+    path = (base / relative).resolve()
+    if not path.is_relative_to(base) or not path.is_file():
+        raise WechatClientError("非法或不存在的媒体")
+    if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        raise WechatClientError("非法媒体类型")
+    if path.stat().st_size > IMAGE_MAX_BYTES:
+        raise WechatClientError("图片超过大小限制")
+    def read_limited():
+        with path.open("rb") as handle:
+            return handle.read(IMAGE_MAX_BYTES + 1)
+    data = await asyncio.to_thread(read_limited)
     if len(data) > IMAGE_MAX_BYTES:
-        raise WechatClientError(f"图片超过 1M: {url}")
-    filename = url.rstrip("/").split("/")[-1] or "image.jpg"
-    return data, filename
+        raise WechatClientError("图片超过大小限制")
+    return data, path.name

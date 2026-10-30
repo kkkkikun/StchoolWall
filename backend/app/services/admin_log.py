@@ -1,7 +1,7 @@
 """管理员操作审计：写日志（显式调用）+ 查询。"""
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import AdminActor
@@ -38,6 +38,7 @@ TAG_DELETE = "tag.delete"
 ACTIVITY_CREATE = "activity.create"
 ACTIVITY_UPDATE = "activity.update"
 ACTIVITY_DELETE = "activity.delete"
+MAINTENANCE_CLEANUP = "maintenance.cleanup"
 
 
 async def log_admin_action(
@@ -72,8 +73,10 @@ async def list_admin_logs(
     time_end: datetime | None = None,
     cursor: int | None = None,
     limit: int = 20,
-) -> tuple[list[dict], int | None, bool]:
-    """审计日志查询：动作/管理员/时间范围筛选，游标分页。"""
+    page: int | None = None,
+    page_size: int = 20,
+):
+    """审计日志查询：动作/管理员/时间范围筛选，支持游标与页码分页。"""
     conditions = []
     if action:
         conditions.append(AdminLog.action == action)
@@ -83,6 +86,35 @@ async def list_admin_logs(
         conditions.append(AdminLog.created_at >= time_start)
     if time_end:
         conditions.append(AdminLog.created_at <= time_end)
+
+    def _log_to_dict(log):
+        return {
+            "id": log.id,
+            "admin_id": log.admin_id,
+            "admin_name": log.admin_name,
+            "source": log.source,
+            "action": log.action,
+            "target_type": log.target_type,
+            "target_id": log.target_id,
+            "detail": log.detail,
+            "ip": log.ip,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        }
+
+    if page is not None:
+        total = await db.scalar(
+            select(func.count()).select_from(AdminLog).where(*conditions)
+        ) or 0
+        stmt = (
+            select(AdminLog)
+            .where(*conditions)
+            .order_by(AdminLog.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        return [_log_to_dict(log) for log in rows], None, False, total
+
     if cursor:
         conditions.append(AdminLog.id < cursor)
 
@@ -96,18 +128,6 @@ async def list_admin_logs(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [{
-        "id": log.id,
-        "admin_id": log.admin_id,
-        "admin_name": log.admin_name,
-        "source": log.source,
-        "action": log.action,
-        "target_type": log.target_type,
-        "target_id": log.target_id,
-        "detail": log.detail,
-        "ip": log.ip,
-        "created_at": log.created_at.isoformat() if log.created_at else None,
-    } for log in rows]
-
+    items = [_log_to_dict(log) for log in rows]
     next_cursor = rows[-1].id if has_more and rows else None
     return items, next_cursor, has_more

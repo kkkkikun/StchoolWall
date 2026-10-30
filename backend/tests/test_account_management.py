@@ -33,13 +33,13 @@ class TestChangePassword:
 
         r = await client.put(
             "/api/v1/user/password",
-            json={"old_password": "OldPass123", "new_password": "NewPass456"},
+            json={"old_password": "OldPass123", "new_password": "NewPass456!"},
             headers=auth_header(token),
         )
         assert r.status_code == 200
 
         # 新密码可登录，旧密码 401
-        ok = await client.post("/api/v1/auth/web-login", json={"username": "chgpass", "password": "NewPass456"})
+        ok = await client.post("/api/v1/auth/web-login", json={"username": "chgpass", "password": "NewPass456!"})
         assert ok.status_code == 200
         bad = await client.post("/api/v1/auth/web-login", json={"username": "chgpass", "password": "OldPass123"})
         assert bad.status_code == 401
@@ -50,7 +50,7 @@ class TestChangePassword:
         token = create_access_token({"sub": str(u.id), "role": u.role})
         r = await client.put(
             "/api/v1/user/password",
-            json={"old_password": "NotRight1", "new_password": "NewPass456"},
+            json={"old_password": "NotRight1", "new_password": "NewPass456!"},
             headers=auth_header(token),
         )
         assert r.status_code == 400
@@ -60,7 +60,7 @@ class TestChangePassword:
         token = create_access_token({"sub": str(student_user.id), "role": "student"})
         r = await client.put(
             "/api/v1/user/password",
-            json={"old_password": "whatever1", "new_password": "whatever2"},
+            json={"old_password": "whatever1", "new_password": "whatever2-long"},
             headers=auth_header(token),
         )
         assert r.status_code == 400
@@ -92,9 +92,11 @@ class TestDeleteAccount:
         r2 = await client.get("/api/v1/user/profile", headers=auth_header(token))
         assert r2.status_code == 403
 
-        # 注销后不能再登录
+        # 身份数据已清除。开发自动注册也只能得到新UUID/游客，不能恢复旧账号。
         r3 = await client.post("/api/v1/auth/web-login", json={"username": "deluser", "password": "OldPass123"})
-        assert r3.status_code == 403
+        assert r3.status_code == 200
+        assert r3.json()["data"]["user_info"]["id"] != str(u.id)
+        assert r3.json()["data"]["role"] == "guest"
 
     @pytest.mark.asyncio
     async def test_deactivate_wrong_password(self, client: AsyncClient):

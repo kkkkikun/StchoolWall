@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from app.models.user import User
 from app.utils.security import create_access_token
 from tests.conftest import auth_header
+from tests.production_helpers import approve_profile
 
 
 # ============================================================
@@ -47,9 +48,9 @@ class TestGetProfile:
 
     @pytest.mark.asyncio
     async def test_no_token_forbidden(self, client: AsyncClient):
-        """无 Token -> 403"""
+        """无 Token -> 401"""
         r = await client.get("/api/v1/user/profile")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_invalid_token_unauthorized(self, client: AsyncClient):
@@ -103,7 +104,8 @@ class TestUpdateProfile:
         assert r.status_code == 200
         assert r.json()["code"] == 0
 
-        # 验证已更新
+        # 待审不立即公开，审核后更新
+        await approve_profile(r.json()["data"]["job_id"])
         r2 = await client.get("/api/v1/user/profile", headers=auth_header(token))
         assert r2.json()["data"]["nickname"] == "新昵称"
 
@@ -117,6 +119,7 @@ class TestUpdateProfile:
             headers=auth_header(token),
         )
         assert r.status_code == 200
+        await approve_profile(r.json()["data"]["job_id"])
 
         r2 = await client.get("/api/v1/user/profile", headers=auth_header(token))
         assert r2.json()["data"]["wechat_id"] == "wx_new_id"
@@ -131,6 +134,7 @@ class TestUpdateProfile:
             headers=auth_header(token),
         )
         assert r.status_code == 200
+        await approve_profile(r.json()["data"]["job_id"])
 
         r2 = await client.get("/api/v1/user/profile", headers=auth_header(token))
         data = r2.json()["data"]
@@ -161,12 +165,12 @@ class TestUpdateProfile:
 
     @pytest.mark.asyncio
     async def test_no_token_forbidden(self, client: AsyncClient):
-        """无 Token -> 403"""
+        """无 Token -> 401"""
         r = await client.put(
             "/api/v1/user/profile",
             json={"nickname": "无Token"},
         )
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_real_name_not_changeable(self, client: AsyncClient, student_user: User):
@@ -179,6 +183,7 @@ class TestUpdateProfile:
             headers=auth_header(token),
         )
         assert r.status_code == 200
+        await approve_profile(r.json()["data"]["job_id"])
 
         r2 = await client.get("/api/v1/user/profile", headers=auth_header(token))
         assert r2.json()["data"]["real_name"] == original_name

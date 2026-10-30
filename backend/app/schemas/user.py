@@ -1,3 +1,4 @@
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -14,6 +15,8 @@ class ProfileResponse(BaseModel):
 
 
 class ProfileUpdateRequest(BaseModel):
+    avatar_media_id: UUID | None = None
+    banner_media_id: UUID | None = None
     nickname: str | None = Field(None, min_length=1, max_length=50)
     wechat_id: str | None = Field(None, max_length=50)
     avatar_url: str | None = Field(None, max_length=255)
@@ -23,7 +26,7 @@ class ProfileUpdateRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(..., min_length=6, max_length=64)
-    new_password: str = Field(..., min_length=6, max_length=64)
+    new_password: str = Field(..., min_length=10, max_length=64)
 
 
 class DeleteAccountRequest(BaseModel):

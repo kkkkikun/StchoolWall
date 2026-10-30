@@ -1,3 +1,4 @@
+from tests.production_helpers import approve_comments
 """消息通知模块测试：触发（评论/赞）、不通知自己、未读汇总、列表、已读。"""
 
 import pytest
@@ -29,6 +30,7 @@ class TestNotificationTrigger:
         post = await _seed_post(admin_user.id)
         await client.post(f"/api/v1/posts/{post.id}/comments", json={"content": "好帖"},
                           headers=auth_header(_token(student_user)))
+        await approve_comments()
         r = await client.get("/api/v1/notifications", headers=auth_header(_token(admin_user)))
         items = r.json()["data"]["items"]
         assert any(n["type"] == "comment" for n in items)
@@ -48,6 +50,7 @@ class TestNotificationTrigger:
         await client.post(f"/api/v1/posts/{post.id}/like", headers=auth_header(_token(admin_user)))
         await client.post(f"/api/v1/posts/{post.id}/comments", json={"content": "自评"},
                           headers=auth_header(_token(admin_user)))
+        await approve_comments()
         r = await client.get("/api/v1/notifications", headers=auth_header(_token(admin_user)))
         assert r.json()["data"]["items"] == []
 
@@ -68,6 +71,7 @@ class TestUnreadSummary:
         await client.post(f"/api/v1/posts/{post.id}/like", headers=auth_header(_token(student_user)))
         await client.post(f"/api/v1/posts/{post.id}/comments", json={"content": "hi"},
                           headers=auth_header(_token(student_user)))
+        await approve_comments()
         r = await client.get("/api/v1/notifications/unread-summary", headers=auth_header(_token(admin_user)))
         d = r.json()["data"]
         assert d["comment"] == 1
@@ -78,7 +82,7 @@ class TestUnreadSummary:
     @pytest.mark.asyncio
     async def test_summary_requires_auth(self, client: AsyncClient):
         r = await client.get("/api/v1/notifications/unread-summary")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
 
 class TestReadAndList:
@@ -120,12 +124,14 @@ class TestReadAndList:
         assert r.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_list_unread_first(self, client: AsyncClient, admin_user: User, student_user: User):
-        """未读排在已读前面"""
+    async def test_list_uses_stable_id_order(self, client: AsyncClient, admin_user: User, student_user: User):
+        """消息按稳定的 id 倒序排列，未读数另行汇总。"""
         post = await _seed_post(admin_user.id)
         await client.post(f"/api/v1/posts/{post.id}/like", headers=auth_header(_token(student_user)))
         await client.post(f"/api/v1/posts/{post.id}/comments", json={"content": "x"},
                           headers=auth_header(_token(student_user)))
+        await approve_comments()
         items = (await client.get("/api/v1/notifications", headers=auth_header(_token(admin_user)))).json()["data"]["items"]
         assert len(items) == 2
         assert all(n["is_read"] is False for n in items)
+        assert items[0]["id"] > items[1]["id"]

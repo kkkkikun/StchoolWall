@@ -87,5 +87,5 @@ class TestCheckIn:
 
     @pytest.mark.asyncio
     async def test_require_login(self, client: AsyncClient):
-        assert (await client.post("/api/v1/user/checkin")).status_code == 403
-        assert (await client.get("/api/v1/user/checkin/status")).status_code == 403
+        assert (await client.post("/api/v1/user/checkin")).status_code == 401
+        assert (await client.get("/api/v1/user/checkin/status")).status_code == 401

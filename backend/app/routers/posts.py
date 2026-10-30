@@ -1,4 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from app.services.runtime_controls import require_publishing
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +9,6 @@ from app.dependencies import get_current_user, get_optional_user, require_role
 from app.models.interaction import Favorite, Like
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
-from app.services.moderation import check_post_moderation
 from app.utils.rate_limit import RATE_POST_CREATE, RATE_REPORT, check_rate_limit
 from app.services.post import (
     create_post,
@@ -55,10 +55,9 @@ async def get_posts(
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(require_publishing)])
 async def new_post(
     body: PostCreate,
-    bg_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student", "admin")),
 ):
@@ -71,15 +70,17 @@ async def new_post(
     # 按用户限流：防灌水（审核频率风控之外的第一道闸）
     await check_rate_limit(f"rl:u:{user.id}:posts", *RATE_POST_CREATE)
 
-    post = await create_post(
-        db, user, body.post_type, body.content,
-        body.images, body.price, body.tag_ids, body.category,
-    )
-
-    # Student 发帖需后台审核，admin 直接通过
-    # 测试环境不执行后台任务（通过环境变量控制）
-    if post.status == 0 and settings.ENVIRONMENT != "test":
-        bg_tasks.add_task(check_post_moderation, post.id)
+    if body.images and settings.ENVIRONMENT == "production":
+        raise HTTPException(status_code=400, detail="请先上传图片并使用 media_ids")
+    if body.images and body.media_ids:
+        raise HTTPException(status_code=400, detail="不可混用 images 与 media_ids")
+    try:
+        post = await create_post(
+            db, user, body.post_type, body.content,
+            body.images, body.price, body.tag_ids, body.category, media_ids=body.media_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "code": 0,
@@ -115,9 +116,10 @@ async def following_feed_route(
 async def hot_posts_route(
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """十大热帖（公开）"""
-    items = await hot_posts(db, limit)
+    items = await hot_posts(db, limit, viewer=user)
     return {"code": 0, "data": {"items": items}}
 
 
@@ -130,7 +132,7 @@ async def featured_posts_route(
     user: User | None = Depends(get_optional_user),
 ):
     """精华流：经验贴等长尾内容，历史热度排序（公开可看，登录后带点赞视角）"""
-    items, next_cursor, has_more = await featured_posts(db, cursor, limit, tag_text=tag)
+    items, next_cursor, has_more = await featured_posts(db, cursor, limit, tag_text=tag, viewer=user)
     if user and items:
         liked_ids, fav_ids = await _viewer_flags(db, user, [it["id"] for it in items])
         for it in items:
@@ -144,9 +146,10 @@ async def search_posts_route(
     q: str = Query(..., min_length=1),
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """帖子搜索（公开）"""
-    items, next_cursor, has_more = await search_posts(db, q, cursor)
+    items, next_cursor, has_more = await search_posts(db, q, cursor, viewer=user)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 

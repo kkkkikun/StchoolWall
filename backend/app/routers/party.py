@@ -1,3 +1,4 @@
+from app.services.runtime_controls import require_publishing
 """组局路由。挂在 /api/v1。"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -38,7 +39,7 @@ async def list_parties(
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
-@router.post("/parties")
+@router.post("/parties", dependencies=[Depends(require_publishing)])
 async def create_party(
     body: PartyCreate,
     db: AsyncSession = Depends(get_db),

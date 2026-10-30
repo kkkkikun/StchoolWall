@@ -22,6 +22,10 @@
 | 既有专项走查回归 | 学生端6套（首页/发布/图片上传/详情/登录守卫/桌面平板）与管理台10套（看板/导航/帖子/举报/用户/评论/学生证/申诉/人工审核队列/布局）全部总体PASS。 |
 | 前后端缺陷修复 | ① 夜间模式 `.theme-dark` 只覆写背景令牌、未覆写字色，`verify`/`appeals` 继承亮色近黑字在纯黑底上不可见；② 输入占位符使用 uni 默认 `#808080`（3.95:1）与 `--text-4`（2.64:1）；③ 管理台沿用 Element Plus 默认语义色，标签文字对比度仅2.0~3.1:1。三处均已修复，并由新增对比度断言长期守护。 |
 | 图片顺序缺陷 | 发布页并发上传时 `media_ids` 的签发顺序 ≠ 用户选择顺序；后端 `bind_media` 用 `WHERE id IN (...)` 取数、`entity_media` 按 `created_at, id` 排序，用户排好的图片顺序在入库与发布环节丢失。已加 `media_assets.position` 列（迁移 `b7e2c4a91d30`）、`bind_media` 按传入顺序重排并落 position、`entity_media` 按 position 排序，并补后端回归测试与发布页 `data-media-id` 契约断言。**后端用例与迁移需 PostgreSQL 环境执行，本次未在本机运行。** |
+| 图标体系 emoji → SVG | 全站 emoji 清零：`frontend/src`、`admin-frontend/src`、`backend/app` 扫描 **0 处** emoji。学生端 15 个页面 + `mock.ts` + 管理台 3 处全部改为 SVG；管理台 `route.meta.icon` 的 17 个 emoji 是死数据（侧边栏图标本就由 `AdminLayout` 的 Element Plus 组件提供），已删除该字段。学生端图标几何统一由 `frontend/scripts/gen_icons.py` 生成（**179 个 SVG / 87 个语义名**，含 default/primary/inverse/like/favorite 色调变体），产出 `frontend/src/utils/icons.ts` 注册表。浏览器实测 20 个页面共 **123 个图标全部加载成功、0 坏图**；H5 与微信小程序产物中 SVG 资源均已就位。 |
+| 小程序 SVG 兼容性 | 微信官方 `image` 组件文档明确支持 SVG 格式；项目图标统一用 `<image src="*.svg" mode="aspectFit">`，全部 SVG 不含 `<style>` 元素与百分比单位，符合官方限制。**未在微信开发者工具或真机实测**（本机无 devtools/真机），需按 `frontend/README-MP.md` §4 清单补验。 |
+| 走查断言同步 | `post-detail-walkthrough.py` 的点赞/收藏断言原按 emoji 字形匹配，图标换成 SVG 后必然失败；已改为断言实际 SVG 资源路径（`heart-on.svg` / `heart.svg` / `star-on.svg` / `star.svg`），**33/33 通过**，断言未被削弱或删除。 |
+| 顺带修复的布局缺陷 | ① 组局页分类胶囊被 flex 压缩导致分类名逐字竖排（经 A/B 对比确认该问题在改动前已存在，非本次引入）；② 发起组局页「地点（选填）」标签被压成两行。两处均已修复，并用「短文本不得被压缩换行」的通用检测复验全站 22 个页面，仅剩 2 处 textarea 多行占位符（属预期）。 |
 | 发布配置 | 两份GitHub workflow通过actionlint1.7.7；生产、备份、监控Compose静态配置校验通过；镜像manifest模板远端只读校验通过。未在本机Docker构建/扫描/启动；Gitleaks与Trivy均未在本地执行，CI保留硬门禁。 |
 
 外部微信、腾讯审核与COS使用模拟边界或SDK形状验证；没有把第三方服务的实际调用、资质或真机行为记为通过。自动化检查不替代人工安全复核。

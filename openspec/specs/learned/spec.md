@@ -35,10 +35,12 @@
 - **WHEN** 测试中出现 asyncpg "another operation in progress" 或事件循环相关错误
 - **THEN** 根因：asyncpg 连接绑定到首个事件循环，跨循环复用报错；解法：测试引擎使用 `NullPool`（每 SQL 操作用完即释放），见 `backend/tests/conftest.py`；预防：不要在测试 fixture 中跨函数复用同一引擎到不同循环
 
-#### Scenario: mp-weixin 不支持内联 SVG
+#### Scenario: mp-weixin 图标只能用 <image> 引用 SVG 文件
 
-- **WHEN** 前端图标方案选 "内联 `<svg>`" 或 `<image src="*.svg">`
-- **THEN** 根因：mp-weixin 不渲染 `<svg>` 标签，`<image>` 也不支持 .svg；H5 能渲染但 mp-weixin 空白；解法：用 Unicode 符号 + emoji 经 `<text>` 渲染（`components/ui-icon.vue`），或 CSS `background-image: url("data:image/svg+xml,...")`；预防：跨 H5+mp-weixin 的图标统一走 `<text>` 字形或 iconfont，别用裸 SVG
+- **WHEN** 前端图标方案选 "内联 `<svg>` 标签" 或 "WXSS 里 `background-image` 用 SVG data-uri"
+- **THEN** 根因：mp-weixin 不渲染内联 `<svg>` 标签，WXSS 背景图也不解析 SVG data-uri，H5 能渲染但小程序空白；**但 `<image src="*.svg" mode="aspectFit">` 是官方支持的**（微信 image 组件文档：支持 JPG、PNG、SVG、WEBP、GIF），项目自 2026-08 起即用该方式提供底栏/信息流/设置页图标，2026-10 全量替换 emoji 后沿用并扩展到全站
+- **THEN** svg 资源本身必须满足官方限制：不含 `<style>` 元素、不含百分比单位；用 `mode="aspectFit"` 避免 `scaleToFill` 在 WebView 下居中、Skyline 下撑满的差异
+- **THEN** 预防：跨 H5+mp-weixin 的图标统一走 `<image src="*.svg" mode="aspectFit">`；换色靠生成多份色调变体文件，不靠 CSS mask/filter（mp-weixin 不支持）
 
 #### Scenario: 自定义 tabBar 跨平台用 reLaunch
 

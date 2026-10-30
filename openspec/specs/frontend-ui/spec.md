@@ -15,7 +15,12 @@ TBD - created by archiving change frontend-redesign. Update Purpose after archiv
 #### Scenario: 无 PNG 依赖
 
 - **WHEN** tabBar 与各页面渲染图标
-- **THEN** 全部使用内联 SVG 或 emoji，不引用任何 PNG 图标文件
+- **THEN** 全部使用 SVG 图标资源（`static/icons/**.svg`，经 `<image mode="aspectFit">` 引用），不引用任何 PNG 图标文件，也不使用 emoji 字形
+
+#### Scenario: 图标资源统一生成
+
+- **WHEN** 需要新增或调整图标
+- **THEN** 图标几何只在 `frontend/scripts/gen_icons.py` 中维护并生成到 `static/icons/<分组>/`，语义名与色调变体登记在 `frontend/src/utils/icons.ts`（生成物，勿手改）；手写 SVG 与 emoji 字形都不得进入模板
 
 ### Requirement: 红色品牌主题统一
 

@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "type-check": "vue-tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/auth-downloads.test.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",
-    "echarts": "^5.6.0",
+    "echarts": "6.1.0",
     "element-plus": "^2.9.1",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",
@@ -22,5 +23,8 @@
     "typescript": "~5.7.2",
     "vite": "^6.0.5",
     "vue-tsc": "^2.2.0"
+  },
+  "overrides": {
+    "follow-redirects": "^1.16.2"
   }
 }

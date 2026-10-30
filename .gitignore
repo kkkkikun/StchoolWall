@@ -63,3 +63,7 @@ project.zip
 
 # CI 产物（deploy/ci/ci.sh 输出）
 ci-artifacts/
+
+# Isolated media and student evidence (never commit)
+private-media/
+private-verifications/

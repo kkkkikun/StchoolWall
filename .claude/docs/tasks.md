@@ -7,7 +7,14 @@
 
 ## 进行中 (In Progress)
 
-> 暂无活跃变更（见已完成）。下一个大方向候选见下方 Backlog。
+### 生产化与Web/微信/Android（2026-10-16用户已批准）
+
+- 活跃变更：openspec/changes/production-multiplatform/
+- 代码：统一身份/会话/撤销/找回、私有证件人工核验、隔离媒体、持久任务、人工治理、发布与恢复工具
+- 实施状态：docs/production/implementation-status.md；测试证据：docs/production/verification.md
+- 2026-10-30 进展：主前端npm audit高危清零（0 high，管理台0 vulnerabilities）；新增学生端全页面(53/53)与管理台全视图(34/34) Playwright走查含对比度断言；修复夜间模式文字色、占位符对比度、管理台语义色、图片展示顺序（新增media_assets.position迁移b7e2c4a91d30）
+- 发布仍阻断：主体/备案与商店准入、镜像与密钥扫描及独立安全复核、真实COS/审核联调、异机恢复/回滚、容量与三端真机、新增迁移与媒体顺序后端用例尚未在真实PostgreSQL执行
+- 原有未提交UI改动保留；未部署、未代替运营方签署政策或提交平台审核
 
 ## 已完成（已归档）
 

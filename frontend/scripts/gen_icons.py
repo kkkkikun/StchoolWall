@@ -95,6 +95,11 @@ ICONS = {
         'note': ('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'
                  '<line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>', False),
         'shield': ('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', False),
+        'eye-open': ('<path d="M1.8 12S5.5 5.5 12 5.5 22.2 12 22.2 12 18.5 18.5 12 18.5 1.8 12 1.8 12z"/>'
+                     '<circle cx="12" cy="12" r="3"/>', False),
+        'eye-off': ('<path d="M9.6 5.7A9.9 9.9 0 0 1 12 5.5c6.5 0 10.2 6.5 10.2 6.5a17.8 17.8 0 0 1-3.1 3.9"/>'
+                    '<path d="M6.2 7.8A17.6 17.6 0 0 0 1.8 12S5.5 18.5 12 18.5a9.6 9.6 0 0 0 4-.85"/>'
+                    '<path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="3" y1="3" x2="21" y2="21"/>', False),
         # —— 激活态（自身即强调色）——
         'star-on': ('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
                     True, 'favorite'),
@@ -205,7 +210,7 @@ TONED = {
                     'group', 'plus', 'notice', 'shield', 'comment', 'eye', 'close',
                     'heart', 'bookmark', 'check', 'location', 'clock', 'star', 'more',
                     'campus', 'cart', 'ball', 'note', 'publish', 'send', 'share',
-                    'up', 'camera', 'arrow-right', 'arrow-up'],
+                    'up', 'camera', 'arrow-right', 'arrow-up', 'eye-open', 'eye-off'],
         'danger': [],
     },
     'state': {

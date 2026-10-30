@@ -50,7 +50,7 @@
       <!-- 未登录：网页版登录入口（H5 部署用，注册/登录合一） -->
       <!-- #ifdef H5 || APP-PLUS -->
       <view v-if="!loggedIn" class="dev-login-row">
-        <view class="dev-capsule" @tap="showWebLogin = true">
+        <view class="dev-capsule" @tap="goAuth">
           <text>登录 / 注册</text>
         </view>
       </view>
@@ -151,46 +151,18 @@
 
     <TabBar :current="4" />
 
-    <!-- 网页版登录弹窗（H5） -->
-    <!-- #ifdef H5 || APP-PLUS -->
-    <view v-if="showWebLogin" class="wl-mask" @tap="showWebLogin = false">
-      <view class="wl-card" @tap.stop>
-        <text class="wl-title">{{ recoveryMode ? '找回账号密码' : (wlRegister ? '注册账号' : '登录') }}</text>
-        <text class="wl-sub">{{ recoveryMode ? '使用离线保存的单次找回码重置密码' : (wlRegister ? '注册密码至少 10 位' : '使用已注册的账号登录') }}</text>
-        <input v-model="wlForm.username" class="wl-input" :maxlength="20" placeholder="用户名（2-20 字）"
-               placeholder-class="ph" />
-        <input v-if="recoveryMode" v-model="recoveryCode" class="wl-input" :maxlength="64" placeholder="离线找回码（请勿转发）" placeholder-class="ph" />
-        <input v-model="wlForm.password"  class="wl-input" :maxlength="64" password :placeholder="recoveryMode || wlRegister ? '新密码（至少 10 位）' : '登录密码'"
-               placeholder-class="ph" />
-        <view class="wl-btn" :class="{ saving: wlSaving }" @tap="doWebLogin">
-          <text>{{ wlSaving ? '处理中…' : (recoveryMode ? '重置密码' : (wlRegister ? '注册并登录' : '进入鄂应墙')) }}</text>
-        </view>
-        <view class="wl-links">
-          <text class="wl-link" @tap="toggleRegisterMode">{{ wlRegister ? '已有账号，去登录' : '没有账号，去注册' }}</text>
-          <text class="wl-sep">|</text>
-          <text class="wl-link" @tap="toggleRecoveryMode">{{ recoveryMode ? '返回登录' : '找回密码' }}</text>
-        </view>
-        <view v-if="IS_WEB && WECHAT_MP_APP_ID"   class="wl-wechat" @tap="beginMpOAuth">
-          <text>微信登录（公众号）</text>
-        </view>
-      </view>
-    </view>
-    <!-- #endif -->
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
-import { devLogin, webLogin, register, storeLoginSession, recoverPassword, wxLoginAndStore } from '@/api/auth'
-import type { LoginResponse } from '@/api/auth'
-import { beginWechatOAuth, clientType } from '@/utils/platform-auth'
+import { devLogin, storeLoginSession, wxLoginAndStore } from '@/api/auth'
 import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
-import { friendlyNetworkError } from '@/utils/errors'
 import type { PostBrief } from '@/types/api'
 
 const { themeClass } = useTheme()
@@ -430,90 +402,11 @@ const doWxLogin = async () => {
   }
 }
 
-// ===== 网页版登录（H5）：注册/登录合一，与 devLogin 共用落地流程 =====
+// ===== 登录/注册入口 =====
 const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
-const IS_WEB = clientType() === 'web'
-const WECHAT_MP_APP_ID = import.meta.env.VITE_WECHAT_MP_APP_ID || ''
-const showWebLogin = ref(false)
-const wlSaving = ref(false)
-const wlRegister = ref(false)
-const recoveryMode = ref(false)
-const recoveryCode = ref('')
-const wlForm = ref({ username: '', password: '' })
-watch(showWebLogin, (visible) => {
-  if (!visible) { recoveryCode.value = ''; wlForm.value.password = ''; recoveryMode.value = false }
-})
 
-// 登录/注册成功响应的最小运行时校验：会话必需字段缺失视为异常响应，
-// 不落地不完整会话、不关弹窗（对照 utils/storage.ts 的 SessionData 契约）
-// 与 utils/storage.ts 的 StoredUserInfo['role'] 保持一致，不得自行扩大取值
-const VALID_SESSION_ROLES = ['guest', 'student', 'admin'] as const
-
-const isValidSessionResponse = (res: LoginResponse | null | undefined): res is LoginResponse =>
-  !!res &&
-  typeof res.access_token === 'string' && res.access_token.length > 0 &&
-  (VALID_SESSION_ROLES as readonly string[]).includes(res.role as string) &&
-  !!res.user_info &&
-  typeof res.user_info.id === 'string' && res.user_info.id.length > 0 &&
-  typeof res.user_info.nickname === 'string' &&
-  typeof res.user_info.is_verified === 'boolean'
-
-// 底层网络错误翻译成可重试的中文提示；后端明确返回的错误原样保留（规则见 utils/errors.ts）
-const friendlyLoginError = (e: unknown): string => friendlyNetworkError(e, '登录失败，请稍后重试')
-
-const doWebLogin = async () => {
-  // 请求进行中直接忽略后续点击：登录/注册/找回共用本入口，防重复提交
-  if (wlSaving.value) return
-  const username = wlForm.value.username.trim()
-  const password = wlForm.value.password
-  if (username.length < 2 || password.length < (wlRegister.value || recoveryMode.value ? 10 : 6)) {
-    uni.showToast({ title: wlRegister.value ? '用户名至少2字，密码至少10位' : '请输入有效账号和密码', icon: 'none' })
-    return
-  }
-  wlSaving.value = true
-  try {
-    if (recoveryMode.value) {
-      if (!recoveryCode.value.trim()) throw new Error('请输入离线保存的找回码')
-      await recoverPassword(username, recoveryCode.value.trim(), password)
-      recoveryCode.value = ''
-      wlForm.value.password = ''
-      recoveryMode.value = false
-      uni.showToast({ title: '密码已重置，请登录', icon: 'success' })
-      return
-    }
-    const res = await (wlRegister.value ? register(username, password) : webLogin(username, password))
-    if (!isValidSessionResponse(res)) throw new Error('登录响应异常，请稍后重试')
-    await storeLoginSession(res)
-    showWebLogin.value = false
-    loggedIn.value = true
-    isVerified.value = !!res.user_info.is_verified
-    uni.showToast({ title: `欢迎，${res.user_info.nickname}`, icon: 'success' })
-    loadedTabs.value.clear()
-    await loadProfile()
-  } catch (e) {
-    uni.showToast({ title: friendlyLoginError(e), icon: 'none' })
-  } finally {
-    wlSaving.value = false
-  }
-}
-
-// 模式切换：请求进行中锁定，防止在途请求期间换模式造成语义错乱或绕过防重
-const toggleRegisterMode = () => {
-  if (wlSaving.value) return
-  recoveryMode.value = false
-  wlRegister.value = !wlRegister.value
-}
-const toggleRecoveryMode = () => {
-  if (wlSaving.value) return
-  recoveryMode.value = !recoveryMode.value
-  wlRegister.value = false
-}
-
-// 公众号网页授权：跳转微信换取 code，回跳 oauth-callback 页完成登录
-const beginMpOAuth = () => {
-  try { beginWechatOAuth(WECHAT_MP_APP_ID) }
-  catch (error) { uni.showToast({ title: (error as Error).message, icon: 'none' }) }
-}
+/** 账号登录/注册/找回密码已独立成页（pages/auth/index），此处只做跳转 */
+const goAuth = () => uni.navigateTo({ url: '/pages/auth/index' })
 
 onShow(() => loadProfile())
 
@@ -635,69 +528,6 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .dev-capsule.saving { opacity: 0.6; pointer-events: none; }
 
 /* 网页版登录弹窗（H5） */
-.wl-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-.wl-card {
-  width: 580rpx;
-  background: var(--bg-card);
-  border-radius: 32rpx;
-  padding: 48rpx 40rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-}
-.wl-title { font-size: 36rpx; font-weight: bold; color: var(--text-1); text-align: center; }
-.wl-sub { font-size: 22rpx; color: var(--text-3); text-align: center; margin-top: 10rpx; }
-.wl-input {
-  margin-top: 24rpx;
-  background: var(--bg-card-2);
-  border: 1rpx solid var(--border-light);
-  border-radius: var(--radius-inner);
-  padding: 22rpx 26rpx;
-  font-size: 28rpx;
-  color: var(--text-1);
-  box-sizing: border-box;
-}
-.wl-input:focus {
-  border-color: var(--primary);
-}
-.ph {
-  color: var(--text-4);
-}
-.wl-links {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20rpx;
-  margin-top: 28rpx;
-}
-.wl-link {
-  font-size: 26rpx;
-  color: var(--primary);
-  cursor: pointer;
-}
-.wl-sep {
-  font-size: 22rpx;
-  color: var(--text-4);
-}
-.wl-btn {
-  margin-top: 36rpx;
-  background: var(--primary-strong);
-  color: var(--text-inverse);
-  font-size: 30rpx;
-  font-weight: 600;
-  text-align: center;
-  padding: 22rpx 0;
-  border-radius: 40rpx;
-  cursor: pointer;
-}
-.wl-btn.saving { opacity: 0.6; }
 
 .slim-tip {
   margin-top: 20rpx;
@@ -780,18 +610,4 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
-.wl-wechat {
-  margin-top: 24rpx;
-  padding: 22rpx 0;
-  border: 2rpx solid var(--success);
-  border-radius: var(--radius-btn);
-  text-align: center;
-  color: var(--success);
-  cursor: pointer;
-}
-.wl-wechat text {
-  color: var(--success);
-  font-size: 28rpx;
-  font-weight: 600;
-}
 </style>

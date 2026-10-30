@@ -82,6 +82,12 @@
 			}
 		},
 		{
+			"path": "pages/auth/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/post-detail/index",
 			"style": {
 				"navigationBarTitleText": "帖子详情"

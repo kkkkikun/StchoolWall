@@ -580,7 +580,7 @@ const copyContact = () => {
 
 .del-btn {
   font-size: 24rpx;
-  color: var(--danger);
+  color: var(--danger-strong);
   border: 1rpx solid var(--danger);
   padding: 8rpx 20rpx;
   border-radius: var(--radius-btn);

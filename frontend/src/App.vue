@@ -69,6 +69,8 @@ page {
   --warning: #ffd400;
   --warning-soft: rgba(255, 212, 0, 0.14);
   --danger: #f4212e;
+  --danger-soft: rgba(244, 33, 46, 0.10);
+  --danger-strong: #b42318;       /* 深一档语义红：小字在浅红底上达 WCAG AA（5.8:1） */
   --rank-2: #ffd400;             /* 榜单第 2 名 */
   --rank-3: #ff7a00;             /* 榜单第 3 名 */
   --accent-violet: #7856ff;      /* X 紫 */
@@ -126,6 +128,8 @@ page {
   --shimmer-gradient: linear-gradient(90deg, #16181c 25%, #202327 37%, #16181c 63%);
   --hero-gradient: linear-gradient(160deg, #0d3a5c 0%, #1d6aa8 60%, #1d9bf0 130%);
   --warning-soft: rgba(255, 212, 0, 0.10);
+  --danger-soft: rgba(244, 33, 46, 0.16);
+  --danger-strong: #ff6b74;       /* 暗底上的浅红：深底文字对比度 6.1:1 */
   --accent-violet-soft: rgba(120, 86, 255, 0.16);
   --accent-blue-soft: rgba(29, 155, 240, 0.14);
 

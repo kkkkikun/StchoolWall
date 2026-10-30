@@ -85,19 +85,24 @@ async def bind_media(db: AsyncSession, owner_id: uuid.UUID, ids: list[uuid.UUID]
     ).with_for_update())).scalars())
     if len(rows) != len(ids):
         raise ValueError("图片不存在、用途不符或不属于当前账号")
-    for asset in rows:
+    # WHERE id IN (...) 不保证返回顺序，必须按调用方给定的顺序重排，
+    # 否则用户在小程序里选择的图片先后顺序会在入库时丢失。
+    by_id = {asset.id: asset for asset in rows}
+    ordered = [by_id[media_id] for media_id in ids]
+    for position, asset in enumerate(ordered):
         if asset.status in {"rejected", "deleted"}:
             raise ValueError("图片已被拒绝或已删除")
         if asset.entity_type and (asset.entity_type != entity_type or asset.entity_id != entity_id):
             raise ValueError("图片已用于其他内容")
         asset.entity_type, asset.entity_id = entity_type, entity_id
-    return rows
+        asset.position = position
+    return ordered
 
 
 async def entity_media(db: AsyncSession, entity_type: str, entity_id: int) -> list[MediaAsset]:
     return list((await db.execute(select(MediaAsset).where(
         MediaAsset.entity_type == entity_type, MediaAsset.entity_id == entity_id,
-    ).order_by(MediaAsset.created_at, MediaAsset.id))).scalars())
+    ).order_by(MediaAsset.position.nulls_last(), MediaAsset.created_at, MediaAsset.id))).scalars())
 
 
 async def publish_entity_media(db: AsyncSession, entity_type: str, entity_id: int) -> list[str]:

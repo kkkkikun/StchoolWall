@@ -23,5 +23,7 @@ class MediaAsset(Base):
     sha256: Mapped[str] = mapped_column(String(64))
     entity_type: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     entity_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    # 绑定到内容时的展示顺序（用户选择顺序），NULL 表示尚未绑定
+    position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

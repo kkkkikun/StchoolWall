@@ -93,6 +93,31 @@ async def test_upload_is_private_owned_and_transactional(student_user, guest_use
 
 
 @pytest.mark.asyncio
+async def test_bound_media_keeps_the_order_the_author_chose(student_user, private_storage):
+    """用户选择的图片先后顺序必须贯穿绑定、读取与发布（position 列）。"""
+    from app.services.media import entity_media, publish_entity_media
+
+    async with TestSession() as db:
+        assets = [await create_media(db, student_user, "posts", _jpeg()) for _ in range(3)]
+        # 故意用非签发顺序绑定：模拟并发上传完成顺序与选择顺序不一致
+        chosen = [assets[2].id, assets[0].id, assets[1].id]
+        await db.commit()
+
+    async with TestSession() as db:
+        bound = await bind_media(db, student_user.id, chosen, "posts", "post", 77)
+        assert [asset.id for asset in bound] == chosen
+        assert [asset.position for asset in bound] == [0, 1, 2]
+        await db.commit()
+
+    async with TestSession() as db:
+        stored = await entity_media(db, "post", 77)
+        assert [asset.id for asset in stored] == chosen
+        urls = await publish_entity_media(db, "post", 77)
+        assert urls == [f"/api/v1/upload/media/{media_id}/content" for media_id in chosen]
+        await db.commit()
+
+
+@pytest.mark.asyncio
 async def test_job_rollback_and_dedupe():
     async with TestSession() as db:
         await enqueue_job(db, "moderate_post", {"post_id": 1}, "rollback")

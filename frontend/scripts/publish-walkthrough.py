@@ -19,15 +19,14 @@ isLoggedIn 契约一致：csrfCookie() && getUserInfo()）。不访问真实后�
 任一断言失败 -> 场景 FAIL，脚本退出码非零。
 """
 
-import http.server
 import json
 import os
-import socket
 import sys
-import threading
 import time
 import traceback
 from playwright.sync_api import sync_playwright
+
+from h5_walkthrough_server import create_server
 
 from h5_mock_api import handle_api, assert_no_horizontal_overflow
 
@@ -41,20 +40,7 @@ if not os.path.isdir(DIST_DIR):
     sys.exit(1)
 
 # ---------------------------------------------------------------- 静态服务
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-class SilentHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-    def log_message(self, format, *args):
-        pass
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SilentHandler)
-threading.Thread(target=httpd.serve_forever, daemon=True).start()
-base_url = f'http://127.0.0.1:{port}'
+httpd, base_url = create_server(DIST_DIR)
 print(f'H5 static server listening on {base_url}')
 
 # ---------------------------------------------------------------- Mock 状态

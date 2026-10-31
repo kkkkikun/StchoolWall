@@ -5,14 +5,13 @@ SchoolWall 前端 H5 自动化端到端走查与渲染验证脚本。
 并断言真实后端标准契约下的渲染结果，保存截图至 ci-artifacts/ui-walkthrough/。
 """
 
-import http.server
 import json
 import os
-import socket
 import sys
-import threading
 import urllib.parse
 from playwright.sync_api import sync_playwright
+
+from h5_walkthrough_server import create_server
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'frontend', 'dist', 'build', 'h5')
@@ -23,22 +22,9 @@ if not os.path.isdir(DIST_DIR):
     print(f"Error: DIST_DIR not found at {DIST_DIR}. Please run 'npm run build:h5' first.", file=sys.stderr)
     sys.exit(1)
 
-# 获取动态可用端口
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-class SilentHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-    def log_message(self, format, *args):
-        pass
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SilentHandler)
-server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-server_thread.start()
-print(f"Local static server listening on http://127.0.0.1:{port}")
+# 共享静态服务（scripts/ 目录随脚本入 sys.path）
+httpd, base_url = create_server(DIST_DIR)
+print(f"Local static server listening on {base_url}")
 
 from h5_mock_api import (
     handle_api,  # 共享 Mock（scripts/ 目录随脚本入 sys.path）
@@ -67,7 +53,7 @@ with sync_playwright() as p:
 
     # 1. 首页：亮色模式 + 热帖 4 条预览渲染断言
     print('1. 走查首页（亮色模式）...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/index/index')
+    page.goto(f'{base_url}/#/pages/index/index')
     page.wait_for_timeout(1500)
     page.screenshot(path=f'{SCREENSHOT_DIR}/01_home_guest_light.png')
 
@@ -162,7 +148,7 @@ with sync_playwright() as p:
 
     # 4.2 走查搜索页（亮色模式）
     print('4.2 走查搜索页（亮色模式）...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/search/index')
+    page.goto(f'{base_url}/#/pages/search/index')
     page.wait_for_timeout(1000)
     assert page.locator('.search-bar').is_visible(), "搜索栏应可见"
     assert page.locator('.search-bar input').is_visible(), "搜索输入框应可见"
@@ -221,7 +207,7 @@ with sync_playwright() as p:
 
     # 4.3 走查帖子详情页（亮色模式）
     print('4.3 走查帖子详情页（亮色模式）...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/post-detail/index?id=1')
+    page.goto(f'{base_url}/#/pages/post-detail/index?id=1')
     page.wait_for_timeout(1200)
     assert page.locator('.author .avatar').is_visible(), "作者头像应可见"
     assert page.locator('.author .nickname').is_visible(), "作者昵称应可见"
@@ -262,7 +248,7 @@ with sync_playwright() as p:
 
     # 4.4 返回首页
     print('   从详情页返回首页...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/index/index')
+    page.goto(f'{base_url}/#/pages/index/index')
     page.wait_for_timeout(800)
 
     # 5. 我的页面
@@ -319,7 +305,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     # Web 端登录态判定依赖 sw_csrf Cookie + 本地 user_info
     page.evaluate("() => { document.cookie = 'sw_csrf=mock-csrf-token; path=/'; }")
-    page.goto(f'http://127.0.0.1:{port}/#/pages/mine/index')
+    page.goto(f'{base_url}/#/pages/mine/index')
     page.reload()
     page.wait_for_selector('.content-tabs', timeout=10000)
     page.wait_for_timeout(800)
@@ -474,7 +460,7 @@ with sync_playwright() as p:
 
     # 12. 走查搜索页（暗黑模式）
     print('12. 走查搜索页（暗黑模式）...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/search/index')
+    page.goto(f'{base_url}/#/pages/search/index')
     page.wait_for_timeout(1000)
 
     # 若搜索框残留上一轮的搜索词，点击清空恢复推荐探索面板
@@ -540,7 +526,7 @@ with sync_playwright() as p:
 
     # 13. 走查帖子详情页（暗黑模式）
     print('13. 走查帖子详情页（暗黑模式）...')
-    page.goto(f'http://127.0.0.1:{port}/#/pages/post-detail/index?id=1')
+    page.goto(f'{base_url}/#/pages/post-detail/index?id=1')
     page.wait_for_timeout(1200)
 
     # 显式断言暗黑模式下详情页各核心元素渲染

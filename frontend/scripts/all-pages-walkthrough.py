@@ -13,18 +13,17 @@ SchoolWall 学生端「全页面」Playwright 走查（H5）
 任一断言失败 -> 该场景 FAIL，退出码非零。全部走 Mock API，不连真实后端。
 """
 
-import http.server
 import json
 import os
 import re
-import socket
 import sys
-import threading
 import time
 import traceback
 import urllib.parse
 
 from playwright.sync_api import sync_playwright
+
+from h5_walkthrough_server import create_server
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'frontend', 'dist', 'build', 'h5')
@@ -59,23 +58,7 @@ if not os.path.isdir(DIST_DIR):
     sys.exit(1)
 
 # ---------------------------------------------------------------- 静态服务
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-
-    def log_message(self, fmt, *args):
-        pass
-
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), QuietHandler)
-threading.Thread(target=httpd.serve_forever, daemon=True).start()
-base_url = f'http://127.0.0.1:{port}'
+httpd, base_url = create_server(DIST_DIR)
 print(f'H5 static server listening on {base_url}')
 
 # ---------------------------------------------------------------- Mock 夹具
@@ -260,6 +243,7 @@ report = {
 }
 
 console_errors: list[str] = []
+failed_requests: list[dict] = []
 page_errors: list[str] = []
 brand_counts: dict[str, int] = {}
 
@@ -422,6 +406,9 @@ with sync_playwright() as p:
     page = context.new_page()
     page.on('console', lambda m: console_errors.append(m.text) if m.type == 'error' else None)
     page.on('pageerror', lambda e: page_errors.append(str(e)))
+    # 控制台里「Failed to load resource」不带 URL，光看文本定位不到是哪个资源挂了
+    page.on('requestfailed', lambda r: failed_requests.append(
+        {'url': r.url, 'method': r.method, 'error': r.failure}))
     page.route('**/api/v1/**', handle_api)
 
     print('\n=== 亮色模式全页面走查 ===')
@@ -451,6 +438,7 @@ with sync_playwright() as p:
     ctx_errors = [e for e in console_errors if 'favicon' not in e.lower()]
     report['brand_color_contrast_notes'] = brand_counts
     report['console_errors'] = ctx_errors
+    report['failed_requests'] = failed_requests
     report['page_errors'] = page_errors
     report['unhandled_rejections'] = page_errors
     if ctx_errors:

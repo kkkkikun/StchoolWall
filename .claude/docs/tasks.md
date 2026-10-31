@@ -1,6 +1,6 @@
 # tasks.md — SchoolWall 全局任务追踪
 
-> 最后更新：2026-07-06 ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-10-31 ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：跨会话的任务总览。OpenSpec 变更级任务在 `openspec/changes/<name>/tasks.md`，本文件做全局聚合与阻塞记录。
 
 ---
@@ -13,6 +13,7 @@
 - 代码：统一身份/会话/撤销/找回、私有证件人工核验、隔离媒体、持久任务、人工治理、发布与恢复工具
 - 实施状态：docs/production/implementation-status.md；测试证据：docs/production/verification.md
 - 2026-10-30 进展：主前端npm audit高危清零（0 high，管理台0 vulnerabilities）；新增学生端全页面(53/53)与管理台全视图(34/34) Playwright走查含对比度断言；修复夜间模式文字色、占位符对比度、管理台语义色、图片展示顺序（新增media_assets.position迁移b7e2c4a91d30）
+- 2026-10-31 进展：视觉与体验全量优化（对标 X）收口并复验。新增永久审计脚本 `frontend/scripts/ui-contrast-audit.py` 与 `frontend/scripts/ui-perf-audit.py`；25 页 × 亮/暗复扫真实对比度/点击区/小字号/裁切/坏图/溢出均为 0（仅底栏激活标签 6 处品牌蓝既定例外）；学生端全页面 55/55、详情互动 33/33、桌面平板 16/16、发布 6/6、图片上传 10/10、登录守卫 11/11、管理台全视图 34/34 全 PASS；前端单测 55/55、管理台 12/12；H5/微信小程序/Android 三端构建通过。证据见 docs/production/verification.md
 - 发布仍阻断：主体/备案与商店准入、镜像与密钥扫描及独立安全复核、真实COS/审核联调、异机恢复/回滚、容量与三端真机、新增迁移与媒体顺序后端用例尚未在真实PostgreSQL执行
 - 原有未提交UI改动保留；未部署、未代替运营方签署政策或提交平台审核
 

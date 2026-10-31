@@ -1,6 +1,6 @@
 # SNAPSHOT — SchoolWall 项目状态快照
 
-> 最后更新：2026-10-30 ｜ 分支：ui/theme-b-neon（主题B「X」双模式；生产化改造仍在工作区未提交） ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-10-31 ｜ 分支：feature/production-multiplatform（主题B「X」双模式；生产化改造与视觉体验优化仍在工作区未提交） ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：新会话进入项目时的第一份"现在在哪"快照。规则全文见 `openspec/specs/`，本文件只记状态。
 
 ---
@@ -12,6 +12,8 @@ SchoolWall（鄂应墙）—— 单校校园社区，Web→微信小程序→And
 当前代码/测试/阻断见 docs/production/implementation-status.md、verification.md；活跃OpenSpec：production-multiplatform。下方历史栈与进度作为旧版本背景，依赖准确版本以锁文件为准。
 
 2026-10-30 进展：主前端npm audit高危清零（0 high/0 critical；管理台0 vulnerabilities）；新增浏览器级全量走查（学生端26页面×亮/暗53/53，管理台17路由×桌面/窄屏34/34，含横向溢出与WCAG对比度断言）；修复夜间模式文字色、输入占位符对比度、管理台Element Plus语义色，以及图片展示顺序缺陷（新增 media_assets.position 列，迁移 b7e2c4a91d30）。新增迁移与媒体顺序后端用例尚未在真实PostgreSQL执行。
+
+2026-10-31 进展：视觉与体验全量优化（对标 X）收口。新增 `--primary-fill` 系列令牌承载白字填充面（品牌蓝只留作非文字强调）；广告位 banner 改为图片位/纯色位各带暗化保障层（此前浅色渐变上白字仅 1.85:1）；徽标字号下限统一 22rpx；所有真实可点击控件点击区扩到 ≥32×32px；头像配色收敛到 `frontend/src/utils/avatar.ts`；横向滚动行加渐隐、消除 swiper 1px 漏出；「我的」页未登录态不再展示个人内容 Tab。新增永久审计脚本 `frontend/scripts/ui-contrast-audit.py`（对比度/点击区/字号/裁切/坏图/溢出，渐变按元素位置合成实际 alpha）与 `frontend/scripts/ui-perf-audit.py`（截图+性能基线）。最终复扫 25 页 × 亮/暗：真实对比度/点击区/小字号/裁切/坏图/溢出**均为 0**，仅余底栏激活标签 6 处品牌蓝既定例外。复验：学生端全页面 55/55、详情互动 33/33、桌面平板 16/16、发布 6/6、图片上传 10/10、登录守卫 11/11、管理台全视图 34/34 全 PASS；前端单测 55/55、管理台 12/12；三端构建通过。证据见 `docs/production/verification.md`。
 ---
 
 ## 技术栈

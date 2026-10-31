@@ -418,3 +418,68 @@ def calculate_wcag_contrast(fg_str, bg_str):
     lighter = max(l1, l2)
     darker = min(l1, l2)
     return (lighter + 0.05) / (darker + 0.05)
+
+
+# ---------------------------------------------------------------------------
+# 元素实际对比度读取（前景/背景都做 alpha 合成）
+# 用于把「写死令牌色值」的断言升级为「对比度达标」断言：
+# 令牌值调整时断言依然成立，且真正约束的是可读性而非某个 hex。
+# ---------------------------------------------------------------------------
+_READ_CONTRAST_JS = '''(selector) => {
+    const parse = (s) => {
+        const m = String(s).match(/rgba?\\(([^)]+)\\)/);
+        if (!m) return null;
+        const p = m[1].split(',').map(x => parseFloat(x));
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    };
+    const over = (fg, bg) => ({
+        r: fg.r * fg.a + bg.r * (1 - fg.a),
+        g: fg.g * fg.a + bg.g * (1 - fg.a),
+        b: fg.b * fg.a + bg.b * (1 - fg.a),
+        a: 1,
+    });
+    const lum = (c) => {
+        const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const fg = parse(getComputedStyle(el).color);
+    if (!fg) return null;
+    // 向上合成背景色（跳过透明层），遇到不透明层即停
+    const stack = [];
+    let node = el;
+    while (node && node.nodeType === 1) {
+        const c = parse(getComputedStyle(node).backgroundColor);
+        if (c && c.a > 0) { stack.push(c); if (c.a >= 0.999) break; }
+        node = node.parentElement;
+    }
+    let bg = { r: 255, g: 255, b: 255, a: 1 };
+    for (let i = stack.length - 1; i >= 0; i--) bg = over(stack[i], bg);
+    const effFg = fg.a < 1 ? over(fg, bg) : fg;
+    const l1 = lum(effFg), l2 = lum(bg);
+    const hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+    const rgb = (c) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+    return {
+        fg: rgb(effFg), bg: rgb(bg),
+        ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+        fontSize: parseFloat(getComputedStyle(el).fontSize),
+    };
+}'''
+
+
+def read_element_contrast(page, selector):
+    """读取元素实际前景/背景（已 alpha 合成）与 WCAG 对比度。元素不存在返回 None。"""
+    return page.evaluate(_READ_CONTRAST_JS, selector)
+
+
+def assert_element_contrast(page, selector, min_ratio, label, page_name='页面'):
+    """断言元素实际对比度不低于 min_ratio（默认按正文 4.5:1）。"""
+    data = read_element_contrast(page, selector)
+    assert data is not None, f"{page_name} {label}: 找不到元素 {selector}"
+    assert data['ratio'] >= min_ratio, (
+        f"{page_name} {label} 对比度不足 {min_ratio}:1 (实际 {data['ratio']}:1, "
+        f"前景 {data['fg']}, 背景 {data['bg']})"
+    )
+    print(f"   [对比度] {page_name} {label}: {data['fg']} on {data['bg']} = {data['ratio']}:1 (>= {min_ratio}:1)")
+    return data

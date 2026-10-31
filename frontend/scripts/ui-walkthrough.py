@@ -47,6 +47,7 @@ from h5_mock_api import (
     assert_bottom_bar_not_blocking,
     parse_css_rgb,
     calculate_wcag_contrast,
+    assert_element_contrast,
 )
 
 reports = []
@@ -269,10 +270,64 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     page.screenshot(path=f'{SCREENSHOT_DIR}/04_mine_guest_light.png')
 
+    # 未登录态：展示登录引导，不展示个人内容 Tab 与「编辑资料」（避免误导性空列表）
+    assert page.locator('.login-guide').count() > 0, "未登录时「我的」页应展示登录引导"
+    assert page.locator('.content-tabs').count() == 0, "未登录时不应展示个人内容 Tab（应展示登录引导）"
+    assert page.locator('.edit-btn').count() == 0, "未登录时不应展示「编辑资料」按钮"
+
     # 切片保存我的页面核心元素
-    page.locator('.content-tabs').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_tabs.png')
+    page.locator('.login-guide').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_login_guide.png')
     page.locator('.dev-login-row').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_capsule.png')
     page.locator('.gear-btn').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_gear.png')
+
+    # 5.2 登录态「我的」页：应恢复个人内容 Tab（覆盖 .content-tabs 渲染）
+    print('5.2 走查登录态「我的」页面...')
+    def _json_route(payload):
+        def handler(route):
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(payload))
+        return handler
+
+    session_payload = {'code': 0, 'message': 'success', 'data': {
+        'access_token': 'mock-access-token-for-test',
+        'csrf_token': 'mock-csrf-token',
+        'session_id': 'mock-session-id',
+        'role': 'student',
+        'user_info': {'id': 'u-test-01', 'nickname': '测试同学', 'is_verified': False},
+    }}
+    # 后注册的路由优先命中；个人接口必须返回 200，否则 401 会清掉本地会话
+    page.route('**/api/v1/auth/web-login', _json_route(session_payload))
+    page.route('**/api/v1/auth/refresh', _json_route(session_payload))
+    page.route('**/api/v1/user/profile', _json_route({'code': 0, 'data': {
+        'id': 'u-test-01', 'nickname': '测试同学', 'avatar_url': None, 'banner_url': None,
+        'bio': '走查用个人简介', 'is_verified': True, 'school': '示例大学'}}))
+    page.route('**/api/v1/me/stats', _json_route({'code': 0, 'data': {
+        'posts_count': 3, 'comments_count': 2, 'favorites_count': 1, 'likes_count': 4}}))
+    for path in ('/api/v1/posts/my', '/api/v1/me/favorites', '/api/v1/me/likes', '/api/v1/me/comments'):
+        page.route(f'**{path}', _json_route({'code': 0, 'data': {'items': []}}))
+    page.locator('.dev-capsule:has-text("登录 / 注册")').click()
+    page.wait_for_selector('.auth-form', timeout=8000)
+    page.evaluate('''(vals) => {
+        const inputs = document.querySelectorAll('.auth-form .auth-input input');
+        vals.forEach((v, i) => {
+            const el = inputs[i];
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }''', ['walkthrough_user', 'password123'])
+    page.locator('.auth-submit').click()
+    page.wait_for_timeout(1500)
+    # Web 端登录态判定依赖 sw_csrf Cookie + 本地 user_info
+    page.evaluate("() => { document.cookie = 'sw_csrf=mock-csrf-token; path=/'; }")
+    page.goto(f'http://127.0.0.1:{port}/#/pages/mine/index')
+    page.reload()
+    page.wait_for_selector('.content-tabs', timeout=10000)
+    page.wait_for_timeout(800)
+    assert page.locator('.content-tabs').count() > 0, "登录后「我的」页应展示个人内容 Tab"
+    assert page.locator('.login-guide').count() == 0, "登录后不应展示登录引导"
+    assert page.locator('.edit-btn').count() > 0, "登录后应展示「编辑资料」按钮"
+    page.locator('.content-tabs').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_tabs.png')
+    page.screenshot(path=f'{SCREENSHOT_DIR}/04b_mine_logged_in_light.png')
+    print('   [通过] 登录态「我的」页个人内容 Tab 正常渲染')
 
     reports.append({
         'step': '04_mine_guest_light',
@@ -443,9 +498,11 @@ with sync_playwright() as p:
     )
 
     hot_tag_color = hot_pills.first.evaluate('el => window.getComputedStyle(el).color')
-    assert hot_tag_color in ['rgb(29, 155, 240)', '#1d9bf0'], (
-        f"暗色搜索热门标签颜色应为品牌高对比 --primary (rgb(29, 155, 240))，实际为 {hot_tag_color}"
+    # 热门标签底为 --primary-soft（浅蓝），蓝色文字必须用 --primary-text 才达 AA
+    assert hot_tag_color in ['rgb(75, 163, 227)', '#4ba3e3', 'rgb(13, 116, 171)', '#0d74ab'], (
+        f"暗色搜索热门标签颜色应为可读蓝 --primary-text (rgb(75, 163, 227))，实际为 {hot_tag_color}"
     )
+    assert_element_contrast(page, '.search-panel .hot-pill', 4.5, '暗色搜索热门标签', '暗色搜索面板')
 
     # 测量暗色模式下搜索框占位符前景与背景计算样式，并以计算对比度断言 >= 4.5
     dark_search_ph = page.evaluate('''() => {
@@ -508,17 +565,13 @@ with sync_playwright() as p:
 
     # 断言浏览数等 meta 文本颜色符合主题 tokens，不回退为低对比度不可读灰
     meta_color = page.locator('.meta').evaluate('el => window.getComputedStyle(el).color')
-    assert meta_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'], (
-        f"暗色浏览数 meta 颜色应为主题次级高对比色，实际为 {meta_color}"
-    )
+    assert_element_contrast(page, '.meta', 4.5, '暗色浏览数 meta', '暗色帖子详情')
 
     # 断言评论辅助文本清晰可见
     no_more_comment = page.locator('.comment-no-more')
     if no_more_comment.count() > 0:
         c_sub_color = no_more_comment.evaluate('el => window.getComputedStyle(el).color')
-        assert c_sub_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'], (
-            f"暗色评论辅助提示颜色应为主题次级色，实际为 {c_sub_color}"
-        )
+        assert_element_contrast(page, '.comment-no-more', 4.5, '暗色评论辅助提示', '暗色帖子详情')
 
     # 断言底部输入框底色与可见性
     input_el = page.locator('.comment-input')

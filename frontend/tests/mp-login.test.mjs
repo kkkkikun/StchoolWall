@@ -16,6 +16,7 @@ const authCompiledPath = new URL('./.temp-mp-auth.mjs', import.meta.url)
 const authAdapterPath = new URL('./.temp-mp-auth-adapter.mjs', import.meta.url)
 const errorsCompiledPath = new URL('./.temp-mp-errors.mjs', import.meta.url)
 const sfcCompiledPath = new URL('./.temp-mp-mine-sfc.mjs', import.meta.url)
+const avatarCompiledPath = new URL('./.temp-mp-avatar.mjs', import.meta.url)
 
 // 2. 桥接模块代码：动态受控依赖
 const bridgeCode = `
@@ -106,6 +107,12 @@ await writeFile(errorsCompiledPath, ts.transpileModule(errorsTs, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 
+// 3.6 转译真实的 utils/avatar.ts（mine 页头像配色的唯一来源）
+const avatarTs = await readFile(new URL('../src/utils/avatar.ts', import.meta.url), 'utf8')
+await writeFile(avatarCompiledPath, ts.transpileModule(avatarTs, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText)
+
 // 4. 编译并转译真实 src/pages/mine/index.vue SFC
 const sfcContent = await readFile(new URL('../src/pages/mine/index.vue', import.meta.url), 'utf8')
 const sfc = parse(sfcContent)
@@ -122,6 +129,7 @@ sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/request['"]/g, 'from "./.temp-mp
 sfcCode = sfcCode.replace(/from\s+['"]@\/api\/auth['"]/g, 'from "./.temp-mp-auth-adapter.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/storage['"]/g, 'from "./.temp-mp-storage.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/errors['"]/g, 'from "./.temp-mp-errors.mjs"')
+sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/avatar['"]/g, 'from "./.temp-mp-avatar.mjs"')
 
 const sfcJs = ts.transpileModule(sfcCode, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -143,6 +151,7 @@ try {
   await unlink(authAdapterPath).catch(() => {})
   await unlink(errorsCompiledPath).catch(() => {})
   await unlink(sfcCompiledPath).catch(() => {})
+  await unlink(avatarCompiledPath).catch(() => {})
 }
 
 const { bridge, resetBridge } = bridgeModule

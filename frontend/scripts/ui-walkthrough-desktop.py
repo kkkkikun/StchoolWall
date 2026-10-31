@@ -30,7 +30,12 @@ import time
 import traceback
 from playwright.sync_api import sync_playwright
 
-from h5_mock_api import handle_api, assert_no_horizontal_overflow, assert_bottom_bar_not_blocking
+from h5_mock_api import (
+    handle_api,
+    assert_no_horizontal_overflow,
+    assert_bottom_bar_not_blocking,
+    assert_element_contrast,
+)
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'frontend', 'dist', 'build', 'h5')
@@ -308,6 +313,7 @@ def run_viewpoint_suite(browser, vp_label, width, height):
             'el => window.getComputedStyle(el).color')
         check(text_color in ['rgb(231, 233, 234)', '#e7e9ea'],
               f'暗色正文应使用高对比 --text-1，实际 {text_color}')
+        assert_element_contrast(page, '.feed-card .feed-text', 4.5, '暗色正文', f'{vp_label} 暗色首页')
         assert_no_horizontal_overflow(page, f'{vp_label} 暗色首页')
         s1 = shot(page, f'{name}.png')
         print(f'   [通过] 暗色正文颜色 {text_color}，无溢出')
@@ -325,8 +331,8 @@ def run_viewpoint_suite(browser, vp_label, width, height):
         page.wait_for_selector('.content-text', timeout=8000)
         page.wait_for_timeout(1000)
         meta_color = page.locator('.meta').evaluate('el => window.getComputedStyle(el).color')
-        check(meta_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'],
-              f'暗色 meta 颜色应为次级令牌色，实际 {meta_color}')
+        # 不写死具体色值：直接断言实际对比度达标（令牌微调后断言依然成立）
+        assert_element_contrast(page, '.meta', 4.5, '暗色详情 meta', f'{vp_label} 暗色帖子详情')
         assert_no_horizontal_overflow(page, f'{vp_label} 暗色帖子详情')
         assert_bottom_bar_not_blocking(page, f'{vp_label} 暗色帖子详情')
         s1 = shot(page, f'{name}.png')

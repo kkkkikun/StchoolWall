@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ECharts } from 'echarts'
+import type { ECharts } from '@/utils/echarts'
 import { getStats, getTrends, type AdminStats, type TrendPoint } from '@/api/stats'
 import { CHART_COLORS, CHART_TEXT, CHART_AXIS, CHART_SPLIT } from '@/theme'
 import { useThemeStore } from '@/stores/theme'
@@ -54,12 +54,12 @@ const cards = computed(() => {
 
 const chartEl = ref<HTMLDivElement>()
 let chart: ECharts | null = null
-let echartsPromise: Promise<typeof import('echarts')> | null = null
+let echartsPromise: Promise<typeof import('@/utils/echarts')> | null = null
 let resizeObserver: ResizeObserver | null = null
 
 const getECharts = () => {
   // 按需异步加载 echarts：登录页/其他页面不承担图表体积
-  if (!echartsPromise) echartsPromise = import('echarts')
+  if (!echartsPromise) echartsPromise = import('@/utils/echarts')
   return echartsPromise
 }
 
@@ -69,7 +69,7 @@ const loadStats = async () => {
 
 const renderChart = async () => {
   if (!chartEl.value) return
-  const echarts = await getECharts()
+  const { echarts } = await getECharts()
   if (!chart) chart = echarts.init(chartEl.value)
   ;(window as any).__chart = chart
 

@@ -56,11 +56,12 @@
   - 踩坑（务必留意）：① Element Plus 按需注入的组件样式会在 `main.ts` 的样式 import **之后**进入产物，同特异性下后加载者胜，Element Plus 默认蓝（#409eff）会反过来盖掉玫瑰红，导致全视图走查 34/34 全挂（按钮变默认蓝、文字对比度掉到 2.0~3.1:1）。解法：`theme.css` 的选择器提到 `html:root`（0,1,1 > `:root` 0,1,0）与 `html.dark:root`（0,2,1 > `html.dark` 0,1,1），与注入顺序解耦。② `el-table` 的 slot 行类型固定为 `DefaultRow`，组件一旦被 `components.d.ts` 声明出真实类型，原先被 `any` 掩盖的 42 处类型不匹配全部暴露；已在模板里用 `row as X` 标注，并把 el-tag 的状态映射表标注为 `TagProps['type']`。③ `unplugin-*` 生成的 dts 必须**提交入库**，否则 CI 里先跑的类型检查拿不到声明；且 `build` 脚本改为 `vite build && vue-tsc --noEmit`（先出 dts 再校验），避免「类型报错 → 构建不执行 → dts 不更新」的死锁。④ 服务型 API 的样式由 AutoImport 注入到**各视图 chunk**，而真正调用 ElMessage 的 `request.ts` 在主 chunk，首屏提示会没有样式；解法：服务型 API 的样式在 `main.ts` 显式引入进主 chunk。⑤ 被单元测试直接加载的源码（`request.ts`）不能依赖构建期自动注入，其 `ElMessage` 保留显式导入（`element-plus/es`，与包根同一模块实例，测试的 monkey-patch 仍生效），样式则挪到 `main.ts` 引入以免 .css 让 Node loader 报 ERR_UNKNOWN_FILE_EXTENSION。
   - 验证方式：构建后比对 `dist/assets/index-*.js` 与 `index-*.css` 的 gzip 体积；跑 `admin-frontend/scripts/all-views-walkthrough.py`（34/34）确认 41 种组件仍全部挂载且主题色未被覆盖；跑 `admin-frontend/scripts/style-coverage-check.py` 确认样式齐全（已做负向验证：抽掉主 chunk 的 message 样式即失败）。
 
-- **[优先级: 高]** 管理台 echarts 整包懒加载块 372KB gzip
+- **[优先级: 高] [已完成 2026-10-31]** 管理台 echarts 整包懒加载块 372KB gzip
 
   - 当前影响：`DashboardView.vue` 用 `import('echarts')` 动态加载，已做到不进首屏；但整包 1.1MB raw，打开看板即下载 372KB gzip。
-  - 建议方案：换 `echarts/core` + 按需注册图表与组件（`BarChart` / `LineChart` / `PieChart` + `GridComponent` / `TooltipComponent` / `LegendComponent` + 需要的 renderer），预计降到 150~200KB gzip。
-  - 验证方式：构建后看懒加载 chunk 的 gzip 体积；跑 `admin-frontend/scripts/dashboard-walkthrough.py` 确认图表仍渲染、图例与坐标轴文字取主题色。
+  - 已完成：新增 `admin-frontend/src/utils/echarts.ts` 收口注册 —— `echarts/core` + `LineChart`（看板只有折线）+ `GridComponent` / `TooltipComponent` / `LegendComponent` / `AxisPointerComponent`（tooltip 的 `trigger:'axis'` 依赖轴指针）+ `CanvasRenderer`。`DashboardView.vue` 改为动态 `import('@/utils/echarts')`，仍不进首屏。**实测懒加载块 1135.53KB → 526.99KB raw（-54%）、382.15KB → 180.06KB gzip（-53%）**，落在预估的 150~200KB 区间内。
+  - 踩坑（务必留意）：echarts 6 的 `sideEffects` 把 `lib/chart/*.js` / `lib/component/*.js` 标成有副作用，所以「整包 `import('echarts')` 再 tree-shake」是行不通的 —— 必须走 `echarts/core` 等 ESM 子路径做**模块级**按需注册（`echarts/charts`、`echarts/components`、`echarts/renderers`），未用到的图表类型才会被 Rollup 丢掉。另外新增图表类型时必须在 `utils/echarts.ts` 同步注册，否则运行时报「组件未注册」；`echarts/core` 的 `ECharts` 类型要从 `echarts/core` 取（不是 `echarts`），否则类型检查会把整包拉回依赖图。
+  - 验证方式：构建后比对 `dist/assets/echarts-*.js` 的 gzip 体积；跑 `admin-frontend/scripts/dashboard-walkthrough.py`（9/9）确认 canvas 非空、图表几何无重叠、图例与坐标轴文字仍取主题色。
 
 - **[优先级: 中]** 前端性能基线未入库、无回归门禁
 

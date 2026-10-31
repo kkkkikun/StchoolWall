@@ -320,7 +320,9 @@ const goCreate = () => {
   background: var(--primary-fill-gradient);
 }
 .card-orange {
-  background: var(--primary-fill-gradient-rev);
+  /* 原先两个入口卡片都是蓝色渐变，视觉上无法区分；改用深暖绿，
+     白字 5.46:1 仍达 WCAG AA */
+  background: linear-gradient(135deg, var(--accent-warm-fill), var(--accent-warm-fill-strong));
 }
 .card-title {
   font-size: 30rpx;

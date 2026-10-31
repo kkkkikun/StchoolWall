@@ -26,7 +26,6 @@ page {
   --primary-fill: #0d6fa5;        /* 蓝底白字填充面（主按钮/卡片）：白字 5.48:1，达 WCAG AA */
   --primary-fill-strong: #0a5f8f; /* 填充面渐变深端：白字 7.24:1 */
   --primary-fill-gradient: linear-gradient(135deg, #0d6fa5, #0a5f8f);
-  --primary-fill-gradient-rev: linear-gradient(135deg, #0a5f8f, #0d6fa5);
   --primary-badge: var(--primary-fill);  /* 徽章沿用填充面色 */
   --like: #f918b6;               /* X 点赞粉 */
   --favorite: #b8860b;           /* 收藏深金：白底 3.4:1，达 WCAG 非文本对比度 */
@@ -37,7 +36,6 @@ page {
   --accent-warm-text: var(--accent-warm-fill);   /* 绿色标签文字：浅绿底 4.87:1，达 WCAG AA */
   --accent-warm-soft: rgba(0, 186, 124, 0.12);   /* 绿色标签底 */
   --primary-gradient: linear-gradient(135deg, #1d9bf0, #1a8cd8);
-  --primary-gradient-rev: linear-gradient(135deg, #1a8cd8, #1d9bf0);
   --hero-gradient: linear-gradient(160deg, #1d6aa8 0%, #1d9bf0 115%);
   --soft-gradient: linear-gradient(135deg, rgba(29, 155, 240, 0.16), rgba(0, 186, 124, 0.12));
   --card-gradient: linear-gradient(180deg, #ffffff, #ffffff);

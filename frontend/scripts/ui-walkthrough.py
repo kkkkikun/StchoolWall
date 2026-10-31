@@ -9,7 +9,6 @@ import http.server
 import json
 import os
 import socket
-import socketserver
 import sys
 import threading
 import urllib.parse
@@ -36,7 +35,7 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-httpd = socketserver.TCPServer(('127.0.0.1', port), SilentHandler)
+httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SilentHandler)
 server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
 server_thread.start()
 print(f"Local static server listening on http://127.0.0.1:{port}")
@@ -47,6 +46,9 @@ from h5_mock_api import (
     assert_bottom_bar_not_blocking,
     parse_css_rgb,
     calculate_wcag_contrast,
+    assert_element_contrast,
+    assert_token_color,
+    assert_token_background,
 )
 
 reports = []
@@ -269,10 +271,64 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     page.screenshot(path=f'{SCREENSHOT_DIR}/04_mine_guest_light.png')
 
+    # 未登录态：展示登录引导，不展示个人内容 Tab 与「编辑资料」（避免误导性空列表）
+    assert page.locator('.login-guide').count() > 0, "未登录时「我的」页应展示登录引导"
+    assert page.locator('.content-tabs').count() == 0, "未登录时不应展示个人内容 Tab（应展示登录引导）"
+    assert page.locator('.edit-btn').count() == 0, "未登录时不应展示「编辑资料」按钮"
+
     # 切片保存我的页面核心元素
-    page.locator('.content-tabs').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_tabs.png')
+    page.locator('.login-guide').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_login_guide.png')
     page.locator('.dev-login-row').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_capsule.png')
     page.locator('.gear-btn').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_gear.png')
+
+    # 5.2 登录态「我的」页：应恢复个人内容 Tab（覆盖 .content-tabs 渲染）
+    print('5.2 走查登录态「我的」页面...')
+    def _json_route(payload):
+        def handler(route):
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(payload))
+        return handler
+
+    session_payload = {'code': 0, 'message': 'success', 'data': {
+        'access_token': 'mock-access-token-for-test',
+        'csrf_token': 'mock-csrf-token',
+        'session_id': 'mock-session-id',
+        'role': 'student',
+        'user_info': {'id': 'u-test-01', 'nickname': '测试同学', 'is_verified': False},
+    }}
+    # 后注册的路由优先命中；个人接口必须返回 200，否则 401 会清掉本地会话
+    page.route('**/api/v1/auth/web-login', _json_route(session_payload))
+    page.route('**/api/v1/auth/refresh', _json_route(session_payload))
+    page.route('**/api/v1/user/profile', _json_route({'code': 0, 'data': {
+        'id': 'u-test-01', 'nickname': '测试同学', 'avatar_url': None, 'banner_url': None,
+        'bio': '走查用个人简介', 'is_verified': True, 'school': '示例大学'}}))
+    page.route('**/api/v1/me/stats', _json_route({'code': 0, 'data': {
+        'posts_count': 3, 'comments_count': 2, 'favorites_count': 1, 'likes_count': 4}}))
+    for path in ('/api/v1/posts/my', '/api/v1/me/favorites', '/api/v1/me/likes', '/api/v1/me/comments'):
+        page.route(f'**{path}', _json_route({'code': 0, 'data': {'items': []}}))
+    page.locator('.dev-capsule:has-text("登录 / 注册")').click()
+    page.wait_for_selector('.auth-form', timeout=8000)
+    page.evaluate('''(vals) => {
+        const inputs = document.querySelectorAll('.auth-form .auth-input input');
+        vals.forEach((v, i) => {
+            const el = inputs[i];
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }''', ['walkthrough_user', 'password123'])
+    page.locator('.auth-submit').click()
+    page.wait_for_timeout(1500)
+    # Web 端登录态判定依赖 sw_csrf Cookie + 本地 user_info
+    page.evaluate("() => { document.cookie = 'sw_csrf=mock-csrf-token; path=/'; }")
+    page.goto(f'http://127.0.0.1:{port}/#/pages/mine/index')
+    page.reload()
+    page.wait_for_selector('.content-tabs', timeout=10000)
+    page.wait_for_timeout(800)
+    assert page.locator('.content-tabs').count() > 0, "登录后「我的」页应展示个人内容 Tab"
+    assert page.locator('.login-guide').count() == 0, "登录后不应展示登录引导"
+    assert page.locator('.edit-btn').count() > 0, "登录后应展示「编辑资料」按钮"
+    page.locator('.content-tabs').first.screenshot(path=f'{SCREENSHOT_DIR}/crop_mine_tabs.png')
+    page.screenshot(path=f'{SCREENSHOT_DIR}/04b_mine_logged_in_light.png')
+    print('   [通过] 登录态「我的」页个人内容 Tab 正常渲染')
 
     reports.append({
         'step': '04_mine_guest_light',
@@ -281,66 +337,66 @@ with sync_playwright() as p:
         'evidence': f'04_mine_guest_light.png, URL={page.url}',
     })
 
-    # 6. H5 登录弹窗系列交互
-    print('6. 走查登录弹窗交互...')
+    # 6. 独立登录/注册页系列交互
+    print('6. 走查登录/注册页交互...')
     login_btn = page.locator('.dev-capsule:has-text("登录 / 注册")')
     if login_btn.count() > 0:
         login_btn.first.click()
-        page.wait_for_timeout(600)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/05_mine_login_modal_open.png')
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/05_auth_page_open.png')
         reports.append({
-            'step': '05_mine_login_modal_open',
-            'page': 'pages/mine/index (Modal)',
+            'step': '05_auth_page_open',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '05_mine_login_modal_open.png, 登录弹窗展开',
+            'evidence': '05_auth_page_open.png, 独立登录/注册页展开',
         })
 
-        # 空提交表单校验错误
-        page.locator('.wl-btn').click()
+        # 空提交表单校验错误（就地提示）
+        page.locator('.auth-submit').click()
         page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/06_mine_login_modal_error.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/06_auth_page_error.png')
         reports.append({
-            'step': '06_mine_login_modal_error',
-            'page': 'pages/mine/index (Modal)',
+            'step': '06_auth_page_error',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '06_mine_login_modal_error.png, 空提交校验错误提示正确',
+            'evidence': '06_auth_page_error.png, 空提交校验错误提示正确',
         })
 
         # 切换到注册
-        reg_link = page.locator('.wl-link:has-text("去注册")')
-        if reg_link.count() > 0:
-            reg_link.click()
+        reg_tab = page.locator('.auth-tab:has-text("注册")')
+        if reg_tab.count() > 0:
+            reg_tab.click()
             page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/07_mine_login_modal_register.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/07_auth_page_register.png')
         reports.append({
-            'step': '07_mine_login_modal_register',
-            'page': 'pages/mine/index (Modal)',
+            'step': '07_auth_page_register',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '07_mine_login_modal_register.png, 注册模式切换正常',
+            'evidence': '07_auth_page_register.png, 注册模式切换正常',
         })
 
         # 切换到找回密码
-        rec_link = page.locator('.wl-link:has-text("找回密码")')
+        rec_link = page.locator('.auth-link:has-text("忘记密码")')
         if rec_link.count() > 0:
             rec_link.click()
             page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/08_mine_login_modal_recovery.png')
+        page.screenshot(path=f'{SCREENSHOT_DIR}/08_auth_page_recovery.png')
         reports.append({
-            'step': '08_mine_login_modal_recovery',
-            'page': 'pages/mine/index (Modal)',
+            'step': '08_auth_page_recovery',
+            'page': 'pages/auth/index',
             'status': 'PASS',
-            'evidence': '08_mine_login_modal_recovery.png, 找回码输入框渲染正常',
+            'evidence': '08_auth_page_recovery.png, 找回码输入框渲染正常',
         })
 
-        # 关闭弹窗
-        page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
-        page.wait_for_timeout(500)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/09_mine_login_modal_closed.png')
+        # 返回「我的」页
+        page.locator('.back-trigger').click()
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/09_auth_page_back.png')
         reports.append({
-            'step': '09_mine_login_modal_closed',
+            'step': '09_auth_page_back',
             'page': 'pages/mine/index',
             'status': 'PASS',
-            'evidence': '09_mine_login_modal_closed.png, 遮罩点击关闭弹窗正常',
+            'evidence': '09_auth_page_back.png, 返回箭头回到「我的」页',
         })
 
     # 7. 设置页面
@@ -388,21 +444,21 @@ with sync_playwright() as p:
         'evidence': f'12_mine_guest_dark.png, URL={page.url}',
     })
 
-    # 10. 暗黑模式登录弹窗
-    print('10. 走查暗黑模式登录弹窗...')
+    # 10. 暗黑模式登录/注册页
+    print('10. 走查暗黑模式登录页...')
     dark_login_btn = page.locator('.dev-capsule:has-text("登录 / 注册")')
     if dark_login_btn.count() > 0:
         dark_login_btn.first.click()
-        page.wait_for_timeout(600)
-        page.screenshot(path=f'{SCREENSHOT_DIR}/13_mine_modal_dark.png')
+        page.wait_for_timeout(800)
+        page.screenshot(path=f'{SCREENSHOT_DIR}/13_auth_page_dark.png')
         reports.append({
-            'step': '13_mine_modal_dark',
-            'page': 'pages/mine/index (Dark Modal)',
+            'step': '13_auth_page_dark',
+            'page': 'pages/auth/index (Dark)',
             'status': 'PASS',
-            'evidence': '13_mine_modal_dark.png, 暗黑弹窗背景与输入框正常',
+            'evidence': '13_auth_page_dark.png, 暗黑登录页背景与输入框正常',
         })
-        page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
-        page.wait_for_timeout(500)
+        page.locator('.back-trigger').click()
+        page.wait_for_timeout(800)
 
     # 11. 返回首页（暗黑模式）
     print('11. 走查暗黑模式首页...')
@@ -435,17 +491,13 @@ with sync_playwright() as p:
     assert page.locator('.search-panel .section-title').first.is_visible(), "暗色模式下推荐面板标题应可见"
 
     # 验证暗色模式下推荐面板标题与标签文本计算样式的对比度，确保符合主题令牌并非默认低对比灰
-    sec_title_color = page.locator('.search-panel .section-title').first.evaluate(
-        'el => window.getComputedStyle(el).color'
-    )
-    assert sec_title_color in ['rgb(231, 233, 234)', '#e7e9ea'], (
-        f"暗色搜索推荐面板标题颜色应为高对比 --text-1 (rgb(231, 233, 234))，实际为 {sec_title_color}"
-    )
+    sec_title_color = assert_token_color(
+        page, '.search-panel .section-title', '--text-1', '暗色搜索推荐面板标题', '暗色搜索页')
 
-    hot_tag_color = hot_pills.first.evaluate('el => window.getComputedStyle(el).color')
-    assert hot_tag_color in ['rgb(29, 155, 240)', '#1d9bf0'], (
-        f"暗色搜索热门标签颜色应为品牌高对比 --primary (rgb(29, 155, 240))，实际为 {hot_tag_color}"
-    )
+    # 热门标签底为 --primary-soft，品牌文字必须用 --primary-text 才达 AA（按令牌判定，换品牌同样成立）
+    hot_tag_color = assert_token_color(
+        page, '.search-panel .hot-pill', '--primary-text', '暗色搜索热门标签', '暗色搜索面板')
+    assert_element_contrast(page, '.search-panel .hot-pill', 4.5, '暗色搜索热门标签', '暗色搜索面板')
 
     # 测量暗色模式下搜索框占位符前景与背景计算样式，并以计算对比度断言 >= 4.5
     dark_search_ph = page.evaluate('''() => {
@@ -499,34 +551,26 @@ with sync_playwright() as p:
     assert page.locator('.comment-input-bar').is_visible(), "底部评论输入栏应可见"
 
     # 断言互动栏文字计算颜色为高对比度 --text-1 (近白)
-    act_color = page.locator('.action-bar .act').first.evaluate(
-        'el => window.getComputedStyle(el).color'
-    )
-    assert act_color in ['rgb(231, 233, 234)', '#e7e9ea'], (
-        f"暗色互动栏文字应为高对比 --text-1 (rgb(231, 233, 234))，实际为 {act_color}"
-    )
+    act_color = assert_token_color(
+        page, '.action-bar .act', '--text-1', '暗色互动栏文字', '暗色帖子详情')
 
     # 断言浏览数等 meta 文本颜色符合主题 tokens，不回退为低对比度不可读灰
     meta_color = page.locator('.meta').evaluate('el => window.getComputedStyle(el).color')
-    assert meta_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'], (
-        f"暗色浏览数 meta 颜色应为主题次级高对比色，实际为 {meta_color}"
-    )
+    assert_element_contrast(page, '.meta', 4.5, '暗色浏览数 meta', '暗色帖子详情')
 
     # 断言评论辅助文本清晰可见
     no_more_comment = page.locator('.comment-no-more')
     if no_more_comment.count() > 0:
         c_sub_color = no_more_comment.evaluate('el => window.getComputedStyle(el).color')
-        assert c_sub_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'], (
-            f"暗色评论辅助提示颜色应为主题次级色，实际为 {c_sub_color}"
-        )
+        assert_element_contrast(page, '.comment-no-more', 4.5, '暗色评论辅助提示', '暗色帖子详情')
 
     # 断言底部输入框底色与可见性
     input_el = page.locator('.comment-input')
     assert input_el.is_visible(), "评论输入框应可见"
-    input_bg = input_el.evaluate('el => window.getComputedStyle(el).backgroundColor')
-    assert input_bg in ['rgb(32, 35, 39)', '#202327'], (
-        f"暗色输入框底色应为 --pill-bg (rgb(32, 35, 39))，实际为 {input_bg}"
-    )
+    # 输入框底色按令牌判定，避免写死某个品牌暗色值（底色与文字色是两条独立令牌）
+    input_bg = assert_token_background(
+        page, '.comment-input', '--pill-bg', '暗色评论输入框底色', '暗色帖子详情')
+    assert input_bg, "暗色评论输入框底色应取自 --pill-bg 令牌"
 
     # 测量暗色模式下评论框占位符前景与背景计算样式，并以计算对比度断言 >= 4.5
     dark_comment_ph = page.evaluate('''() => {

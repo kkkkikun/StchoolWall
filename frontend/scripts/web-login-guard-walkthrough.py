@@ -30,7 +30,6 @@ import http.server
 import json
 import os
 import socket
-import socketserver
 import sys
 import threading
 import traceback
@@ -57,8 +56,7 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-socketserver.TCPServer.allow_reuse_address = True
-httpd = socketserver.TCPServer(('127.0.0.1', port), SilentHandler)
+httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SilentHandler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
 base_url = f'http://127.0.0.1:{port}'
 print(f'H5 static server listening on {base_url}')
@@ -162,13 +160,14 @@ def shot(page, filename):
     return filename
 
 def btn_text(page):
-    return page.locator('.wl-btn').inner_text().strip()
+    return page.locator('.auth-submit').inner_text().strip()
 
-def modal_title(page):
-    return page.locator('.wl-title').inner_text().strip()
+def mode_hint(page):
+    """当前模式的提示文案：登录 / 注册 / 找回各不相同。"""
+    return page.locator('.auth-hint').inner_text().strip()
 
 def is_saving(page):
-    cls = page.locator('.wl-btn').get_attribute('class') or ''
+    cls = page.locator('.auth-submit').get_attribute('class') or ''
     return 'saving' in cls
 
 def toast_text(page):
@@ -177,21 +176,33 @@ def toast_text(page):
         return ''
     return t.inner_text().strip()
 
-def open_modal(page):
+def error_text(page):
+    """登录页的就地错误提示：校验失败/接口错误不再用 toast 打断。"""
+    t = page.locator('.auth-error-text')
+    if t.count() == 0:
+        return ''
+    return t.inner_text().strip()
+
+def open_auth(page):
+    """从「我的」页进入独立登录/注册页。"""
     page.locator('.dev-capsule:has-text("登录 / 注册")').click()
-    page.wait_for_selector('.wl-card', timeout=5000)
+    page.wait_for_selector('.auth-form', timeout=5000)
     page.wait_for_timeout(300)
 
-def close_modal(page):
-    page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
-    page.wait_for_timeout(400)
+def close_auth(page):
+    """从登录页返回「我的」页（走应用内返回箭头）。"""
+    page.locator('.back-trigger').click()
+    page.wait_for_timeout(600)
+
+def on_auth_page(page):
+    return page.locator('.auth-form').count() > 0
 
 def fill_form(page, username='walkthrough_user', password='password123', code=None):
     # uni-input 内层原生 input 对 Playwright 不可见（uni-app H5 包装），
     # 用 JS 赋值并派发 input 事件驱动 v-model（等价于真实键入的数据流）
     values = [username, password] if code is None else [username, code, password]
     page.evaluate('''(vals) => {
-        const inputs = document.querySelectorAll('.wl-card .wl-input input');
+        const inputs = document.querySelectorAll('.auth-form .auth-input input');
         vals.forEach((v, i) => {
             const el = inputs[i];
             el.value = v;
@@ -201,22 +212,23 @@ def fill_form(page, username='walkthrough_user', password='password123', code=No
     page.wait_for_timeout(150)
 
 def reset_to_guest(page, theme=None):
-    """清空本地会话并真实重载页面（goto 同 hash URL 不会重载，会导致弹窗残留）。"""
+    """清空本地会话并回到「我的」页访客态（goto 同 hash URL 不会重载，必须再 reload）。"""
     page.evaluate("""(t) => {
         try {
             localStorage.clear();
             if (t) localStorage.setItem('sw_theme_mode', t);
         } catch(e) {}
     }""", theme)
+    page.goto(f'{base_url}/#/pages/mine/index')
     page.reload()
     page.wait_for_selector('.dev-login-row', timeout=8000)
     page.wait_for_timeout(500)
 
-def force_close_modal(page):
+def force_close_auth(page):
     try:
-        if page.locator('.wl-mask').count() > 0:
-            page.locator('.wl-mask').click(position={'x': 10, 'y': 10}, timeout=3000)
-            page.wait_for_timeout(400)
+        if on_auth_page(page):
+            page.locator('.back-trigger').click(timeout=3000)
+            page.wait_for_timeout(600)
     except Exception:
         pass
 
@@ -238,28 +250,28 @@ try:
         # ================= S1 弹窗结构与三模式文案 =================
         print('\n--- S1 弹窗结构与模式文案 ---')
         try:
-            open_modal(page)
-            check(modal_title(page) == '登录', f'默认标题应为「登录」，实际「{modal_title(page)}」')
+            open_auth(page)
+            check(mode_hint(page) == '使用已注册的账号登录', f'默认提示应为「使用已注册的账号登录」，实际「{mode_hint(page)}」')
             check(btn_text(page) == '进入鄂应墙', f'登录主按钮应为「进入鄂应墙」，实际「{btn_text(page)}」')
-            check(page.locator('.wl-input').count() == 2, '登录模式应有 2 个输入框')
-            check(page.locator('.wl-link:has-text("没有账号，去注册")').count() == 1, '缺注册切换链接')
-            check(page.locator('.wl-link:has-text("找回密码")').count() == 1, '缺找回切换链接')
+            check(page.locator('.auth-input').count() == 2, '登录模式应有 2 个输入框')
+            check(page.locator('.auth-tab:has-text("注册")').count() == 1, '缺注册切换链接')
+            check(page.locator('.auth-link:has-text("忘记密码")').count() == 1, '缺忘记密码切换链接')
             s_light = shot(page, 'web-login-modal-light.png')
 
-            page.locator('.wl-link:has-text("没有账号，去注册")').click()
+            page.locator('.auth-tab:has-text("注册")').click()
             page.wait_for_timeout(300)
-            check(modal_title(page) == '注册账号', f'注册模式标题错误: {modal_title(page)}')
+            check(mode_hint(page) == '注册密码至少 10 位', f'注册模式提示错误: {mode_hint(page)}')
             check(btn_text(page) == '注册并登录', f'注册按钮文案错误: {btn_text(page)}')
 
-            page.locator('.wl-link:has-text("找回密码")').click()
+            page.locator('.auth-link:has-text("忘记密码")').click()
             page.wait_for_timeout(300)
-            check(modal_title(page) == '找回账号密码', f'找回模式标题错误: {modal_title(page)}')
+            check(mode_hint(page) == '使用离线找回码重置密码', f'找回模式提示错误: {mode_hint(page)}')
             check(btn_text(page) == '重置密码', f'找回按钮文案错误: {btn_text(page)}')
-            check(page.locator('.wl-input').count() == 3, '找回模式应有 3 个输入框（含找回码）')
+            check(page.locator('.auth-input').count() == 3, '找回模式应有 3 个输入框（含找回码）')
 
-            page.locator('.wl-link:has-text("返回登录")').click()
+            page.locator('.auth-link:has-text("返回登录")').click()
             page.wait_for_timeout(300)
-            check(modal_title(page) == '登录', '返回登录失败')
+            check(mode_hint(page) == '使用已注册的账号登录', '返回登录失败')
             print('   [通过] 三模式标题/输入项/按钮文案正确')
             record('S1_modal_structure', 'PASS',
                    assertions={'titles': ['登录', '注册账号', '找回账号密码'],
@@ -273,13 +285,13 @@ try:
         print('\n--- S2 输入校验失败 ---')
         try:
             before = dict(counts)
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(500)
             check(counts == before, f'校验失败不得发出请求，实际计数变化: {counts} vs {before}')
             check(not is_saving(page), '校验失败不得残留 saving 态')
             check(btn_text(page) == '进入鄂应墙', f'按钮文案应恢复，实际: {btn_text(page)}')
-            t = toast_text(page)
-            check('账号和密码' in t or '有效' in t, f'应有校验提示 toast，实际: 「{t}」')
+            t = error_text(page)
+            check('账号和密码' in t or '有效' in t, f'应有就地校验提示，实际: 「{t}」')
             print(f'   [通过] 空表单点击零请求，toast=「{t}」，按钮无残留 loading')
             record('S2_validation_failure', 'PASS',
                    assertions={'requests_sent': 0, 'saving': False, 'toast': t})
@@ -294,7 +306,7 @@ try:
             behavior['web-login'] = 'hold'
             before_n = counts['web-login']
             for _ in range(3):
-                page.locator('.wl-btn').click()
+                page.locator('.auth-submit').click()
                 page.wait_for_timeout(250)
             check(counts['web-login'] - before_n == 1,
                   f'连点 3 次应只产生 1 次 web-login 请求，实际 {counts["web-login"] - before_n}')
@@ -305,12 +317,12 @@ try:
             # ================= S4 在途模式锁定 =================
             print('--- S4 请求在途时模式切换锁定 ---')
             try:
-                page.locator('.wl-link:has-text("没有账号，去注册")').click()
+                page.locator('.auth-tab:has-text("注册")').click()
                 page.wait_for_timeout(200)
-                check(modal_title(page) == '登录', f'在途切注册应被忽略，实际标题: {modal_title(page)}')
-                page.locator('.wl-link:has-text("找回密码")').click()
+                check(mode_hint(page) == '使用已注册的账号登录', f'在途切注册应被忽略，实际提示: {mode_hint(page)}')
+                page.locator('.auth-link:has-text("忘记密码")').click()
                 page.wait_for_timeout(200)
-                check(modal_title(page) == '登录', f'在途切找回应被忽略，实际标题: {modal_title(page)}')
+                check(mode_hint(page) == '使用已注册的账号登录', f'在途切找回应被忽略，实际提示: {mode_hint(page)}')
                 s4_ok = True
                 print('   [通过] 在途期间注册/找回切换均被忽略')
             except Exception as e:
@@ -320,18 +332,18 @@ try:
 
             release_held('web-login', as_success=True)
             page.wait_for_timeout(1200)
-            check(page.locator('.wl-mask').count() == 0, '登录成功后弹窗应关闭')
+            check(page.locator('.auth-form').count() == 0, '登录成功后应离开登录页')
             if s4_ok:
                 # 完成后恢复切换能力（成功后已是登录态，入口胶囊隐藏，先重置为访客再验证）
                 reset_to_guest(page)
-                open_modal(page)
-                page.locator('.wl-link:has-text("没有账号，去注册")').click()
+                open_auth(page)
+                page.locator('.auth-tab:has-text("注册")').click()
                 page.wait_for_timeout(300)
-                check(modal_title(page) == '注册账号', '请求结束后模式切换应恢复')
-                close_modal(page)
+                check(mode_hint(page) == '注册密码至少 10 位', '请求结束后模式切换应恢复')
+                close_auth(page)
                 record('S4_inflight_mode_lock', 'PASS',
                        assertions={'locked_during_flight': True, 'switch_restored_after': True})
-            print('   [通过] 登录成功弹窗关闭，模式切换恢复')
+            print('   [通过] 登录成功后离开登录页，模式切换恢复')
             record('S3_login_double_submit', 'PASS',
                    assertions={'clicks': 3, 'web_login_requests': 1,
                                'inflight_text': '处理中…', 'saving_class': True,
@@ -341,35 +353,35 @@ try:
             print(f'   [失败] {e}')
             record('S3_login_double_submit', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             release_held('web-login')
-            force_close_modal(page)
+            force_close_auth(page)
 
         # 登出回到访客态：清掉本地会话并刷新页面
-        force_close_modal(page)
+        force_close_auth(page)
         reset_to_guest(page)
 
         # ================= S5 接口错误恢复 + 重试成功 =================
         print('\n--- S5 登录接口错误后恢复并重试 ---')
         try:
-            open_modal(page)
+            open_auth(page)
             fill_form(page)
             behavior['web-login'] = 'error'
             before_n = counts['web-login']
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(800)
             check(counts['web-login'] - before_n == 1, '应恰好 1 次 web-login 请求')
-            t = toast_text(page)
-            check('账号或密码错误' in t, f'应展示接口错误 toast，实际: 「{t}」')
-            check(page.locator('.wl-mask').count() == 1, '失败后弹窗应保持打开')
+            t = error_text(page)
+            check('账号或密码错误' in t, f'应展示接口错误提示，实际: 「{t}」')
+            check(page.locator('.auth-form').count() == 1, '失败后应停留在登录页')
             check(btn_text(page) == '进入鄂应墙' and not is_saving(page),
                   f'失败后按钮应恢复，实际: {btn_text(page)}, saving={is_saving(page)}')
             s_err = shot(page, 'web-login-error-toast.png')
 
             behavior['web-login'] = 'ok'
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(1200)
             check(counts['web-login'] - before_n == 2, '重试应产生第 2 次请求')
-            check(page.locator('.wl-mask').count() == 0, '重试成功后弹窗应关闭')
-            print('   [通过] 接口错误 toast 可见、按钮恢复，重试一次成功')
+            check(page.locator('.auth-form').count() == 0, '重试成功后应离开登录页')
+            print('   [通过] 接口错误就地提示可见、按钮恢复，重试一次成功')
             record('S5_error_retry', 'PASS',
                    assertions={'error_toast': t, 'recovered': True, 'retry_requests': 2},
                    screenshots=[s_err])
@@ -378,32 +390,32 @@ try:
             record('S5_error_retry', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             behavior['web-login'] = 'ok'
 
-        force_close_modal(page)
+        force_close_auth(page)
         reset_to_guest(page)
 
         # ================= S6 网络中断（abort）恢复 + 重试 =================
         print('\n--- S6 网络中断后恢复并重试 ---')
         try:
-            open_modal(page)
+            open_auth(page)
             fill_form(page)
             behavior['web-login'] = 'abort'
             before_n = counts['web-login']
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(800)
             check(counts['web-login'] - before_n == 1, 'abort 场景应恰好 1 次请求')
-            check(page.locator('.wl-mask').count() == 1, '网络失败后弹窗应保持打开')
+            check(page.locator('.auth-form').count() == 1, '网络失败后应停留在登录页')
             check(btn_text(page) == '进入鄂应墙' and not is_saving(page),
                   f'网络失败后按钮应恢复，实际: {btn_text(page)}')
-            t = toast_text(page)
+            t = error_text(page)
             check(t == '网络连接失败，请检查网络后重试',
                   f'网络失败应映射为友好提示「网络连接失败，请检查网络后重试」，实际: 「{t}」')
             check('request:fail' not in t, f'底层 request:fail 不得直接展示给用户，实际: 「{t}」')
 
             behavior['web-login'] = 'ok'
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(1200)
             check(counts['web-login'] - before_n == 2, '网络恢复后重试应发出第 2 次请求')
-            check(page.locator('.wl-mask').count() == 0, '重试成功后弹窗应关闭')
+            check(page.locator('.auth-form').count() == 0, '重试成功后应离开登录页')
             print(f'   [通过] 网络中断 toast=「{t}」，按钮恢复，重试成功')
             record('S6_network_abort_retry', 'PASS',
                    assertions={'abort_requests': 1, 'toast': t, 'retry_success': True})
@@ -412,28 +424,28 @@ try:
             record('S6_network_abort_retry', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             behavior['web-login'] = 'ok'
 
-        force_close_modal(page)
+        force_close_auth(page)
         reset_to_guest(page)
 
         # ================= S7 注册模式防连击 =================
         print('\n--- S7 注册模式防重复提交 ---')
         try:
-            open_modal(page)
-            page.locator('.wl-link:has-text("没有账号，去注册")').click()
+            open_auth(page)
+            page.locator('.auth-tab:has-text("注册")').click()
             page.wait_for_timeout(300)
             fill_form(page, username='walkthrough_new', password='newpassword10')
             behavior['register'] = 'hold'
             before_n = counts['register']
             for _ in range(3):
-                page.locator('.wl-btn').click()
+                page.locator('.auth-submit').click()
                 page.wait_for_timeout(250)
             check(counts['register'] - before_n == 1,
                   f'注册连点 3 次应只 1 次请求，实际 {counts["register"] - before_n}')
             check(btn_text(page) == '处理中…' and is_saving(page), '注册在途应显示处理中')
             release_held('register', as_success=True)
             page.wait_for_timeout(1200)
-            check(page.locator('.wl-mask').count() == 0, '注册成功后弹窗应关闭')
-            print('   [通过] 注册连点仅 1 次请求，成功后关闭')
+            check(page.locator('.auth-form').count() == 0, '注册成功后应离开登录页')
+            print('   [通过] 注册连点仅 1 次请求，成功后离开登录页')
             record('S7_register_double_submit', 'PASS',
                    assertions={'clicks': 3, 'register_requests': 1, 'modal_closed': True})
         except Exception as e:
@@ -441,31 +453,31 @@ try:
             record('S7_register_double_submit', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             release_held('register')
 
-        force_close_modal(page)
+        force_close_auth(page)
         reset_to_guest(page)
 
         # ================= S8 找回密码防连击 =================
         print('\n--- S8 找回密码模式防重复提交 ---')
         try:
-            open_modal(page)
-            page.locator('.wl-link:has-text("找回密码")').click()
+            open_auth(page)
+            page.locator('.auth-link:has-text("忘记密码")').click()
             page.wait_for_timeout(300)
             fill_form(page, username='walkthrough_user', password='newpassword10', code='MOCK-RECOVERY-CODE')
             behavior['recover'] = 'hold'
             before_n = counts['recover']
             for _ in range(3):
-                page.locator('.wl-btn').click()
+                page.locator('.auth-submit').click()
                 page.wait_for_timeout(250)
             check(counts['recover'] - before_n == 1,
                   f'找回连点 3 次应只 1 次请求，实际 {counts["recover"] - before_n}')
             check(btn_text(page) == '处理中…' and is_saving(page), '找回在途应显示处理中')
             release_held('recover', as_success=True)
             page.wait_for_timeout(1000)
-            check(modal_title(page) == '登录', f'重置成功后应回到登录模式，实际: {modal_title(page)}')
-            check(page.locator('.wl-mask').count() == 1, '重置成功弹窗保持打开等待登录')
+            check(mode_hint(page) == '使用已注册的账号登录', f'重置成功后应回到登录模式，实际: {mode_hint(page)}')
+            check(page.locator('.auth-form').count() == 1, '重置成功后应留在登录页等待登录')
             t = toast_text(page)
             check('密码已重置' in t, f'应有「密码已重置」提示，实际: 「{t}」')
-            close_modal(page)
+            close_auth(page)
             print('   [通过] 找回连点仅 1 次请求，成功后回到登录模式并提示')
             record('S8_recovery_double_submit', 'PASS',
                    assertions={'clicks': 3, 'recover_requests': 1,
@@ -477,34 +489,35 @@ try:
 
         # ================= S10/S11 畸形成功响应加固 =================
         def run_malformed(name, behavior_key, desc):
-            open_modal(page)
+            if not on_auth_page(page):
+                open_auth(page)
             fill_form(page)
             behavior['web-login'] = behavior_key
             before_n = counts['web-login']
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(800)
             check(counts['web-login'] - before_n == 1, f'{desc}：应恰好 1 次请求')
-            check(page.locator('.wl-mask').count() == 1, f'{desc}：畸形响应后弹窗必须保持打开')
-            check(page.locator('.dev-capsule:has-text("登录 / 注册")').count() == 1,
-                  f'{desc}：不得进入登录态（未登录入口应仍存在）')
+            check(page.locator('.auth-form').count() == 1, f'{desc}：畸形响应后必须停留在登录页')
+            check(page.evaluate("() => !localStorage.getItem('user_info')"),
+                  f'{desc}：不得进入登录态（未写入用户会话）')
             check(btn_text(page) == '进入鄂应墙' and not is_saving(page),
                   f'{desc}：按钮应恢复可重试，实际: {btn_text(page)}')
-            t = toast_text(page)
+            t = error_text(page)
             check(t == '登录响应异常，请稍后重试',
-                  f'{desc}：toast 应为友好中文提示，实际: 「{t}」')
+                  f'{desc}：错误提示应为友好中文，实际: 「{t}」')
             check('TypeError' not in t and 'undefined' not in t,
                   f'{desc}：不得向用户泄漏 TypeError/undefined，实际: 「{t}」')
             shot(page, f'{name}.png')
 
             behavior['web-login'] = 'ok'
-            page.locator('.wl-btn').click()
+            page.locator('.auth-submit').click()
             page.wait_for_timeout(1200)
-            check(page.locator('.wl-mask').count() == 0, f'{desc}：完整响应重试应成功关闭弹窗')
+            check(page.locator('.auth-form').count() == 0, f'{desc}：完整响应重试应成功离开登录页')
             record(name, 'PASS',
-                   assertions={'malformed_toast': t, 'modal_stayed_open': True,
+                   assertions={'malformed_error': t, 'stayed_on_auth_page': True,
                                'no_typeerror_leak': True, 'retry_success': True},
                    screenshots=[f'{name}.png'])
-            print(f'   [通过] {desc}：弹窗保持打开、友好提示、重试成功')
+            print(f'   [通过] {desc}：停留在登录页、友好提示、重试成功')
 
         print('\n--- S10 畸形响应：缺少 user_info ---')
         try:
@@ -513,7 +526,7 @@ try:
             print(f'   [失败] {e}')
             record('S10_malformed_missing_user_info', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             behavior['web-login'] = 'ok'
-            force_close_modal(page)
+            force_close_auth(page)
         reset_to_guest(page)
 
         print('\n--- S11 畸形响应：缺少 role ---')
@@ -523,21 +536,21 @@ try:
             print(f'   [失败] {e}')
             record('S11_malformed_missing_role', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
             behavior['web-login'] = 'ok'
-            force_close_modal(page)
+            force_close_auth(page)
         reset_to_guest(page)
 
         # ================= S9 暗色主题弹窗 =================
         print('\n--- S9 暗色主题弹窗 ---')
         try:
-            force_close_modal(page)
+            force_close_auth(page)
             reset_to_guest(page, theme='dark')
-            open_modal(page)
+            open_auth(page)
             is_dark = page.evaluate("() => document.documentElement.classList.contains('theme-dark')")
             check(is_dark, '暗色场景 html 应带 theme-dark 类')
-            check(modal_title(page) == '登录', '暗色下弹窗结构应正常')
+            check(mode_hint(page) == '使用已注册的账号登录', '暗色下登录页结构应正常')
             s_dark = shot(page, 'web-login-modal-dark.png')
-            close_modal(page)
-            print('   [通过] 暗色主题弹窗渲染正常')
+            close_auth(page)
+            print('   [通过] 暗色主题登录页渲染正常')
             record('S9_dark_theme_modal', 'PASS',
                    assertions={'theme_dark_class': True}, screenshots=[s_dark])
         except Exception as e:

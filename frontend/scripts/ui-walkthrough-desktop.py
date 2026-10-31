@@ -23,14 +23,19 @@ import http.server
 import json
 import os
 import socket
-import socketserver
 import sys
 import threading
 import time
 import traceback
 from playwright.sync_api import sync_playwright
 
-from h5_mock_api import handle_api, assert_no_horizontal_overflow, assert_bottom_bar_not_blocking
+from h5_mock_api import (
+    handle_api,
+    assert_no_horizontal_overflow,
+    assert_bottom_bar_not_blocking,
+    assert_element_contrast,
+    assert_token_color,
+)
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'frontend', 'dist', 'build', 'h5')
@@ -53,8 +58,7 @@ class SilentHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-socketserver.TCPServer.allow_reuse_address = True
-httpd = socketserver.TCPServer(('127.0.0.1', port), SilentHandler)
+httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SilentHandler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
 base_url = f'http://127.0.0.1:{port}'
 print(f'H5 static server listening on {base_url}')
@@ -228,9 +232,9 @@ def run_viewpoint_suite(browser, vp_label, width, height):
         print(f'   [失败] {e}')
         record(name, f'{width}x{height}', 'light', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
 
-    # ---------------- 5. 我的页面 + 登录弹窗 ----------------
-    name = f'{vp_label}-login-modal'
-    print(f'--- [{vp_label}] 我的页面 + 登录弹窗 ---')
+    # ---------------- 5. 我的页面 + 独立登录页 ----------------
+    name = f'{vp_label}-auth-page'
+    print(f'--- [{vp_label}] 我的页面 + 登录页 ---')
     try:
         page.goto(f'{base_url}/#/pages/mine/index')
         page.wait_for_selector('.dev-login-row', timeout=8000)
@@ -238,36 +242,36 @@ def run_viewpoint_suite(browser, vp_label, width, height):
         assert_no_horizontal_overflow(page, f'{vp_label} 我的页面')
 
         page.locator('.dev-capsule:has-text("登录 / 注册")').click()
-        page.wait_for_selector('.wl-card', timeout=5000)
+        page.wait_for_selector('.auth-form', timeout=5000)
         page.wait_for_timeout(300)
-        check(page.locator('.wl-title').inner_text().strip() == '登录', '弹窗默认标题应为「登录」')
-        check(page.locator('.wl-btn').inner_text().strip() == '进入鄂应墙', '主按钮应为「进入鄂应墙」')
-        # 弹窗宽度不得超出视口
-        card_box = page.locator('.wl-card').bounding_box()
-        check(card_box['width'] <= width, f'登录卡片超出视口: {card_box["width"]} > {width}')
+        check(page.locator('.auth-hint').inner_text().strip() == '使用已注册的账号登录', '登录页默认提示应为「使用已注册的账号登录」')
+        check(page.locator('.auth-submit').inner_text().strip() == '进入鄂应墙', '主按钮应为「进入鄂应墙」')
+        # 登录表单不得超出视口
+        card_box = page.locator('.auth-form').bounding_box()
+        check(card_box['width'] <= width, f'登录表单超出视口: {card_box["width"]} > {width}')
 
         # 空提交校验（不发出请求即提示）
-        page.locator('.wl-btn').click()
+        page.locator('.auth-submit').click()
         page.wait_for_timeout(600)
-        toast = page.locator('uni-toast')
-        check(toast.count() > 0 and '账号和密码' in toast.inner_text(), '空提交应有校验提示')
+        err = page.locator('.auth-error-text')
+        check(err.count() > 0 and '账号和密码' in err.inner_text(), '空提交应有就地校验提示')
 
         # 注册/找回模式切换
-        page.locator('.wl-link:has-text("没有账号，去注册")').click()
+        page.locator('.auth-tab:has-text("注册")').click()
         page.wait_for_timeout(300)
-        check(page.locator('.wl-title').inner_text().strip() == '注册账号', '注册模式标题异常')
-        page.locator('.wl-link:has-text("找回密码")').click()
+        check(page.locator('.auth-hint').inner_text().strip() == '注册密码至少 10 位', '注册模式提示异常')
+        page.locator('.auth-link:has-text("忘记密码")').click()
         page.wait_for_timeout(300)
-        check(page.locator('.wl-input').count() == 3, '找回模式应有 3 个输入框')
+        check(page.locator('.auth-input').count() == 3, '找回模式应有 3 个输入框')
         s1 = shot(page, f'{name}.png')
 
-        page.locator('.wl-mask').click(position={'x': 10, 'y': 10})
+        page.locator('.back-trigger').click()
         page.wait_for_timeout(400)
-        check(page.locator('.wl-mask').count() == 0, '遮罩点击应关闭弹窗')
-        print(f'   [通过] 弹窗结构/校验/模式切换/关闭正常，卡片宽 {card_box["width"]:.0f}px')
+        check(page.locator('.auth-form').count() == 0, '返回应离开登录页')
+        print(f'   [通过] 登录页结构/校验/模式切换/返回正常，表单宽 {card_box["width"]:.0f}px')
         record(name, f'{width}x{height}', 'light', 'PASS',
-               assertions={'card_width': round(card_box['width'], 1), 'modes_ok': True,
-                           'validation_toast': True, 'mask_close': True}, screenshots=[s1])
+               assertions={'form_width': round(card_box['width'], 1), 'modes_ok': True,
+                           'validation_error': True, 'back_to_mine': True}, screenshots=[s1])
     except Exception as e:
         print(f'   [失败] {e}')
         record(name, f'{width}x{height}', 'light', 'FAIL', error=f'{e}\n{traceback.format_exc(limit=3)}')
@@ -304,10 +308,9 @@ def run_viewpoint_suite(browser, vp_label, width, height):
         page.wait_for_timeout(800)
         is_dark = page.evaluate("() => document.documentElement.classList.contains('theme-dark')")
         check(is_dark, '暗色场景 html 应带 theme-dark 类（主题应跨页面持久）')
-        text_color = page.locator('.feed-card .feed-text').first.evaluate(
-            'el => window.getComputedStyle(el).color')
-        check(text_color in ['rgb(231, 233, 234)', '#e7e9ea'],
-              f'暗色正文应使用高对比 --text-1，实际 {text_color}')
+        text_color = assert_token_color(
+            page, '.feed-card .feed-text', '--text-1', '暗色正文', f'{vp_label} 暗色首页')
+        assert_element_contrast(page, '.feed-card .feed-text', 4.5, '暗色正文', f'{vp_label} 暗色首页')
         assert_no_horizontal_overflow(page, f'{vp_label} 暗色首页')
         s1 = shot(page, f'{name}.png')
         print(f'   [通过] 暗色正文颜色 {text_color}，无溢出')
@@ -325,8 +328,8 @@ def run_viewpoint_suite(browser, vp_label, width, height):
         page.wait_for_selector('.content-text', timeout=8000)
         page.wait_for_timeout(1000)
         meta_color = page.locator('.meta').evaluate('el => window.getComputedStyle(el).color')
-        check(meta_color in ['rgb(139, 152, 165)', 'rgb(113, 118, 123)', '#8b98a5', '#71767b'],
-              f'暗色 meta 颜色应为次级令牌色，实际 {meta_color}')
+        # 不写死具体色值：直接断言实际对比度达标（令牌微调后断言依然成立）
+        assert_element_contrast(page, '.meta', 4.5, '暗色详情 meta', f'{vp_label} 暗色帖子详情')
         assert_no_horizontal_overflow(page, f'{vp_label} 暗色帖子详情')
         assert_bottom_bar_not_blocking(page, f'{vp_label} 暗色帖子详情')
         s1 = shot(page, f'{name}.png')

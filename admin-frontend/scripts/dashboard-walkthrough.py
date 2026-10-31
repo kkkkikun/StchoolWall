@@ -16,7 +16,6 @@ import json
 import os
 import re
 import socket
-import socketserver
 import sys
 import threading
 import time
@@ -57,7 +56,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-httpd = socketserver.TCPServer(('127.0.0.1', port), SPAHandler)
+httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SPAHandler)
 server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
 server_thread.start()
 base_url = f"http://127.0.0.1:{port}"

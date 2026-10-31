@@ -16,8 +16,8 @@ SchoolWall 学生端「全页面」Playwright 走查（H5）
 import http.server
 import json
 import os
+import re
 import socket
-import socketserver
 import sys
 import threading
 import time
@@ -28,8 +28,31 @@ from playwright.sync_api import sync_playwright
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'frontend', 'dist', 'build', 'h5')
+SRC_DIR = os.path.join(ROOT_DIR, 'frontend', 'src')
 ARTIFACTS_DIR = os.path.join(ROOT_DIR, 'ci-artifacts', 'ui-walkthrough')
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
+
+
+def brand_rgb_triplets():
+    """从 App.vue 的 --primary 系列令牌读取品牌色 RGB，用于「既定例外」分类。
+
+    不写死具体色值：换品牌后脚本依然成立。
+    """
+    app_vue = os.path.join(SRC_DIR, 'App.vue')
+    try:
+        with open(app_vue, encoding='utf-8') as fh:
+            text = fh.read()
+    except OSError:
+        return []
+    light = text.split('.theme-dark {')[0]
+    out = set()
+    for m in re.finditer(r'(--primary[a-z0-9-]*)\s*:\s*(#[0-9a-fA-F]{6})\s*;', light):
+        h = m.group(2).lstrip('#')
+        out.add((int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)))
+    return sorted(out)
+
+
+BRAND_RGB = brand_rgb_triplets()
 
 if not os.path.isdir(DIST_DIR):
     print(f"Error: DIST_DIR not found at {DIST_DIR}. Run 'npm run build:h5' first.", file=sys.stderr)
@@ -50,7 +73,7 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-httpd = socketserver.TCPServer(('127.0.0.1', port), QuietHandler)
+httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), QuietHandler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
 base_url = f'http://127.0.0.1:{port}'
 print(f'H5 static server listening on {base_url}')
@@ -206,9 +229,11 @@ PAGES = [
     ('tag-posts', 'pages/tag-posts/index', '?id=1'),
     ('hot-users', 'pages/hot-users/index', ''),
     ('mine', 'pages/mine/index', ''),
+    ('auth', 'pages/auth/index', ''),
     ('post-detail', 'pages/post-detail/index', '?id=1'),
     ('search', 'pages/search/index', ''),
     ('party-create', 'pages/party-create/index', ''),
+    ('auth', 'pages/auth/index', ''),
     ('profile', 'pages/profile/index', f'?id={USER_ID}'),
     ('webview', 'pages/webview/index', '?url=https%3A%2F%2Fexample.com'),
     ('settings', 'pages/settings/index', ''),
@@ -246,7 +271,7 @@ def check(cond, msg):
 
 def measure(page):
     """一次性采集文档溢出 / 根节点高度 / 可见文字裁切 / 文字对比度。"""
-    return page.evaluate('''() => {
+    return page.evaluate('''({ brand }) => {
         const doc = document.documentElement;
         const root = document.querySelector('uni-app, #app, body');
         const clipped = [];
@@ -320,10 +345,13 @@ def measure(page):
                     ratio: Math.round(r * 100) / 100,
                     need: need,
                 };
-                // X 品牌蓝 #1d9bf0 与白底/白字组合本身就是 3.0:1（X 官方同值），
-                // 属于还原 X 设计语言的既定取舍：记录下来但不阻断，阈值 2.8。
-                const isBrand = (c) => (c.r === 29 && c.g === 155 && c.b === 240)
-                    || (c.r === 26 && c.g === 140 && c.b === 216);
+                // 品牌色小字压在白底上属既定设计取舍（底栏激活标签等）：
+                // 记录下来单独计数但不阻断，阈值 2.8。
+                // 品牌色由 Python 从 App.vue 令牌读出注入，换品牌同样成立。
+                const brandSet = new Set((brand || []).map(
+                    (c) => c[0] + ',' + c[1] + ',' + c[2]));
+                const isBrand = (c) => brandSet.has(
+                    Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b));
                 if ((isBrand(fg) || isBrand(bg)) && r >= 2.8) {
                     brandLowContrast.push(entry);
                     continue;
@@ -340,7 +368,7 @@ def measure(page):
             lowContrast: lowContrast.slice(0, 6),
             brandLowContrast: brandLowContrast.slice(0, 6),
         };
-    }''')
+    }''', {'brand': BRAND_RGB})
 
 
 def visit(page, name, route, query, mode):

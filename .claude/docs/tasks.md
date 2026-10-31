@@ -18,7 +18,8 @@
 - 2026-10-31 已合并入 main（合并点 d7fe503，`--no-ff`）；分支 feature/main-quality-port 保留未删除
 - 2026-10-31 改进批次一（CI 守护 + 文档校准）：CI 接入前端+管理台全量单测、openspec 校验、18 套浏览器走查、客观缺陷扫描（actionlint 1.7.7 通过）；修掉管理台走查与 `--base=/admin/` 部署前缀不匹配（曾致 34 场景全挂），抽出共享模块 `admin-frontend/scripts/walkthrough_server.py`；文档三处审计数字与实测对齐；optimization 规范补齐 6 条优化点
 - 2026-10-31 改进批次二（管理台体积）：Element Plus 按需引入，首屏 411KB → 102KB gzip（-75%）、raw 1458KB → 303KB（-79%）；locale 改 provideGlobalConfig 保住中文；修掉「默认蓝反盖玫瑰红」「42 处被 any 掩盖的类型错」「服务型样式落错 chunk」「单测绕过自动注入」四个隐藏问题；新增 style-coverage-check.py 样式守卫并接入 CI
-- 剩余批次三待办：echarts 按需注册（懒加载块 372KB gzip）、前端性能基线入库+门禁、图标注册表唯一来源（91 处手写路径 / 103 个零引用 SVG）、前端 7 套走查脚本的静态服务去重 —— 详见 `openspec/specs/optimization/spec.md`
+- 2026-10-31 改进批次三（性能收口 + 图标单一来源 + 第三方外呼清零）：① echarts 按需注册，懒加载块 1135.53KB → 526.99KB raw、382.15KB → 180.06KB gzip（-53%）；② 性能基线入库 + CI 门禁（学生端 `perf-baseline.json`、管理台 `bundle-baseline.json`，硬门禁只卡确定性体积）；③ 91 处手写图标路径收口到注册表（22 个文件），新增 `icon-consistency-check.py` 静态守卫；④ 前端 7 套走查脚本静态服务去重（新增 `h5_walkthrough_server.py`，backlog 5 → 128）；⑤ **发现并修掉 uni-app 框架的 dcloud CDN 外呼**（每次开页面多一次外网请求，CDN 不可达时走查随机 FAIL），新增 `external-request-check.py` 断言无第三方外呼。CI 步骤 17 → 21
+- 剩余待办：真实环境验证缺口（后端 pytest @PG15+Redis7、迁移 upgrade/downgrade、k6 压测、Trivy 镜像扫描、Gitleaks 全量密钥扫描、独立安全复核）—— 需外部环境/人工，见 `openspec/specs/optimization/spec.md` 与 `docs/production/release-gates.md`
 - 原有未提交UI改动保留；未部署、未代替运营方签署政策或提交平台审核
 
 ## 已完成（已归档）

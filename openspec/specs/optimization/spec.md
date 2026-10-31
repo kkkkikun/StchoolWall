@@ -63,17 +63,19 @@
   - 踩坑（务必留意）：echarts 6 的 `sideEffects` 把 `lib/chart/*.js` / `lib/component/*.js` 标成有副作用，所以「整包 `import('echarts')` 再 tree-shake」是行不通的 —— 必须走 `echarts/core` 等 ESM 子路径做**模块级**按需注册（`echarts/charts`、`echarts/components`、`echarts/renderers`），未用到的图表类型才会被 Rollup 丢掉。另外新增图表类型时必须在 `utils/echarts.ts` 同步注册，否则运行时报「组件未注册」；`echarts/core` 的 `ECharts` 类型要从 `echarts/core` 取（不是 `echarts`），否则类型检查会把整包拉回依赖图。
   - 验证方式：构建后比对 `dist/assets/echarts-*.js` 的 gzip 体积；跑 `admin-frontend/scripts/dashboard-walkthrough.py`（9/9）确认 canvas 非空、图表几何无重叠、图例与坐标轴文字仍取主题色。
 
-- **[优先级: 中]** 前端性能基线未入库、无回归门禁
+- **[优先级: 中] [已完成 2026-10-31]** 前端性能基线未入库、无回归门禁
 
   - 当前影响：`frontend/scripts/ui-perf-audit.py` 把首屏指标写到 `/tmp/audit/metrics.json`，不入库、不比阈值。性能是否退化目前没有任何自动判定，只能靠人肉看。
-  - 建议方案：把基线 JSON 提交到 `release/`，脚本加阈值比对（首屏 JS 总量、LCP/DOMContentLoaded 预算），超阈值即非零退出；接进 CI 的「Objective UI defect audit」步骤同批执行。
-  - 验证方式：连续两次跑结果落在基线 ±5% 内；人为放大一个阈值即失败。
+  - 已完成：新增 `frontend/scripts/perf-budget-check.py`，基线存 `frontend/perf-baseline.json`（入库）。**硬门禁只卡产物体积**（首屏 JS/CSS、全量 JS/CSS、最大单块，均为 gzip -9 字节数）—— 体积是确定性的，同样代码必然得到同样数字，可以严格卡阈值，超过基线 10% 即非零退出。**运行时指标（FCP / DOMContentLoaded / LCP）只采集不拦截**：受 CI runner 负载影响很大，硬卡会造成随机失败，因此只写进报告供横向比较。管理台同构新增 `admin-frontend/scripts/bundle-budget-check.py`（基线 `admin-frontend/bundle-baseline.json`），守住首屏与 echarts 按需注册的成果。两者均已接入 CI。
+  - 实测基线：学生端首屏 JS 102.9KB gzip / 首屏 CSS 8.4KB gzip / 全量 JS 169.9KB gzip / 全量 CSS 30.5KB gzip；管理台首屏 JS 93.3KB gzip、echarts 块 174.9KB gzip、全量 JS 483.0KB gzip。两种 `--base` 构建形态下门禁都稳定通过。
+  - 验证方式：正常跑 exit 0；人为把基线调小 30% 即 exit 1 并指出超出的项；恢复后重新 exit 0。
 
-- **[优先级: 中]** 图标「注册表唯一来源」名存实亡，103 个 SVG 无人引用
+- **[优先级: 中] [已完成 2026-10-31]** 图标「注册表唯一来源」名存实亡
 
-  - 当前影响：`openspec/specs/frontend-ui/spec.md` 要求「一律通过 `utils/icons.ts` 注册表引用，不得手写路径」，实际 91 处源码直接写死 `<image src="/static/icons/...">`，只有底栏走注册表；207 个 SVG 里 103 个（29KB）没有任何地方引用。生成器作为「几何唯一来源」的实际约束力不足，换色与清理都要靠人工核对。
-  - 建议方案：二选一 —— ① 把页面改成经 `UiIcon` / 注册表取路径（工作量中等，但能真正做到一处生成、全局生效）；② 或修正规范措辞为「注册表负责语义名与变体选择，路径由生成器产出」，并加一个「磁盘文件 ↔ 注册表 ↔ 引用」三者一致的静态检查，同时清掉无人引用的 SVG。
-  - 验证方式：加静态检查脚本，断言注册表与磁盘文件一一对应、无零引用文件；跑 `frontend/scripts/ui-contrast-audit.py` 与全页面走查确认无坏图。
+  - 当前影响（**原记述已过时，实测修正**）：`openspec/specs/frontend-ui/spec.md` 要求「一律通过 `utils/icons.ts` 注册表引用，不得手写路径」，实际 91 个路径（183 处引用、22 个文件）直接写死 `<image src="/static/icons/...">`。**「207 个 SVG 里 103 个零引用」的说法不成立** —— 实测磁盘 207 个 SVG 与注册表 207 条路径一一对应，零引用为 0；真正的缺口只是「引用没走注册表」，一旦生成器调整路径，这 91 个手写路径就会静默 404。
+  - 已完成：把 91 个手写路径全部改写为注册表引用（模板 `:src="ICONS['x']"` / `:src="ICON_TONES['x']['tone']"`，脚本与 TS 用同一表达式），并在 22 个文件按需补 `import { ICONS, ICON_TONES } from '@/utils/icons'`。**没有改成 `<UiIcon>` 组件**：那会换掉 `<image>` 标签与类名、改动每个图标的尺寸语义，回归面远大于收益。新增 `frontend/scripts/icon-consistency-check.py` 做静态守卫：断言磁盘 SVG ↔ 注册表一一对应、注册表路径格式合法、**源码里不再出现手写 `/static/icons/...` 字面量**，已接入 CI。
+  - 连带改动：3 个单元测试（`navigation` / `mp-login` / `web-login-guard`）用 Node loader 直读 SFC 源码、绕过 vite，`@/utils/icons` 别名无法解析导致 55 项里挂 3 项。已抽出共享 helper `frontend/tests/helpers/compile-ts.mjs`，让测试加载**真实**注册表源码（而非各自 mock），三处测试均恢复通过。
+  - 验证方式：守卫 exit 0（207 个 SVG ↔ 208 个语义名一一对应、源码无手写路径）；负向验证两条 —— 临时把某个页面改回手写路径 → exit 1；临时删掉一个 SVG → exit 1；恢复后 exit 0。全页面走查 57/57、对比度审计 0 缺陷，三端构建产物里图标各 207 个。
 
 - **[优先级: 低]** 残余 moderate 依赖告警（构建期，不进产物）
 
@@ -81,11 +83,20 @@
   - 建议方案：主前端等 uni-cli-shared 的 `@intlify` 锁定版本推进（9.x 线内无同时避开两条 advisory 的版本，跨大版本会破坏其对 `@intlify/runtime@9.1.9` 的精确锁定）；管理台等 `@vue/language-core` 跟进 `minimatch >= 11.0.1`。**不要用 `overrides` 强行覆盖**，会破坏类型工具链。
   - 验证方式：每次升级后重跑 `npm audit --registry=https://registry.npmjs.org --audit-level=high`，并实测产物不含告警包字样。
 
-- **[优先级: 低]** 前端 7 套走查脚本仍各带一份静态服务代码
+- **[优先级: 低] [已完成 2026-10-31]** 前端 7 套走查脚本仍各带一份静态服务代码
 
   - 当前影响：`frontend/scripts/` 下 7 个脚本各自定义了一份几乎相同的 `SilentHandler`/`QuietHandler`（H5 用 hash 路由，不需要 SPA 回退，所以比管理台那批更简单）。管理台侧已抽出共享模块 `admin-frontend/scripts/walkthrough_server.py`，前端侧尚未跟进。H5 当前部署在根路径（nginx `location /`），**不影响 CI 运行**，故本轮未动。
-  - 建议方案：把 `create_server()` 加进已有的 `frontend/scripts/h5_mock_api.py`（前端共享模块），7 个脚本改为 import；顺手把 `web-login-guard-walkthrough.py` 与 `all-pages-walkthrough.py` 各自内嵌的 mock 也归入共享模块。
-  - 验证方式：7 套脚本改后逐个跑通，报告 JSON 与改前一致。
+  - 已完成：新增 `frontend/scripts/h5_walkthrough_server.py`（`create_server(dist_dir)`），7 套脚本全部改为调用它，删掉 7 份重复的 handler 与各自选端口的样板代码。**内嵌 mock 未归入共享模块** —— `all-pages-walkthrough.py` 与 `web-login-guard-walkthrough.py` 的 mock 夹具与各自断言强耦合，强行合并反而更难维护，不是本次的目标。
+  - 顺带修掉一个真实缺陷：`socketserver.TCPServer.request_queue_size` 默认只有 5，页面并发加载十几个资源时 listen 队列容易被打满，浏览器侧表现为 `Failed to load resource: net::ERR_CONNECTION_CLOSED`，走查会把它当真实控制台错误而误判失败。共享服务把 backlog 提到 128，并吞掉客户端提前断开时的 `BrokenPipeError`/`ConnectionResetError`。
+  - 验证方式：7 套脚本改后逐个跑通，场景数与断言结果与改前一致（57 / 16 / 16 / 发布 / 上传 / 登录守卫 / 详情互动全部 PASS）。
+
+- **[优先级: 高] [已完成 2026-10-31]** H5 运行时依赖 dcloud 公网 CDN（第三方外呼）
+
+  - 当前影响：**uni-app H5 框架的 CSS 注入 `body:after` 隐藏伪元素，3 秒后从 `cdn.dcloud.net.cn/img/shadow-grey.png` 拉一张导航阴影图。** 每次打开页面都多一次外网请求 —— ① 首屏被第三方 CDN 拖住；② CDN 不可达时浏览器控制台报 `net::ERR_CONNECTION_CLOSED`，被客观缺陷扫描当成真实缺陷，**全页面走查随机挂掉**（实测 8 次里偶发 1~2 次）；③ 用户 IP 与访问时间泄漏给第三方。走查里「控制台错误 0 条但总体 FAIL」的现象此前一直没定位到根因。
+  - 已完成：在 `frontend/src/App.vue` 的 H5 条件编译段里用 `html body::after { content: none; animation: none; }` 关掉该伪元素 —— 选择器比框架的 `body:after` 多一层 html（0,0,3 > 0,0,2），**不依赖样式加载顺序**。新增 `frontend/scripts/external-request-check.py` 守卫：打开主要页面时断言不向第三方域名发请求（自家 `/api/v1/**` 后端调用除外），已接入 CI。
+  - 实测：修复前探针捕获 1 条外网请求（`https://cdn.dcloud.net.cn/img/shadow-grey.png`），修复后 **0 条**；负向验证 —— 往产物 HTML 塞一个 `https://example.com/pixel.png` 即 exit 1，恢复后 exit 0。
+  - 备注：产物里还剩 `hac1/has1.dcloud.net.cn`（uni-app 广告模块的配置/GUID 端点）与 `vuejs.org/error-reference`（报错文案里的链接），实测**运行时均未触发**（探针 0 外呼），本项目没有广告位，不需要处理。
+  - 验证方式：`python3 frontend/scripts/external-request-check.py --base-url <预览地址>`；全页面走查不再出现偶发 FAIL。
 
 - **[优先级: 高，但需外部环境]** 真实环境验证缺口（工具链已就绪，缺环境）
 

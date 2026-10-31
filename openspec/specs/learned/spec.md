@@ -146,6 +146,17 @@
 - **WHEN** 把 `import { ElMessage } from 'element-plus'` 删掉改用 AutoImport 后，管理台单测从 12/12 掉到 9/12
 - **THEN** 根因：单测用自建 Node ESM loader 直接加载 `src/utils/request.ts`，不经过 vite 插件，AutoImport 不会注入 import，`ElMessage` 在测试里是 undefined；解法：request.ts 保留显式导入（`element-plus/es`，与 `element-plus` 同一模块实例，测试的 monkey-patch 仍生效），样式则挪到 `main.ts` 引入（避免 .css 让 Node loader 报 ERR_UNKNOWN_FILE_EXTENSION）；预防：被单元测试直接加载的源码文件不能依赖构建期代码生成
 
+#### Scenario: 走查「0 个场景失败但总体 FAIL」，根因是框架偷偷外呼了 CDN
+
+- **WHEN** 全页面走查 57 个场景全 PASS，报告 `overall` 却是 FAIL，`console_errors` 里只有一条没有 URL 的 `Failed to load resource: net::ERR_CONNECTION_CLOSED`
+- **THEN** 根因：控制台的 `m.text` 只有一句模板文案，**不带资源 URL**，光看文本定位不到是谁挂了；要挂 `page.on('requestfailed')` 才能拿到 `r.url` 与 `r.failure`。真正的元凶是 uni-app H5 框架 CSS 里的 `body:after { animation: shadow-preload 3s }`，3 秒后从 `cdn.dcloud.net.cn` 拉导航阴影图 —— 这是**每个页面打开时的外网请求**，CDN 不可达就报错。解法：`html body::after { content: none; animation: none; }`（比框架的 `body:after` 多一层 html，不依赖样式顺序）关掉伪元素；预防：给浏览器级走查补 `requestfailed` 采集 + 「无第三方外呼」守卫，别等随机失败时猜
+- **附**：Python `http.server` 的 `request_queue_size` 默认只有 5，页面并发加载十几个资源时 listen 队列可能打满，浏览器侧同样表现为 `ERR_CONNECTION_CLOSED`；共享静态服务应把 backlog 提到 128，并吞掉客户端提前断开时的 `BrokenPipeError`/`ConnectionResetError`
+
+#### Scenario: 源码里的图标路径改成注册表引用后，Node 直读源码的单测全挂
+
+- **WHEN** 把 91 处 `<image src="/static/icons/...">` 改成 `:src="ICONS['x']"` 后，前端单测从 55 项掉到 52 项，报 `Cannot find package '@/utils/icons'`
+- **THEN** 根因：单测用 Node 直接加载 SFC 源码、不经过 vite，`@/xxx` 别名不会被解析，Node 把 `@/utils/icons` 当成 scoped package `@/utils` 的子路径；解法：抽出共享 helper `tests/helpers/compile-ts.mjs`，把真实 TS 模块转译成临时 `.mjs` 再把别名替换成它的相对路径（**加载真实注册表而不是各写一份 mock**，免得 mock 与生成器漂移）；注意 `node --test` 会并行跑多个测试文件，临时文件名必须各不相同，否则互相覆盖
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

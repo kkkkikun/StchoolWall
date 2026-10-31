@@ -97,17 +97,17 @@
         </el-table-column>
         <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="onEdit(row)">编辑</el-button>
-            <el-button link :type="row.is_pinned ? 'warning' : 'success'" size="small" @click="onPin(row)">
+            <el-button link type="primary" size="small" @click="onEdit(row as AdminPost)">编辑</el-button>
+            <el-button link :type="row.is_pinned ? 'warning' : 'success'" size="small" @click="onPin(row as AdminPost)">
               {{ row.is_pinned ? '取消置顶' : '置顶' }}
             </el-button>
-            <el-button link :type="row.is_featured ? 'warning' : 'success'" size="small" @click="onFeature(row)">
+            <el-button link :type="row.is_featured ? 'warning' : 'success'" size="small" @click="onFeature(row as AdminPost)">
               {{ row.is_featured ? '取消精华' : '设精华' }}
             </el-button>
-            <el-button v-if="row.status === 1" link type="danger" size="small" @click="onStatus(row, -1)">封禁</el-button>
-            <el-button v-if="row.status === -1" link type="success" size="small" @click="onStatus(row, 1)">恢复</el-button>
-            <el-button v-if="row.status === 0" link type="success" size="small" @click="onStatus(row, 1)">过审</el-button>
-            <el-button v-if="row.status === 0" link type="danger" size="small" @click="onStatus(row, -1)">拒审</el-button>
+            <el-button v-if="row.status === 1" link type="danger" size="small" @click="onStatus(row as AdminPost, -1)">封禁</el-button>
+            <el-button v-if="row.status === -1" link type="success" size="small" @click="onStatus(row as AdminPost, 1)">恢复</el-button>
+            <el-button v-if="row.status === 0" link type="success" size="small" @click="onStatus(row as AdminPost, 1)">过审</el-button>
+            <el-button v-if="row.status === 0" link type="danger" size="small" @click="onStatus(row as AdminPost, -1)">拒审</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -135,7 +135,7 @@
         </el-table-column>
         <el-table-column label="操作" width="100">
           <template #default="{ row }">
-            <el-button link type="success" size="small" @click="adoptCandidate(row)">设为精华</el-button>
+            <el-button link type="success" size="small" @click="adoptCandidate(row as AdminPost)">设为精华</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -163,8 +163,8 @@
 </template>
 
 <script setup lang="ts">
+import type { TagProps } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Pointer, ChatDotRound, View } from '@element-plus/icons-vue'
 import { getPosts, updatePostStatus, pinPost, featurePost, getFeatureCandidates, editPost, batchPostStatus, exportPosts, type AdminPost } from '@/api/posts'
 
@@ -172,7 +172,7 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const STATUS: Record<number, string> = { '-2': '已删除', '-1': '已封禁', 0: '待审核', 1: '正常', 2: '已归档' }
-const STATUS_TAG: Record<number, string> = { '-2': 'info', '-1': 'danger', 0: 'warning', 1: 'success', 2: 'info' }
+const STATUS_TAG: Record<number, TagProps['type']> = { '-2': 'info', '-1': 'danger', 0: 'warning', 1: 'success', 2: 'info' }
 const TYPES: Record<string, string> = {
   general: '动态', lost_found: '失物招领', second_hand: '二手', carpool: '拼车', advertisement: '广告',
 }

@@ -4,10 +4,19 @@
    换色入口：本文件（颜色）+ src/theme.ts（图表色）+ App.vue/main.ts（主题类）。
 
    与学生端一致：文字色、语义色、占位符均按 WCAG AA 校准。
-   —— 本文件是颜色与可访问性的唯一来源，视图里不写死色值。 */
+   —— 本文件是颜色与可访问性的唯一来源，视图里不写死色值。
+
+   【为什么用 html:root 而不是 :root】
+   Element Plus 把主题变量定义在 :root / html.dark 上，而按需引入
+   （unplugin-vue-components）时组件样式是随组件模块注入的，注入顺序在
+   main.ts 的样式 import 之后 —— 同特异性下后者胜，会让 Element Plus 的
+   默认蓝（#409eff）反过来盖掉本文件的玫瑰红（实测首屏按钮变回默认蓝、
+   文字对比度从 AA 掉到 2.0~3.1:1）。
+   因此这里把选择器提到更高一级（html:root = 0,1,1 > :root = 0,1,0；
+   html.dark:root = 0,2,1 > html.dark = 0,1,1），让覆写与注入顺序解耦。 */
 
 /* ================= 亮色（默认） ================= */
-:root {
+html:root {
   /* —— 玫瑰红主色阶：白字压 primary 4.88:1、压 dark-2 6.91:1，达 AA —— */
   --el-color-primary: #c2455c;
   --el-color-primary-light-3: #d47d8d;
@@ -44,7 +53,7 @@
 }
 
 /* ================= 夜间（玫瑰暗色） ================= */
-html.dark {
+html.dark:root {
   /* 文字/链接用浅玫瑰：深底上 5.67:1；按钮填充另压深保证白字达 AA */
   --el-color-primary: #e07087;
   --el-color-primary-light-3: #d45f74;
@@ -108,7 +117,8 @@ body {
 }
 
 /* —— 表格：浅底分区，文字用主题文字色 —— */
-.el-table {
+/* 提高一级选择器，避免被 Element Plus 按需注入的 .el-table 变量反向覆盖 */
+html .el-table {
   --el-table-header-bg-color: #fafbfc;
   --el-table-header-text-color: #555555;
   --el-table-tr-bg-color: #ffffff;

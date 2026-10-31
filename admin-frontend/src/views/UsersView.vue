@@ -36,7 +36,7 @@
         <el-table-column label="昵称" prop="nickname" width="130" />
         <el-table-column label="角色" width="100">
           <template #default="{ row }">
-            <el-select :model-value="row.role" size="small" style="width: 90px" :disabled="row.status === -2" @change="(v: string) => onRole(row, v)">
+            <el-select :model-value="row.role" size="small" style="width: 90px" :disabled="row.status === -2" @change="(v: string) => onRole(row as AdminUser, v)">
               <el-option label="游客" value="guest" />
               <el-option label="学生" value="student" />
               <el-option label="管理员" value="admin" />
@@ -68,9 +68,9 @@
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 1" link type="danger" size="small" @click="onFreeze(row)">冻结</el-button>
-            <el-button v-else-if="row.status === 0" link type="success" size="small" @click="onUnfreeze(row)">解冻</el-button>
+            <el-button link type="primary" size="small" @click="openDetail(row as AdminUser)">详情</el-button>
+            <el-button v-if="row.status === 1" link type="danger" size="small" @click="onFreeze(row as AdminUser)">冻结</el-button>
+            <el-button v-else-if="row.status === 0" link type="success" size="small" @click="onUnfreeze(row as AdminUser)">解冻</el-button>
             <span v-else class="muted">—</span>
           </template>
         </el-table-column>
@@ -112,6 +112,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TagProps } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUsers, getUserDetail, updateUserStatus, updateUserRole, exportUsers, type AdminUser, type UserDetail } from '@/api/users'
@@ -127,7 +128,7 @@ const showDetail = ref(false)
 const detail = ref<UserDetail | null>(null)
 
 const USER_STATUS_TEXT: Record<number, string> = { 1: '正常', 0: '已冻结', '-2': '已注销' }
-const USER_STATUS_TAG: Record<number, string> = { 1: 'success', 0: 'danger', '-2': 'info' }
+const USER_STATUS_TAG: Record<number, TagProps['type']> = { 1: 'success', 0: 'danger', '-2': 'info' }
 
 const fmtTime = (t: string) => (t ? t.slice(0, 16).replace('T', ' ') : '')
 

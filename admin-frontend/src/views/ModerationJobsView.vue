@@ -14,8 +14,8 @@
       <el-table-column prop="attempts" label="尝试次数" width="90" />
       <el-table-column prop="last_error" label="故障" width="160" />
       <el-table-column label="操作" width="220"><template #default="{ row }">
-        <el-button link type="primary" @click="open(row)">查看 / 决定</el-button>
-        <el-button v-if="['review','dead'].includes(row.status)" link @click="retry(row)">重试机器审核</el-button>
+        <el-button link type="primary" @click="open(row as Job)">查看 / 决定</el-button>
+        <el-button v-if="['review','dead'].includes(row.status)" link @click="retry(row as Job)">重试机器审核</el-button>
       </template></el-table-column>
     </el-table>
     <el-pagination v-model:current-page="page" :total="total" :page-size="20" layout="total, prev, pager, next" @current-change="load" />
@@ -33,7 +33,6 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 interface Job { id: string; kind: string; status: string; text: string; media_ids: string[]; attempts: number; last_error: string | null }
 const statuses = [{value:'review',label:'待人工审核'},{value:'dead',label:'重试耗尽'},{value:'pending',label:'等待机器审核'},{value:'rejected',label:'已拒绝'},{value:'succeeded',label:'已通过'}]

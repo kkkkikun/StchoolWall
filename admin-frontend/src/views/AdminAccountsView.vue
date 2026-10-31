@@ -35,9 +35,9 @@
       <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <template v-if="row.id !== auth.adminId">
-            <el-button v-if="row.is_active" link type="danger" size="small" @click="onToggle(row, false)">停用</el-button>
-            <el-button v-else link type="success" size="small" @click="onToggle(row, true)">启用</el-button>
-            <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
+            <el-button v-if="row.is_active" link type="danger" size="small" @click="onToggle(row as AdminAccount, false)">停用</el-button>
+            <el-button v-else link type="success" size="small" @click="onToggle(row as AdminAccount, true)">启用</el-button>
+            <el-button link type="warning" size="small" @click="openReset(row as AdminAccount)">重置密码</el-button>
           </template>
           <span v-else class="self-tip">当前账号</span>
         </template>
@@ -89,7 +89,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getAdminAccounts, createAdminAccount, updateAdminAccountStatus, resetAdminAccountPassword,
   type AdminAccount,

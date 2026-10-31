@@ -40,8 +40,8 @@
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="openForm(row)">编辑</el-button>
-          <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+          <el-button link type="primary" size="small" @click="openForm(row as AdminActivity)">编辑</el-button>
+          <el-button link type="danger" size="small" @click="onDelete(row as AdminActivity)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -89,7 +89,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { getActivities, createActivity, updateActivity, deleteActivity, type AdminActivity } from '@/api/activities'
 import { uploadImage } from '@/api/banners'
 

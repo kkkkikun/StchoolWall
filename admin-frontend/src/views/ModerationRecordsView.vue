@@ -77,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TagProps } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getModerationRecords, type ModerationRecord } from '@/api/moderation'
@@ -88,7 +89,7 @@ const goPost = (postId: number) => {
 }
 
 const VERDICT: Record<string, string> = { reject: '拒绝', review: '转人工', pass: '通过', error: '故障' }
-const VERDICT_TAG: Record<string, string> = { reject: 'danger', review: 'warning', pass: 'success', error: 'info' }
+const VERDICT_TAG: Record<string, TagProps['type']> = { reject: 'danger', review: 'warning', pass: 'success', error: 'info' }
 
 const filters = reactive<{ verdict?: string; source?: string; post_id?: number }>({})
 const items = ref<ModerationRecord[]>([])

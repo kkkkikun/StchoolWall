@@ -48,7 +48,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { sendAnnouncement, getAnnouncements, type Announcement } from '@/api/operations'
 
 const form = reactive({ title: '', content: '', audience: 'all' as 'all' | 'verified' })

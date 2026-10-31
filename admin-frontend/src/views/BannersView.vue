@@ -42,16 +42,16 @@
       </el-table-column>
       <el-table-column label="投放期" width="200">
         <template #default="{ row }">
-          <span class="muted">{{ fmtRange(row) }}</span>
+          <span class="muted">{{ fmtRange(row as AdminBanner) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button link :type="row.status === 1 ? 'warning' : 'success'" size="small" @click="onToggle(row)">
+          <el-button link :type="row.status === 1 ? 'warning' : 'success'" size="small" @click="onToggle(row as AdminBanner)">
             {{ row.status === 1 ? '下架' : '上架' }}
           </el-button>
-          <el-button link type="primary" size="small" @click="openForm(row)">编辑</el-button>
-          <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+          <el-button link type="primary" size="small" @click="openForm(row as AdminBanner)">编辑</el-button>
+          <el-button link type="danger" size="small" @click="onDelete(row as AdminBanner)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -109,7 +109,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { PictureFilled } from '@element-plus/icons-vue'
 import { getBanners, createBanner, updateBanner, deleteBanner, uploadImage, type AdminBanner } from '@/api/banners'
 import { getActivities, type AdminActivity } from '@/api/activities'

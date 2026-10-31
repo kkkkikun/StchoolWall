@@ -98,7 +98,7 @@ jobs:
           npm ci
           npm run type-check
           npm test
-          npm run build -- --base=/admin/
+          npm run build:admin
           npm audit --registry=https://registry.npmjs.org --audit-level=high
       - name: OpenSpec specification validation
         run: npx --yes @fission-ai/openspec@1.4.1 validate --specs

@@ -1,6 +1,6 @@
 /** axios 封装：Bearer token 注入 / 401 跳登录 / 统一错误提示。 */
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+// ElMessage 由 unplugin-auto-import 按需注入（含样式），此处不显式 import
 
 const TOKEN_KEY = 'sw_admin_token'
 let accessToken = ''

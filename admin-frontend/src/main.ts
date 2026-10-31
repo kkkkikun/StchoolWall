@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+import { provideGlobalConfig } from 'element-plus'
+// 暗色模式 CSS 变量（仅 3KB，必须保留）；组件样式由 unplugin-vue-components 按需注入
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './styles/theme.css'
 import { initTheme } from './stores/theme'
@@ -15,5 +15,7 @@ initTheme()
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
+// 按需引入模式下不能再 app.use(ElementPlus)（那会注册全部组件），
+// 用 provideGlobalConfig 把中文 locale 挂到 app 上，ElMessageBox 按钮文案仍是中文
+provideGlobalConfig({ locale: zhCn }, app)
 app.mount('#app')

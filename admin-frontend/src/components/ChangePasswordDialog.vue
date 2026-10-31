@@ -21,7 +21,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { changePassword } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 

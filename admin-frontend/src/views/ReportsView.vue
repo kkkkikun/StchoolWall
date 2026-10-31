@@ -55,11 +55,11 @@
       </el-table-column>
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="openDrawer(row)">查看原帖</el-button>
+          <el-button link type="primary" size="small" @click="openDrawer(row as AdminReport)">查看原帖</el-button>
           <template v-if="row.status === 'pending'">
-            <el-button link type="info" size="small" @click="onHandle(row, 'dismiss')">驳回</el-button>
-            <el-button link type="danger" size="small" @click="onHandle(row, 'ban_post')">封帖</el-button>
-            <el-button link type="danger" size="small" @click="onHandle(row, 'ban_user')">封号</el-button>
+            <el-button link type="info" size="small" @click="onHandle(row as AdminReport, 'dismiss')">驳回</el-button>
+            <el-button link type="danger" size="small" @click="onHandle(row as AdminReport, 'ban_post')">封帖</el-button>
+            <el-button link type="danger" size="small" @click="onHandle(row as AdminReport, 'ban_user')">封号</el-button>
           </template>
           <span v-else class="done-text">—</span>
         </template>
@@ -152,7 +152,6 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReports, handleReport, type AdminReport } from '@/api/reports'
 
 const items = ref<AdminReport[]>([])

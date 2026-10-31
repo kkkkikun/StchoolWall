@@ -17,8 +17,8 @@
       <el-table-column prop="status" label="状态" />
       <el-table-column label="操作">
         <template #default="{ row }">
-          <el-button v-if="row.evidence_available" link type="primary" @click="open(row)">查看证件 / 审核</el-button>
-          <el-button v-if="row.status === 'approved'" link type="danger" @click="revoke(row)">撤销认证</el-button>
+          <el-button v-if="row.evidence_available" link type="primary" @click="open(row as VerificationItem)">查看证件 / 审核</el-button>
+          <el-button v-if="row.status === 'approved'" link type="danger" @click="revoke(row as VerificationItem)">撤销认证</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -56,7 +56,6 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { listVerifications, evidenceBlob, reviewVerification, revokeVerification, type VerificationItem } from '@/api/verification'
 
 const statuses = [

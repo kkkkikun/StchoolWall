@@ -41,7 +41,7 @@
         <template #default="{ row }">
           <el-button v-if="row.status === 0" link type="success" size="small" @click="onStatus(row, 1)">过审</el-button>
           <el-button v-if="row.status === 0" link type="danger" size="small" @click="onStatus(row, -1)">拒审</el-button>
-          <el-button v-if="row.status === 1" link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+          <el-button v-if="row.status === 1" link type="danger" size="small" @click="onDelete(row as AdminComment)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -52,8 +52,8 @@
 </template>
 
 <script setup lang="ts">
+import type { TagProps } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { getComments, deleteComment, updateCommentStatus, type AdminComment } from '@/api/operations'
 
 const filters = reactive<{ q?: string; status?: number }>({})
@@ -64,7 +64,7 @@ const pageSize = 20
 const loading = ref(false)
 
 const STATUS: Record<number, string> = { 0: '待审核', 1: '正常', '-1': '已删除' }
-const STATUS_TAG: Record<number, string> = { 0: 'warning', 1: 'success', '-1': 'info' }
+const STATUS_TAG: Record<number, TagProps['type']> = { 0: 'warning', 1: 'success', '-1': 'info' }
 
 const onStatus = async (row: any, status: number) => {
   const label = status === 1 ? '通过' : '拒绝'

@@ -14,8 +14,8 @@
       <el-table-column prop="reason" label="申诉理由"/>
       <el-table-column prop="decision_reason" label="处理说明"/>
       <el-table-column label="操作" width="150" fixed="right"><template #default="{row}">
-        <el-button v-if="row.status === 'pending'" link type="primary" @click="decide(row,'accepted')">接受</el-button>
-        <el-button v-if="row.status === 'pending'" link type="danger" @click="decide(row,'rejected')">拒绝</el-button>
+        <el-button v-if="row.status === 'pending'" link type="primary" @click="decide(row as Appeal,'accepted')">接受</el-button>
+        <el-button v-if="row.status === 'pending'" link type="danger" @click="decide(row as Appeal,'rejected')">拒绝</el-button>
       </template></el-table-column>
     </el-table>
     <el-pagination v-model:current-page="page" :total="total" :page-size="20" layout="total,prev,pager,next" @current-change="load"/>
@@ -23,7 +23,6 @@
 </template>
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 interface Appeal { id:string; entity_type:string; entity_id:string; reason:string; status:string; decision_reason:string|null }
 const items = ref<Appeal[]>([]), page = ref(1), total = ref(0), status = ref('pending')

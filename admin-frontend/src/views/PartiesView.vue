@@ -42,9 +42,9 @@
       </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="openMembers(row)">成员名单</el-button>
-          <el-button v-if="row.status !== -1" link type="danger" size="small" @click="onClose(row)">关闭</el-button>
-          <el-button v-else link type="success" size="small" @click="onRestore(row)">恢复</el-button>
+          <el-button link type="primary" size="small" @click="openMembers(row as AdminParty)">成员名单</el-button>
+          <el-button v-if="row.status !== -1" link type="danger" size="small" @click="onClose(row as AdminParty)">关闭</el-button>
+          <el-button v-else link type="success" size="small" @click="onRestore(row as AdminParty)">恢复</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -72,7 +72,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { getParties, updatePartyStatus, getPartyMembers, type AdminParty, type PartyMember } from '@/api/operations'
 
 const filters = reactive<{ q?: string; status?: number }>({})

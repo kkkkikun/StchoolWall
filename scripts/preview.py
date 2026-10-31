@@ -190,10 +190,14 @@ def paged(rows):
 # ---------------------------------------------------------------- Mock 路由
 def mock_api(path: str):
     """按路径返回 Mock 数据；未覆盖的接口返回空列表（前端有兜底空态）。"""
+    # 管理台登录：契约与后端 app/routers/admin_auth.py 一致
+    # {access_token, admin:{id, username, nickname}}
+    if '/admin/auth/login' in path:
+        return ok({'access_token': 'preview-admin-token',
+                   'admin': {'id': 'a-1', 'username': 'boss', 'nickname': '走查管理员'}})
+    # 管理台当前登录人：后端返回扁平结构 {id, display_name, source}
     if '/admin/auth/me' in path:
-        return ok({'admin': {'id': 'a-1', 'username': 'boss', 'display_name': '走查管理员',
-                             'role': 'superadmin', 'mfa_enabled': True},
-                   'password_version': 1})
+        return ok({'id': 'a-1', 'display_name': '走查管理员', 'source': 'preview'})
     if '/admin/stats/trends' in path:
         # 契约：{days: number, series: TrendPoint[]}
         return ok({'days': 14, 'series': TREND_DAYS})
@@ -309,12 +313,14 @@ class PreviewHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=self.dist_dir, **kwargs)
 
-    def _send_json(self, payload, status=200):
+    def _send_json(self, payload, status=200, cookies=None):
         body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        for cookie in cookies or []:
+            self.send_header('Set-Cookie', cookie)
         self.end_headers()
         self.wfile.write(body)
 
@@ -336,7 +342,11 @@ class PreviewHandler(SimpleHTTPRequestHandler):
             length = int(self.headers.get('Content-Length') or 0)
             if length:
                 self.rfile.read(length)
-            self._send_json(mock_api(parsed.path))
+            cookies = None
+            if parsed.path.endswith('/admin/auth/login'):
+                # 管理台用 sw_admin_csrf Cookie 维持会话（刷新后不丢登录态）
+                cookies = ['sw_admin_csrf=preview-admin-csrf; Path=/; SameSite=Lax']
+            self._send_json(mock_api(parsed.path), cookies=cookies)
             return
         self._send_json({'code': 0, 'data': {}})
 
@@ -370,6 +380,8 @@ def serve(target: str, port: int):
     print(f'{"学生端 H5" if target == "web" else "管理后台"}预览: http://127.0.0.1:{port}')
     print(f'  静态目录: {dist}')
     print('  /api/v1/** 由本地 Mock 提供（未连接真实后端）')
+    if target == 'admin':
+        print('  管理台演示登录：任意用户名 + 任意密码，动态码留空即可（本地 Mock，不校验凭据）')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

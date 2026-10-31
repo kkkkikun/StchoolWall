@@ -1,17 +1,10 @@
 <template>
-  <view class="page-hot-users">
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">热门用户榜</text>
-        <view class="header-right" />
-      </view>
-    </view>
+  <view class="page-hot-users" :class="themeClass">
+    <CustomNavBar show-back title="热门用户榜" />
 
     <view v-if="loading" class="state-box"><text class="state-text">加载中…</text></view>
     <view v-else-if="!users.length" class="state-box">
-      <text class="state-emoji">👥</text>
+      <image class="state-emoji" src="/static/icons/common/group.svg" mode="aspectFit" />
       <text class="state-text">暂无热门用户</text>
     </view>
     <view v-else class="user-list">
@@ -23,9 +16,12 @@
         </view>
         <view class="main">
           <text class="name">{{ u.nickname }}</text>
-          <text class="heat">🔥 {{ fmtHeat(u.heat) }}</text>
+          <view class="heat">
+            <image class="heat-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+            <text>{{ fmtHeat(u.heat) }}</text>
+          </view>
         </view>
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -33,19 +29,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getHotRanking, type HotUser } from '@/api/profile'
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const { themeClass } = useTheme()
+
 const users = ref<HotUser[]>([])
 const loading = ref(true)
 
-const COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5', '#f5d0d8']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return COLORS[h % COLORS.length]
-}
 const fmtHeat = (n: number) => {
   if (n < 1000) return String(n)
   const k = n / 1000
@@ -70,24 +64,19 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-hot-users { min-height: 100vh; background-color: var(--bg-page); }
 
-.header { background-color: var(--primary); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
-.header-right { width: 80rpx; }
-
 .state-box { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
-.state-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.state-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 .state-text { font-size: 28rpx; color: var(--text-3); }
 
 .user-list { padding: 20rpx 24rpx; }
 .user-row { display: flex; align-items: center; background: var(--bg-card); border-radius: var(--radius-card); padding: 22rpx; margin-bottom: 16rpx; }
 .rank { width: 48rpx; height: 48rpx; border-radius: 50%; background: var(--bg-card-2); color: var(--text-3); display: flex; align-items: center; justify-content: center; font-size: 24rpx; font-weight: bold; margin-right: 20rpx; }
-.rank.top { background: var(--primary); color: var(--text-inverse); }
-.avatar { width: 76rpx; height: 76rpx; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 34rpx; color: var(--text-inverse); font-weight: bold; margin-right: 20rpx; }
+.rank.top { background: var(--primary-badge); color: var(--text-inverse); }
+.avatar { width: 76rpx; height: 76rpx; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 34rpx; color: var(--on-avatar); font-weight: bold; margin-right: 20rpx; }
 .avatar image { width: 100%; height: 100%; }
 .main { flex: 1; min-width: 0; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
-.heat { display: block; font-size: 24rpx; color: var(--primary-strong); margin-top: 6rpx; }
-.arrow { font-size: 40rpx; color: var(--text-4); }
+.heat { display: inline-flex; align-items: center; font-size: 24rpx; color: var(--primary-text); margin-top: 6rpx; }
+.heat-icon { width: 24rpx; height: 24rpx; margin-right: 4rpx; flex-shrink: 0; }
+.arrow { width: 32rpx; height: 32rpx; flex-shrink: 0; }
 </style>

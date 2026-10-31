@@ -1,7 +1,7 @@
 <template>
-  <view class="page-webview">
+  <view class="page-webview" :class="themeClass">
     <view v-if="!url" class="invalid">
-      <text class="invalid-emoji">🔗</text>
+      <image class="invalid-emoji" src="/static/icons/settings/link.svg" mode="aspectFit" />
       <text class="invalid-text">链接无效</text>
     </view>
 
@@ -30,7 +30,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+
+const { themeClass } = useTheme()
 
 const url = ref('')
 
@@ -82,7 +85,7 @@ const openExternal = () => {
   align-items: center;
   justify-content: center;
 }
-.invalid-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.invalid-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 .invalid-text { font-size: 28rpx; color: var(--text-3); }
 
 .hint {
@@ -112,6 +115,6 @@ const openExternal = () => {
 }
 .tool-btn.primary {
   border-color: var(--primary);
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 </style>

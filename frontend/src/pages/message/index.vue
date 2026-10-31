@@ -1,16 +1,16 @@
 <template>
-  <view class="page-message">
-    <!-- 1. 标题栏 -->
-    <view class="message-header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <text class="header-title">消息</text>
-    </view>
+  <view class="page-message" :class="themeClass">
+    <!-- 1. 标题栏（沉浸式：微信胶囊安全避让） -->
+    <CustomNavBar title="消息" :show-back="false" />
 
-    <!-- 2. 热门用户榜（横滑 Top5，皇冠+TOP徽章+🔥热度） -->
+    <!-- 2. 热门用户榜（横滑 Top5，皇冠+TOP徽章+热度火焰） -->
     <view class="panel" v-if="hotUsers.length">
       <view class="panel-head">
         <text class="panel-title">热门用户榜</text>
-        <text class="panel-more" @tap="onMoreRank">更多 ›</text>
+        <view class="panel-more" @tap="onMoreRank">
+          <text>更多</text>
+          <image class="chev" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        </view>
       </view>
       <scroll-view scroll-x :show-scrollbar="false" class="rank-scroll">
         <view
@@ -19,14 +19,17 @@
           class="rank-user"
           @tap="goProfile(u.id)"
         >
-          <text class="crown">{{ i < 3 ? '👑' : '' }}</text>
+          <image v-if="i < 3" class="crown" src="/static/icons/state/crown-primary.svg" mode="aspectFit" />
           <image v-if="u.avatar_url" class="rank-avatar" :src="u.avatar_url" mode="aspectFill" />
           <view v-else class="rank-avatar" :style="{ background: colorOf(u.nickname) }">
             <text>{{ (u.nickname || '?').slice(0, 1) }}</text>
           </view>
           <text class="rank-badge" :class="{ dim: i >= 3 }">TOP{{ i + 1 }}</text>
           <text class="rank-name">{{ u.nickname }}</text>
-          <text class="rank-heat">🔥 {{ fmtHeat(u.heat) }}</text>
+          <view class="rank-heat">
+            <image class="heat-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+            <text>{{ fmtHeat(u.heat) }}</text>
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -35,7 +38,10 @@
     <view class="panel" v-if="reminders.length">
       <view class="panel-head">
         <text class="panel-title">互动提醒</text>
-        <text class="panel-more" @tap="goInteractions">更多 ›</text>
+        <view class="panel-more" @tap="goInteractions">
+          <text>更多</text>
+          <image class="chev" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        </view>
       </view>
       <view class="rem-list">
         <view
@@ -45,13 +51,13 @@
           @tap="goInteractions"
         >
           <view class="rem-icon" :class="`ic-${r.type}`">
-            <text>{{ iconOf(r.type) }}</text>
+            <image class="rem-icon-img" :src="iconOf(r.type)" mode="aspectFit" />
           </view>
           <view class="rem-main">
             <text class="rem-name">{{ r.nickname }} {{ r.action }}</text>
             <text class="rem-time">{{ r.time }}</text>
           </view>
-          <text class="rem-arrow">›</text>
+          <image class="rem-arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -60,10 +66,13 @@
     <view class="panel list-panel">
       <view class="panel-head">
         <text class="panel-title">动态</text>
-        <text v-if="messages.length" class="panel-more" @tap="onMarkAllRead">全部已读 ✓</text>
+        <view v-if="messages.length" class="panel-more" @tap="onMarkAllRead">
+          <image class="more-check" src="/static/icons/common/check.svg" mode="aspectFit" />
+          <text>全部已读</text>
+        </view>
       </view>
       <view v-if="messages.length === 0" class="empty-state">
-        <text class="empty-emoji">📭</text>
+        <image class="empty-emoji" src="/static/icons/state/inbox.svg" mode="aspectFit" />
         <text class="empty-text">{{ loggedIn ? '暂无消息' : '登录后查看消息' }}</text>
       </view>
       <view
@@ -74,8 +83,10 @@
         @tap="onMessage(m)"
       >
         <view class="sender-avatar" :class="{ sys: m._system }" :style="{ background: m._system ? 'var(--primary-soft)' : colorOf(m.nickname) }">
-          <text v-if="m._type === 'announcement'">📢</text>
-          <text v-else-if="m._type === 'moderation'">🛡️</text>
+          <image v-if="m._type === 'announcement'" class="sys-icon"
+                 src="/static/icons/common/notice-primary.svg" mode="aspectFit" />
+          <image v-else-if="m._type === 'moderation'" class="sys-icon"
+                 src="/static/icons/common/shield-primary.svg" mode="aspectFit" />
           <text v-else>{{ (m.nickname || '?').slice(0, 1) }}</text>
         </view>
         <view class="msg-main">
@@ -99,15 +110,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { unreadSummary, listNotifications, readAllNotifications, readNotification } from '@/api/notification'
 import type { NotificationItem, NotificationType } from '@/api/notification'
 import { getHotRanking, type HotUser } from '@/api/profile'
 import { tokenStorage } from '@/utils/storage'
 
-// 沉浸式标题栏：预留状态栏高度（H5 下为 0，真机防标题被状态栏压住）
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const { themeClass } = useTheme()
 
 const loggedIn = tokenStorage.isLoggedIn()
 const hotUsers = ref<HotUser[]>([])
@@ -146,14 +159,12 @@ const reminders = computed(() =>
 )
 
 const iconOf = (type: string) =>
-  (({ like: '♥', favorite: '★', comment: '💬' }) as Record<string, string>)[type] || '•'
+  ({
+    like: '/static/icons/common/heart-on-inverse.svg',
+    favorite: '/static/icons/common/star-on-inverse.svg',
+    comment: '/static/icons/common/comment-inverse.svg',
+  } as Record<string, string>)[type] || '/static/icons/common/comment-inverse.svg'
 
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5', '#f5d0d8']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 /** 热度格式化：≥1000 → 2.4k */
 const fmtHeat = (n: number) => {
@@ -254,49 +265,55 @@ const onMessage = async (m: MsgRow) => {
 <style scoped>
 .page-message { background-color: var(--bg-page); min-height: 100vh; }
 
-.message-header { background-color: var(--primary); padding: 30rpx 40rpx; text-align: center; }
-.header-title { color: var(--text-inverse); font-size: 34rpx; font-weight: bold; letter-spacing: 2rpx; }
+.message-header { background-color: var(--bg-page); border-bottom: 1rpx solid var(--border-light); padding: 30rpx 40rpx; text-align: center; }
+.header-title { color: var(--text-1); font-size: 34rpx; font-weight: 700; letter-spacing: 2rpx; }
 
 /* 面板（参考稿：白卡圆角 + 标题行 + 更多） */
 .panel { background: var(--bg-card); border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .panel-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.panel-more { font-size: 24rpx; color: var(--text-3); }
+.panel-more { font-size: 24rpx; color: var(--text-3); display: inline-flex; align-items: center; min-height: 64rpx; }
+.chev { width: 20rpx; height: 20rpx; margin-left: 2rpx; flex-shrink: 0; }
+.more-check { width: 22rpx; height: 22rpx; margin-right: 4rpx; flex-shrink: 0; }
 
 /* 热门用户榜 */
 .rank-scroll { white-space: nowrap; }
 .rank-user { display: inline-flex; flex-direction: column; align-items: center; width: 138rpx; vertical-align: top; }
-.crown { height: 40rpx; font-size: 34rpx; line-height: 1; }
-.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: var(--text-inverse); font-weight: bold; }
-.rank-badge { margin-top: -12rpx; background: var(--primary-strong); color: var(--text-inverse); font-size: 18rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: var(--radius-inner); border: 3rpx solid #fff; line-height: 1.5; }
-.rank-badge.dim { background: var(--primary); }
+.crown { width: 34rpx; height: 34rpx; flex-shrink: 0; }
+.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: var(--on-avatar); font-weight: bold; }
+.rank-badge { margin-top: -12rpx; background: var(--primary-badge); color: var(--text-inverse); font-size: 22rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: var(--radius-inner); border: 3rpx solid #fff; line-height: 1.5; }
+.rank-badge.dim { background: var(--primary-fill); }
 .rank-name { margin-top: 8rpx; font-size: 22rpx; color: var(--text-1); max-width: 130rpx; overflow: hidden; text-overflow: ellipsis; }
-.rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--primary-strong); font-weight: 600; }
+.rank-heat { margin-top: 4rpx; font-size: 22rpx; color: var(--primary-text); font-weight: 600;
+  display: inline-flex; align-items: center; }
+.heat-icon { width: 20rpx; height: 20rpx; margin-right: 4rpx; flex-shrink: 0; }
 
 /* 互动提醒 */
 .rem-list { margin-top: -4rpx; }
 .rem-row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid var(--border-light); }
 .rem-row:last-child { border-bottom: none; }
-.rem-icon { width: 68rpx; height: 68rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30rpx; color: var(--text-inverse); flex-shrink: 0; }
+.rem-icon { width: 68rpx; height: 68rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rem-icon-img { width: 32rpx; height: 32rpx; }
 .ic-like { background: var(--danger); }
-.ic-favorite { background: var(--warning); }
+.ic-favorite { background: var(--favorite); }
 .ic-comment { background: var(--accent-violet); }
 .rem-main { flex: 1; min-width: 0; margin-left: 18rpx; }
 .rem-name { display: block; font-size: 26rpx; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rem-time { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; }
-.rem-arrow { font-size: 36rpx; color: var(--text-4); margin-left: 10rpx; }
+.rem-arrow { width: 28rpx; height: 28rpx; margin-left: 10rpx; flex-shrink: 0; }
 
 /* 动态列表 */
 .list-panel { padding-bottom: 8rpx; margin-bottom: 24rpx; }
 .msg-row { display: flex; align-items: center; padding: 24rpx 4rpx; border-bottom: 1rpx solid var(--border-light); }
 .msg-row:last-child { border-bottom: none; }
 .msg-row.unread { background: var(--card-gradient); border-radius: var(--radius-inner); padding-left: 12rpx; padding-right: 12rpx; }
-.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
-.sender-avatar.sys { color: var(--primary-strong); font-size: 40rpx; }
+.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: var(--on-avatar); font-weight: bold; flex-shrink: 0; }
+.sender-avatar.sys { color: var(--primary-text); font-size: 40rpx; }
+.sys-icon { width: 40rpx; height: 40rpx; }
 .msg-main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .msg-title-row { display: flex; align-items: center; gap: 12rpx; }
 .msg-name { font-size: 28rpx; font-weight: bold; color: var(--text-1); }
-.sys-tag { font-size: 20rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 2rpx 10rpx; border-radius: 999rpx; }
+.sys-tag { font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 2rpx 10rpx; border-radius: 999rpx; }
 .msg-text { display: block; font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-sub { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-right { display: flex; flex-direction: column; align-items: flex-end; margin-left: 16rpx; gap: 12rpx; }
@@ -304,6 +321,6 @@ const onMessage = async (m: MsgRow) => {
 .unread-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--primary-strong); }
 
 .empty-state { padding: 60rpx 0 70rpx; display: flex; flex-direction: column; align-items: center; }
-.empty-emoji { font-size: 80rpx; margin-bottom: 20rpx; opacity: 0.5; }
+.empty-emoji { width: 80rpx; height: 80rpx; margin-bottom: 20rpx; opacity: 0.5; }
 .empty-text { font-size: 26rpx; color: var(--text-3); letter-spacing: 2rpx; }
 </style>

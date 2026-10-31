@@ -1,5 +1,5 @@
 <template>
-  <view class="page-mine">
+  <view class="page-mine" :class="themeClass">
     <!-- 1. 粉色校园横幅（照片位：BANNER_IMG 配置，空则渐变兜底） -->
     <!-- 点击横幅直接更换（QQ式）；BANNER_IMG 为静态兜底图位 -->
     <view class="banner">
@@ -21,11 +21,11 @@
       <view class="name-row">
         <text class="nickname">{{ user.nickname }}</text>
         <view class="name-actions">
-          <view class="edit-btn" @tap="goEditProfile">
+          <view v-if="loggedIn" class="edit-btn" @tap="goEditProfile">
             <text>编辑资料</text>
           </view>
           <view class="gear-btn" @tap="goSettings">
-            <text class="gear-icon">⚙️</text>
+            <image class="gear-icon-img" src="/static/icons/settings/gear.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -33,14 +33,25 @@
       <!-- 简介：编辑资料页可改；未设置时用默认文案 -->
       <view class="bio">
         <text>{{ user.bio || '热爱生活，热爱分享～' }}</text>
-        <text v-if="!user.bio">在校园里发现美好，记录点滴日常 ✨</text>
+        <view v-if="!user.bio" class="bio-tip">
+          <image class="bio-sparkle" src="/static/icons/state/sparkle.svg" mode="aspectFit" />
+          <text>在校园里发现美好，记录点滴日常</text>
+        </view>
       </view>
 
-      <!-- 未登录：网页版登录入口（H5 部署用，注册/登录合一） -->
-      <!-- #ifdef H5 -->
+      <!-- 未登录：微信小程序登录入口 -->
+      <!-- #ifdef MP-WEIXIN -->
       <view v-if="!loggedIn" class="dev-login-row">
-        <view class="dev-capsule" @tap="showWebLogin = true">
-          <text>🔑 登录 / 注册</text>
+        <view class="dev-capsule" :class="{ saving: wxLoggingIn }" @tap="doWxLogin">
+          <text>{{ wxLoggingIn ? '登录中…' : '微信登录' }}</text>
+        </view>
+      </view>
+      <!-- #endif -->
+      <!-- 未登录：网页版登录入口（H5 部署用，注册/登录合一） -->
+      <!-- #ifdef H5 || APP-PLUS -->
+      <view v-if="!loggedIn" class="dev-login-row">
+        <view class="dev-capsule" @tap="goAuth">
+          <text>登录 / 注册</text>
         </view>
       </view>
       <!-- #endif -->
@@ -50,19 +61,24 @@
           <text>一键登录（演示学生）</text>
         </view>
         <view class="dev-capsule admin" @tap="doDevLogin(true)">
-          <text>🛡️ 演示管理员</text>
+          <text>演示管理员</text>
         </view>
       </view>
       <!-- 未认证提示 / 管理员入口（功能性保留，弱化为细条） -->
       <view v-if="loggedIn && !isVerified" class="slim-tip" @tap="goVerify">
-        <text>🎓 学籍认证（发帖/互动需认证） ›</text>
+        <text>学籍认证（发帖/互动需认证） ›</text>
       </view>
       <view v-if="isAdmin" class="slim-tip admin" @tap="goAdmin">
-        <text>🛡️ 管理后台 ›</text>
+        <text>管理后台 ›</text>
       </view>
 
-      <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一） -->
-      <view class="content-tabs">
+      <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一）；未登录时改为登录引导 -->
+      <view v-if="!loggedIn" class="login-guide">
+        <image class="login-guide-icon" src="/static/icons/common/note.svg" mode="aspectFit" />
+        <text class="login-guide-title">登录后查看你的内容</text>
+        <text class="login-guide-desc">你的帖子、评论、收藏与点赞会汇总在这里</text>
+      </view>
+      <view v-else class="content-tabs">
         <view
           v-for="(t, i) in CONTENT_TABS"
           :key="t.key"
@@ -70,13 +86,13 @@
           :class="{ on: contentTab === t.key }"
           @tap="switchTab(t.key)"
         >
-          <text class="ct-icon">{{ t.icon }}</text>
+          <image class="ct-icon-img" :src="t.icon" mode="aspectFit" />
           <view v-if="contentTab === t.key" class="ct-underline" />
         </view>
       </view>
 
       <!-- 4. 内容区 -->
-      <view class="content-panel">
+      <view v-if="loggedIn" class="content-panel">
         <text class="content-title">{{ activeTitle }}</text>
 
         <!-- 帖子 / 收藏 / 点赞：紧凑内容卡（标题+摘要+日期+浏览+评论+缩略图） -->
@@ -96,11 +112,11 @@
               <view class="pc-meta">
                 <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                 <view class="pc-stat">
-                  <text class="pc-stat-icon">👁</text>
+                  <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.view_count) }}</text>
                 </view>
                 <view class="pc-stat">
-                  <text class="pc-stat-icon">💬</text>
+                  <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                   <text>{{ fmtCount(p.comment_count) }}</text>
                 </view>
               </view>
@@ -112,7 +128,7 @@
               mode="aspectFill"
             />
             <view v-else class="pc-thumb pc-thumb-ph">
-              <text>🖼</text>
+              <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
             </view>
           </view>
         </template>
@@ -140,38 +156,22 @@
 
     <TabBar :current="4" />
 
-    <!-- 网页版登录弹窗（H5） -->
-    <!-- #ifdef H5 -->
-    <view v-if="showWebLogin" class="wl-mask" @tap="showWebLogin = false">
-      <view class="wl-card" @tap.stop>
-        <text class="wl-title">登录 / 注册</text>
-        <text class="wl-sub">昵称即用户名，首次输入自动注册</text>
-        <input v-model="wlForm.username" class="wl-input" :maxlength="20" placeholder="用户名（2-20 字）"
-               placeholder-class="ph" />
-        <input v-model="wlForm.password" class="wl-input" :maxlength="64" password placeholder="密码（至少 6 位）"
-               placeholder-class="ph" />
-        <view class="wl-btn" :class="{ saving: wlSaving }" @tap="doWebLogin">
-          <text>{{ wlSaving ? '登录中…' : '进入鄂应墙' }}</text>
-        </view>
-        <view v-if="WECHAT_MP_APP_ID" class="wl-wechat" @tap="beginMpOAuth">
-          <text>微信登录（公众号）</text>
-        </view>
-      </view>
-    </view>
-    <!-- #endif -->
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
 import { myStats } from '@/api/interaction'
-import { devLogin, webLogin } from '@/api/auth'
-import { getProfile } from '@/api/profile'
+import { devLogin, storeLoginSession, wxLoginAndStore } from '@/api/auth'
 import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
+
+const { themeClass } = useTheme()
 
 /**
  * 横幅照片更换位：把校园照片放到 src/static/（如 mine-banner.jpg）后填路径即可，
@@ -183,10 +183,10 @@ const avatarUrl = ref('')
 const bannerUrl = ref('')
 
 const CONTENT_TABS = [
-  { key: 'posts', icon: '📄' },
-  { key: 'comments', icon: '💬' },
-  { key: 'favorites', icon: '🔖' },
-  { key: 'likes', icon: '🤍' },
+  { key: 'posts', icon: '/static/icons/common/note.svg' },
+  { key: 'comments', icon: '/static/icons/common/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/common/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 
@@ -213,13 +213,7 @@ const loadedTabs = ref(new Set<string>())
 const loading = ref(false)
 
 const avatarLetter = computed(() => (user.value.nickname || '?').slice(0, 1))
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
-const avatarColor = computed(() => {
-  const s = user.value.nickname || ''
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+const avatarColor = computed(() => avatarColorOf(user.value.nickname))
 
 const activeTitle = computed(
   () =>
@@ -368,13 +362,7 @@ const loadProfile = async () => {
 const doDevLogin = async (asAdmin: boolean) => {
   try {
     const res = await devLogin(asAdmin)
-    tokenStorage.setToken(res.access_token)
-    userStorage.setUserInfo({
-      id: res.user_info.id,
-      nickname: res.user_info.nickname,
-      role: res.role,
-      is_verified: res.user_info.is_verified,
-    })
+    await storeLoginSession(res)
     loggedIn.value = true
     isVerified.value = !!res.user_info.is_verified
     uni.showToast({ title: asAdmin ? '已登录（管理员）' : '已登录（演示）', icon: 'success' })
@@ -385,55 +373,40 @@ const doDevLogin = async (asAdmin: boolean) => {
   }
 }
 
-// ===== 网页版登录（H5）：注册/登录合一，与 devLogin 共用落地流程 =====
-const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
-const WECHAT_MP_APP_ID = import.meta.env.VITE_WECHAT_MP_APP_ID || ''
-const showWebLogin = ref(false)
-const wlSaving = ref(false)
-const wlForm = ref({ username: '', password: '' })
+// ===== 微信小程序登录（MP-WEIXIN）：复用静默登录协议，支持退出后重新登录 =====
+const wxLoggingIn = ref(false)
 
-const doWebLogin = async () => {
-  const username = wlForm.value.username.trim()
-  const password = wlForm.value.password
-  if (username.length < 2 || password.length < 6) {
-    uni.showToast({ title: '用户名≥2字，密码≥6位', icon: 'none' })
-    return
-  }
-  wlSaving.value = true
+const doWxLogin = async () => {
+  if (wxLoggingIn.value) return
+  wxLoggingIn.value = true
   try {
-    const res = await webLogin(username, password)
-    tokenStorage.setToken(res.access_token)
-    userStorage.setUserInfo({
-      id: res.user_info.id,
-      nickname: res.user_info.nickname,
-      role: res.role,
-      is_verified: res.user_info.is_verified,
-    })
-    showWebLogin.value = false
-    loggedIn.value = true
-    isVerified.value = !!res.user_info.is_verified
-    uni.showToast({ title: `欢迎，${res.user_info.nickname}`, icon: 'success' })
-    loadedTabs.value.clear()
-    await loadProfile()
-  } catch (e) {
-    uni.showToast({ title: (e as Error).message || '登录失败', icon: 'none' })
+    const success = await wxLoginAndStore()
+    if (success) {
+      loggedIn.value = true
+      const info = userStorage.getUserInfo()
+      isVerified.value = !!info?.is_verified
+      uni.showToast({ title: '登录成功', icon: 'success' })
+      loadedTabs.value.clear()
+      postLists.posts = []
+      postLists.favorites = []
+      postLists.likes = []
+      myCommentList.value = []
+      await loadProfile()
+    } else {
+      uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+    }
+  } catch {
+    uni.showToast({ title: '登录失败，请重试', icon: 'none' })
   } finally {
-    wlSaving.value = false
+    wxLoggingIn.value = false
   }
 }
 
-// 公众号网页授权：跳转微信换取 code，回跳 oauth-callback 页完成登录
-const beginMpOAuth = () => {
-  if (!WECHAT_MP_APP_ID) {
-    uni.showToast({ title: '未配置公众号登录', icon: 'none' })
-    return
-  }
-  const redirect = window.location.origin + '/#/pages/oauth-callback/index'
-  const url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + WECHAT_MP_APP_ID +
-    '&redirect_uri=' + encodeURIComponent(redirect) +
-    '&response_type=code&scope=snsapi_base&state=eywall#wechat_redirect'
-  window.location.href = url
-}
+// ===== 登录/注册入口 =====
+const DEV_LOGIN_ON = import.meta.env.VITE_DEV_LOGIN === 'true'
+
+/** 账号登录/注册/找回密码已独立成页（pages/auth/index），此处只做跳转 */
+const goAuth = () => uni.navigateTo({ url: '/pages/auth/index' })
 
 onShow(() => loadProfile())
 
@@ -520,7 +493,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   align-items: center;
   justify-content: center;
 }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--on-avatar); }
 
 /* 昵称行 + 编辑资料 + 齿轮 */
 .name-row { display: flex; align-items: center; margin-top: 24rpx; }
@@ -534,61 +507,29 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   color: var(--text-1);
   background: var(--bg-card);
 }
-.gear-btn { padding: 8rpx; }
+/* padding 12rpx + 图标 40rpx = 64rpx（≈33px）最小点击区 */
+.gear-btn { padding: 12rpx; display: flex; align-items: center; justify-content: center; }
 .gear-icon { font-size: 40rpx; line-height: 1; }
+.gear-icon-img { width: 40rpx; height: 40rpx; }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.bio-tip { display: inline-flex; align-items: center; }
+.bio-sparkle { width: 26rpx; height: 26rpx; margin-right: 6rpx; flex-shrink: 0; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
 
 .dev-login-row { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .dev-capsule {
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 24rpx;
-  padding: 14rpx 28rpx;
+  /* 上下 20rpx + 行高 24rpx = 64rpx（≈33px）点击区 */
+  padding: 20rpx 28rpx;
   border-radius: 30rpx;
 }
 .dev-capsule.admin { background: var(--accent-violet); }
+.dev-capsule.saving { opacity: 0.6; pointer-events: none; }
 
 /* 网页版登录弹窗（H5） */
-.wl-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-.wl-card {
-  width: 580rpx;
-  background: var(--bg-card);
-  border-radius: 32rpx;
-  padding: 48rpx 40rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-}
-.wl-title { font-size: 36rpx; font-weight: bold; color: var(--text-1); text-align: center; }
-.wl-sub { font-size: 22rpx; color: var(--text-3); text-align: center; margin-top: 10rpx; }
-.wl-input {
-  margin-top: 28rpx;
-  background: var(--bg-page);
-  border-radius: var(--radius-inner);
-  padding: 22rpx 26rpx;
-  font-size: 28rpx;
-  color: var(--text-1);
-}
-.wl-btn {
-  margin-top: 36rpx;
-  background: var(--primary-strong);
-  color: var(--text-inverse);
-  font-size: 30rpx;
-  font-weight: 600;
-  text-align: center;
-  padding: 22rpx 0;
-  border-radius: 40rpx;
-}
-.wl-btn.saving { opacity: 0.6; }
 
 .slim-tip {
   margin-top: 20rpx;
@@ -596,7 +537,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   border-radius: 12rpx;
   padding: 14rpx 22rpx;
   font-size: 24rpx;
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 .slim-tip.admin { background: var(--accent-violet-soft); color: var(--accent-violet-strong); }
 
@@ -616,7 +557,8 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   position: relative;
 }
 .ct-icon { font-size: 40rpx; line-height: 1; opacity: 0.55; }
-.ct-item.on .ct-icon { opacity: 1; }
+.ct-icon-img { width: 40rpx; height: 40rpx; opacity: 0.55; }
+.ct-item.on .ct-icon, .ct-item.on .ct-icon-img { opacity: 1; }
 .ct-underline {
   position: absolute;
   bottom: -2rpx;
@@ -652,6 +594,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .pc-date { font-size: 22rpx; color: var(--text-3); margin-right: auto; }
 .pc-stat { display: flex; align-items: center; gap: 6rpx; font-size: 22rpx; color: var(--text-3); }
 .pc-stat-icon { font-size: 24rpx; }
+.pc-stat-svg { width: 24rpx; height: 24rpx; flex-shrink: 0; }
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
@@ -666,18 +609,18 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   font-size: 48rpx;
   opacity: 0.7;
 }
+.pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
-.wl-wechat {
-  margin-top: 20rpx;
-  padding: 24rpx 0;
-  border: 2rpx solid var(--success);
-  border-radius: var(--radius-btn);
-  text-align: center;
+
+/* 未登录：内容区改为登录引导，不展示误导性的空列表 */
+.login-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx 100rpx;
 }
-.wl-wechat text {
-  color: var(--success);
-  font-size: 30rpx;
-  font-weight: 600;
-}
+.login-guide-icon { width: 72rpx; height: 72rpx; opacity: 0.45; margin-bottom: 24rpx; }
+.login-guide-title { font-size: 30rpx; font-weight: 600; color: var(--text-1); }
+.login-guide-desc { font-size: 24rpx; color: var(--text-3); margin-top: 10rpx; text-align: center; }
 </style>

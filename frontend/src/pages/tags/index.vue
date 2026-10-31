@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="themeClass">
     <view class="tags-grid">
       <view
         v-for="tag in tags"
@@ -15,8 +15,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { Tag } from '@/types/api'
 import { getTags } from '@/api/tags'
+
+const { themeClass } = useTheme()
 
 const tags = ref<Tag[]>([])
 

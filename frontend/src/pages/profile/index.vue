@@ -1,5 +1,5 @@
 <template>
-  <view class="page-profile">
+  <view class="page-profile" :class="themeClass">
     <view v-if="loading" class="state"><text>加载中…</text></view>
 
     <view v-else-if="!profile" class="state"><text>用户不存在</text></view>
@@ -20,13 +20,16 @@
             <view v-else class="avatar" :style="{ background: avatarColor }">
               <text class="avatar-letter">{{ avatarLetter }}</text>
             </view>
-            <text v-if="profile.is_verified" class="v-badge">✅</text>
+            <view v-if="profile.is_verified" class="v-badge">
+              <image class="v-badge-icon" src="/static/icons/common/check-inverse.svg" mode="aspectFit" />
+            </view>
           </view>
         </view>
 
         <!-- 昵称 + 关注按钮 -->
         <view class="name-row">
           <text class="nickname">{{ profile.nickname }}</text>
+          <text v-if="profile.is_verified" class="v-text">已认证</text>
           <view
             v-if="!profile.is_self && loggedIn"
             class="follow-btn"
@@ -40,7 +43,7 @@
         <!-- 简介 + 认证学校 -->
         <view class="bio">
           <text>{{ profile.bio || '这位同学还没有简介～' }}</text>
-          <text v-if="profile.school" class="school-line">🎓 {{ profile.school }}</text>
+          <text v-if="profile.school" class="school-line">{{ profile.school }}</text>
         </view>
 
         <!-- 统计：帖子 / 关注 / 粉丝（可点） -->
@@ -63,7 +66,10 @@
         <view v-if="section !== 'posts'" class="follow-list">
           <view class="fl-head">
             <text class="fl-title">{{ section === 'following' ? '关注的人' : '粉丝' }}（{{ list.length }}）</text>
-            <text class="back-posts" @tap="section = 'posts'">看帖子 ›</text>
+            <view class="back-posts" @tap="section = 'posts'">
+              <text>看帖子</text>
+              <image class="chev" src="/static/icons/common/arrow-right-primary.svg" mode="aspectFit" />
+            </view>
           </view>
           <view v-if="list.length === 0" class="empty"><text>暂无{{ section === 'following' ? '关注' : '粉丝' }}</text></view>
           <view v-for="u in list" :key="u.id" class="user-row" @tap="goProfile(u.id)">
@@ -73,7 +79,7 @@
             </view>
             <view class="u-meta">
               <text class="u-name">{{ u.nickname }}</text>
-              <text v-if="u.is_verified" class="u-v">✅ 已认证</text>
+              <text v-if="u.is_verified" class="u-v">已认证</text>
             </view>
             <view
               v-if="!u.is_following && !isSelfId(u.id)"
@@ -96,7 +102,7 @@
               :class="{ on: contentTab === t.key }"
               @tap="switchContentTab(t.key)"
             >
-              <text class="ct-icon">{{ t.icon }}</text>
+              <image class="ct-icon-img" :src="t.icon" mode="aspectFit" />
               <view v-if="contentTab === t.key" class="ct-underline" />
             </view>
           </view>
@@ -117,11 +123,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">👁</text>
+                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">💬</text>
+                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -133,7 +139,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <text>🖼</text>
+                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -174,11 +180,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">👁</text>
+                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <text class="pc-stat-icon">💬</text>
+                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -190,7 +196,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <text>🖼</text>
+                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -202,6 +208,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
+import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import {
   getProfile, getFollowing, getFollowers, getUserPosts, followUser, unfollowUser,
@@ -209,6 +217,8 @@ import {
 } from '@/api/profile'
 import { myComments, myLikes, myFavorites, type MyCommentItem } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
+
+const { themeClass } = useTheme()
 
 // 沉浸式横幅：预留状态栏（H5 下为 0）
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -221,10 +231,10 @@ const section = ref<'posts' | 'following' | 'followers'>('posts')
 // ===== 自己主页的内容四栏（与"我的"页同款）=====
 // 说明：产品上"转发"功能后端暂未实现，此位暂以「收藏」承担
 const CONTENT_TABS = [
-  { key: 'posts', icon: '📄' },
-  { key: 'comments', icon: '💬' },
-  { key: 'favorites', icon: '🔖' },
-  { key: 'likes', icon: '🤍' },
+  { key: 'posts', icon: '/static/icons/common/note.svg' },
+  { key: 'comments', icon: '/static/icons/common/comment.svg' },
+  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
+  { key: 'likes', icon: '/static/icons/common/heart.svg' },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 const contentTab = ref<ContentTab>('posts')
@@ -234,13 +244,6 @@ const loadedTabs = ref(new Set<string>(['posts']))
 const loading = ref(true)
 const loggedIn = tokenStorage.isLoggedIn()
 
-// 与"我的"页同一套柔和底色
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 const avatarLetter = computed(() => (profile.value?.nickname || '?').slice(0, 1))
 const avatarColor = computed(() => colorOf(profile.value?.nickname || ''))
@@ -427,15 +430,17 @@ const goProfile = (id: string) => {
   justify-content: center;
 }
 .avatar-img { width: 176rpx; height: 176rpx; }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--on-avatar); }
+/* 认证徽章：圆形对勾（原先塞「已认证」三字在 48rpx 圆里，被压成逐字竖排） */
 .v-badge {
   position: absolute;
   right: 4rpx;
   bottom: 4rpx;
-  width: 48rpx;
-  height: 48rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
-  background: var(--bg-card);
+  background: var(--primary-badge);
+  border: 3rpx solid var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -445,21 +450,31 @@ const goProfile = (id: string) => {
 
 /* 昵称行 + 关注按钮 */
 .name-row { display: flex; align-items: center; margin-top: 24rpx; }
+.v-badge-icon { width: 26rpx; height: 26rpx; }
 .nickname { font-size: 40rpx; font-weight: bold; color: var(--text-1); }
+.v-text {
+  margin-left: 14rpx;
+  font-size: 22rpx;
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+  white-space: nowrap;
+}
 .follow-btn {
   margin-left: auto;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 26rpx;
   font-weight: 600;
   padding: 14rpx 34rpx;
   border-radius: 36rpx;
 }
-.follow-btn.on { background: var(--primary-soft); color: var(--primary-strong); }
+.follow-btn.on { background: var(--primary-soft); color: var(--primary-text); }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
-.school-line { color: var(--primary-strong); }
+.school-line { color: var(--primary-text); }
 
 /* 统计行 */
 .stats-row {
@@ -477,15 +492,16 @@ const goProfile = (id: string) => {
 .follow-list { margin-top: 30rpx; }
 .fl-head { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 8rpx 20rpx; }
 .fl-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.back-posts { font-size: 24rpx; color: var(--primary); }
+.back-posts { font-size: 24rpx; color: var(--primary-text); display: inline-flex; align-items: center; }
+.chev { width: 20rpx; height: 20rpx; margin-left: 2rpx; flex-shrink: 0; }
 .user-row { display: flex; align-items: center; padding: 20rpx 8rpx; border-bottom: 1rpx solid var(--border-light); }
 .user-row:last-child { border-bottom: none; }
-.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-inverse); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
+.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--on-avatar); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
 .u-avatar-img { width: 88rpx; height: 88rpx; }
 .u-meta { flex: 1; display: flex; align-items: center; gap: 12rpx; min-width: 0; }
 .u-name { font-size: 28rpx; color: var(--text-1); }
-.u-v { font-size: 20rpx; color: var(--text-3); }
-.mini-follow { background: var(--primary-strong); color: var(--text-inverse); font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
+.u-v { font-size: 22rpx; color: var(--text-3); }
+.mini-follow { background: var(--primary-badge); color: var(--text-inverse); font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
 
 /* 内容区（同"我的"） */
 .content-tabs {
@@ -503,7 +519,8 @@ const goProfile = (id: string) => {
   position: relative;
 }
 .ct-icon { font-size: 40rpx; line-height: 1; opacity: 0.55; }
-.ct-item.on .ct-icon { opacity: 1; }
+.ct-icon-img { width: 40rpx; height: 40rpx; opacity: 0.55; }
+.ct-item.on .ct-icon, .ct-item.on .ct-icon-img { opacity: 1; }
 .ct-underline {
   position: absolute;
   bottom: -2rpx;
@@ -538,6 +555,7 @@ const goProfile = (id: string) => {
 .pc-date { font-size: 22rpx; color: var(--text-3); margin-right: auto; }
 .pc-stat { display: flex; align-items: center; gap: 6rpx; font-size: 22rpx; color: var(--text-3); }
 .pc-stat-icon { font-size: 24rpx; }
+.pc-stat-svg { width: 24rpx; height: 24rpx; flex-shrink: 0; }
 .pc-thumb {
   width: 160rpx;
   height: 160rpx;
@@ -552,6 +570,7 @@ const goProfile = (id: string) => {
   font-size: 48rpx;
   opacity: 0.7;
 }
+.pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
 </style>

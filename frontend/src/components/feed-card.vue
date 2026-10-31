@@ -16,7 +16,7 @@
           <text class="time-ago">{{ timeAgo }} · {{ typeLabel }}</text>
         </view>
       </view>
-      <text class="more-action">···</text>
+      <text class="more-action" @tap.stop="onMoreAction">···</text>
     </view>
 
     <!-- 正文 -->
@@ -37,6 +37,7 @@
           :class="post.images.length === 1 ? 'img-single' : 'img-ph'"
           :src="img"
           :mode="post.images.length === 1 ? 'widthFix' : 'aspectFill'"
+          @tap.stop="previewImage(i)"
         />
       </view>
     </view>
@@ -64,6 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
 import type { PostBrief } from '@/types/api'
 import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
@@ -76,16 +78,16 @@ interface Props {
 const props = defineProps<Props>()
 
 /**
- * 操作栏图标更换位：不满意自带线条稿时，把新文件放进 src/static/icons/feed/，
- * 改下面的路径即可（正方形最佳；SVG 仅 H5，微信真机请用 PNG）。
+ * 操作栏图标：统一走 SVG 资源（emoji 在各系统字形不一，且无法跟随主题变色）。
+ * 图标几何由 scripts/gen_icons.py 统一生成，勿手改 .svg 文件。
  */
 const FEED_ICONS = {
-  comment: '/static/icons/feed/comment.svg',
-  heart: '/static/icons/feed/heart.svg',
-  heartOn: '/static/icons/feed/heart-on.svg',
-  view: '/static/icons/feed/view.svg',
-  bookmark: '/static/icons/feed/bookmark.svg',
-  bookmarkOn: '/static/icons/feed/bookmark-on.svg',
+  comment: '/static/icons/common/comment.svg',
+  heart: '/static/icons/common/heart.svg',
+  heartOn: '/static/icons/common/heart-on.svg',
+  view: '/static/icons/common/eye.svg',
+  bookmark: '/static/icons/common/bookmark.svg',
+  bookmarkOn: '/static/icons/common/bookmark-on.svg',
 }
 
 /** 计数格式化：≥1万 显示 x.x万（参考稿样式） */
@@ -106,14 +108,8 @@ const onTag = (tag: string) => uni.navigateTo({ url: `/pages/tag-posts/index?nam
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[props.post.post_type] || '动态')
 
-const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
 const avatarLetter = computed(() => (props.post.author.nickname || '?').slice(0, 1))
-const avatarColor = computed(() => {
-  const s = props.post.author.nickname || ''
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+const avatarColor = computed(() => avatarColorOf(props.post.author.nickname))
 
 const timeAgo = computed(() => {
   const t = new Date(props.post.created_at).getTime()
@@ -139,6 +135,30 @@ const requireLogin = (): boolean => {
 }
 
 const onDetail = () => emit('detail', props.post.id)
+
+const previewImage = (index: number) => {
+  if (!props.post.images || props.post.images.length === 0) return
+  uni.previewImage({
+    urls: props.post.images,
+    current: index,
+  })
+}
+
+const onMoreAction = () => {
+  uni.showActionSheet({
+    itemList: ['复制正文', '查看详情/举报'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        uni.setClipboardData({
+          data: props.post.content,
+          success: () => uni.showToast({ title: '已复制文本', icon: 'success' }),
+        })
+      } else if (res.tapIndex === 1) {
+        onDetail()
+      }
+    },
+  })
+}
 
 const onLike = async () => {
   if (!requireLogin()) return
@@ -181,10 +201,10 @@ const onFavorite = async () => {
 
 <style scoped>
 .feed-card {
-  background-color: var(--bg-card);
-  border-radius: var(--radius-card);
-  padding: 28rpx;
-  margin-bottom: 20rpx;
+  /* 主题B（X）：平铺时间线行——无卡片底、发丝分隔线 */
+  background-color: var(--bg-page);
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .feed-header { display: flex; align-items: center; justify-content: space-between; }
 .user-info { display: flex; align-items: center; flex: 1; }
@@ -192,32 +212,33 @@ const onFavorite = async () => {
   width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
 }
-.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--on-avatar); }
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
-.username { font-size: 28rpx; color: var(--text-1); font-weight: bold; }
+.username { font-size: 30rpx; color: var(--text-1); font-weight: 700; }
 .pinned-badge {
   margin-left: 10rpx;
-  font-size: 18rpx;
+  font-size: 22rpx;
   color: var(--text-inverse);
-  background: var(--primary);
+  background: var(--primary-badge);
   padding: 2rpx 10rpx;
   border-radius: var(--radius-tag);
 }
 
 .featured-badge {
   margin-left: 10rpx;
-  font-size: 18rpx;
-  color: var(--primary-strong);
+  font-size: 22rpx;
+  color: var(--primary-text);
   background: var(--primary-soft);
   border: 1rpx solid var(--primary);
   padding: 1rpx 10rpx;
   border-radius: var(--radius-tag);
 }
-.time-ago { font-size: 22rpx; color: var(--text-3); margin-top: 6rpx; }
-.more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
+.time-ago { font-size: 24rpx; color: var(--text-2); margin-top: 4rpx; }
+/* 右上角「···」：inline-block + 定高居中，点击区 64rpx（≈33px） */
+.more-action { color: var(--text-3); font-size: 36rpx; padding: 0; letter-spacing: 2rpx; display: inline-flex; align-items: center; justify-content: center; min-width: 64rpx; min-height: 64rpx; }
 .feed-body { margin-top: 20rpx; }
-.feed-text { font-size: 29rpx; color: var(--text-1); line-height: 1.6; white-space: pre-wrap; }
+.feed-text { font-size: 30rpx; color: var(--text-1); line-height: 1.55; white-space: pre-wrap; }
 .feed-text .hashtag { color: var(--link); }
 .feed-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .img-ph { width: 200rpx; height: 200rpx; border-radius: var(--radius-inner); background: var(--bg-card-2); }
@@ -226,8 +247,9 @@ const onFavorite = async () => {
   display: flex; margin-top: 28rpx; border-top: 1rpx solid var(--border-light);
   padding-top: 24rpx; justify-content: space-between;
 }
-.action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); }
-.action-item.on .act-num { color: var(--primary-strong); }
+/* min-height/min-width 64rpx（≈33px）：图标本身只有 36rpx，需靠内边距撑出最小点击区 */
+.action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); min-height: 64rpx; min-width: 64rpx; }
+.action-item.on .act-num { color: var(--like); }
 .act-icon { width: 36rpx; height: 36rpx; }
 .act-num { font-size: 24rpx; color: var(--text-2); }
 </style>

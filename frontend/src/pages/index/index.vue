@@ -1,31 +1,23 @@
 <template>
-  <view class="page-home">
+  <view class="page-home" :class="themeClass">
     <!-- 1. 顶部红色搜索（沉浸式：预留状态栏高度） -->
     <view class="header-search-box">
       <view
         class="status-bar-spacer"
         :style="{ height: statusBarHeight + 'px' }"
       />
-      <view class="search-row">
+      <view
+        class="search-row"
+        :style="capsulePaddingRight ? { paddingRight: capsulePaddingRight + 'px' } : undefined"
+      >
         <!-- 左上角：每日签到（LeetCode 式火焰两态：轮廓 → 燃烧） -->
         <view class="checkin-btn" :class="{ done: checkedIn }" @tap="onCheckin">
           <view class="checkin-icon">
             <image
-              v-if="!checkedIn && CHECKIN_ICONS.outline"
               class="checkin-svg"
-              :src="CHECKIN_ICONS.outline"
+              :src="checkedIn ? CHECKIN_ICONS.burning : CHECKIN_ICONS.outline"
               mode="aspectFit"
             />
-            <image
-              v-else-if="checkedIn && CHECKIN_ICONS.burning"
-              class="checkin-svg"
-              :src="CHECKIN_ICONS.burning"
-              mode="aspectFit"
-            />
-            <!-- SVG 未配置时的兜底：轮廓态用描边圆+「签」，燃烧态用 🔥 -->
-            <text v-else class="checkin-fallback">{{
-              checkedIn ? "🔥" : "签"
-            }}</text>
           </view>
           <text class="checkin-count">{{ checkinLabel }}</text>
         </view>
@@ -52,7 +44,7 @@
     <view v-if="hotPosts.length" class="hot-posts-section" @tap="goHotList">
       <view class="hot-side-banner">
         <text class="hot-title">十大热帖</text>
-        <text class="hot-arrow">›</text>
+        <image class="hot-arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
       <view class="hot-main">
         <view class="hot-list">
@@ -88,7 +80,7 @@
       :duration="500"
     >
       <swiper-item v-for="ad in adBanners" :key="ad.id" @tap="onAd(ad)">
-        <!-- 有图 banner：图片铺满 + 底部渐变标题 -->
+        <!-- 有图 banner：图片铺满 + 底部暗化层 + 底部标题 -->
         <view v-if="ad.image_url" class="ad-slide ad-slide-img">
           <image class="ad-img" :src="ad.image_url" mode="aspectFill" />
           <view class="ad-img-mask">
@@ -99,18 +91,21 @@
           </view>
           <text v-if="ad.tag" class="ad-tag">{{ ad.tag }}</text>
         </view>
-        <!-- 无图 banner：emoji + 渐变背景（mock fallback 同款样式） -->
+        <!-- 无图 banner：矢量图标 + 渐变背景 + 暗化层（mock fallback 同款样式） -->
         <view
           v-else
           class="ad-slide"
           :style="{
-            background: ad.bg || 'linear-gradient(135deg, #ef8a97, #f6b8c0)',
+            background: ad.bg || 'linear-gradient(135deg, #c2455c, #9b374a)',
           }"
         >
-          <text class="ad-emoji">{{ ad.emoji || "📢" }}</text>
-          <view class="ad-text">
-            <text class="ad-title">{{ ad.title }}</text>
-            <text class="ad-desc">{{ ad.desc }}</text>
+          <view class="ad-scrim">
+            <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
+            <image v-else class="ad-icon-img" src="/static/icons/common/notice-inverse.svg" mode="aspectFit" />
+            <view class="ad-text">
+              <text class="ad-title">{{ ad.title }}</text>
+              <text class="ad-desc">{{ ad.desc }}</text>
+            </view>
           </view>
           <text class="ad-tag">{{ ad.tag }}</text>
         </view>
@@ -119,22 +114,28 @@
 
     <!-- 6. 吸顶分类 Tab -->
     <view class="tab-bar-sticky">
-      <scroll-view class="tab-scroll" scroll-x :show-scrollbar="false">
-        <view
-          v-for="(t, idx) in TABS"
-          :key="idx"
-          class="tab-item-wrap"
-        >
-          <view v-if="idx === 4" class="tab-sep" />
-          <view
-            class="tab-item"
-            :class="{ active: currentTab === idx, 'tab-category': t.kind === 'category' }"
-            @tap="switchTab(idx)"
-          >
-            {{ t.label }}
+      <view class="scroll-x-wrap">
+        <scroll-view class="tab-scroll" scroll-x :show-scrollbar="false" @scroll="onTabScroll">
+          <view class="tab-row">
+            <view
+              v-for="(t, idx) in TABS"
+              :key="idx"
+              class="tab-item-wrap"
+            >
+              <view v-if="idx === 4" class="tab-sep" />
+              <view
+                class="tab-item"
+                :class="{ active: currentTab === idx, 'tab-category': t.kind === 'category' }"
+                @tap="switchTab(idx)"
+              >
+                {{ t.label }}
+              </view>
+            </view>
           </view>
-        </view>
-      </scroll-view>
+        </scroll-view>
+        <view class="scroll-x-fade left" :class="{ show: showFadeLeft }" />
+        <view class="scroll-x-fade right" :class="{ show: showFadeRight }" />
+      </view>
     </view>
 
     <!-- 7. 信息流 -->
@@ -164,8 +165,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useTheme } from '@/utils/theme'
 import { onShow, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import FeedCard from "@/components/feed-card.vue";
+import SkeletonCard from "@/components/skeleton-card.vue";
 import TabBar from "@/components/tab-bar.vue";
 import { AD_BANNERS, POST_CATEGORIES } from "@/utils/mock";
 import type { PostBrief } from "@/types/api";
@@ -173,6 +176,10 @@ import { getPosts, getHotPosts, getFeaturedPosts, getFollowingFeed } from "@/api
 import { getBanners, type BannerItem } from "@/api/banner";
 import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
+import { getNavBarMetrics } from "@/utils/navbar";
+import { useScrollFade } from "@/utils/scroll-fade";
+
+const { themeClass } = useTheme()
 
 // 顶部 tab：对齐参考稿（精选/最新/二手/失物）+ 保留功能入口（关注/精华）
 // 分类完整清单仍由 POST_CATEGORIES 提供（发布页选择器用），此处只是首页瘦身
@@ -186,6 +193,8 @@ const TABS: Array<{ label: string; mode: string; kind: 'mode' | 'category' }> = 
   { label: "失物", mode: "失物", kind: "category" },
 ];
 const currentTab = ref(0);
+/* 分类 Tab 横向滚动：两侧渐隐，滚到端点时对应侧隐藏 */
+const { showLeft: showFadeLeft, showRight: showFadeRight, onScroll: onTabScroll } = useScrollFade('.tab-scroll');
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
 const feedMode = ref<string>("all");
 interface HotItem {
@@ -197,7 +206,7 @@ interface HotItem {
 }
 const hotPosts = ref<HotItem[]>([]);
 // 广告轮播：后端下发优先，失败/未配置时 fallback 到 mock（运营未配不白屏）
-const adBanners = ref<(BannerItem & { bg?: string; emoji?: string })[]>([
+const adBanners = ref<(BannerItem & { bg?: string; emoji?: string; icon?: string })[]>([
   ...AD_BANNERS,
 ]);
 
@@ -216,9 +225,9 @@ const loadBanners = async () => {
  * 2. 把下面两行路径改成你的文件并解开注释，保存即生效（HMR 秒级热更）
  * 注意：SVG 在 H5 没问题；微信小程序真机不渲染 SVG，上真机请换 PNG（路径后缀改 .png 即可）
  */
-const CHECKIN_ICONS: { outline?: string; burning?: string } = {
-  // outline: "/static/checkin/flame-outline.svg", // 未签到：火焰轮廓（线条稿）
-  // burning: "/static/checkin/flame-burning.svg", // 已签到：燃烧的火焰（填充稿）
+const CHECKIN_ICONS = {
+  outline: '/static/icons/common/hot.svg',      // 未签到：火焰轮廓（线条稿）
+  burning: '/static/icons/common/hot-on.svg',   // 已签到：燃烧的火焰（填充稿）
 };
 
 const checkedIn = ref(false);
@@ -263,8 +272,10 @@ const nextCursor = ref<number | null>(null);
 const hasMore = ref(false);
 const searchKeyword = ref("");
 
-// 沉浸式头部：状态栏高度（custom 导航栏后内容会顶到状态栏，需让出空间）
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0;
+// 沉浸式头部与胶囊避让：状态栏高度与胶囊右内边距
+const navMetrics = getNavBarMetrics();
+const statusBarHeight = navMetrics.statusBarHeight;
+const capsulePaddingRight = navMetrics.capsulePaddingRight;
 
 const loadFeeds = async (refresh = false) => {
   if (loadingFeeds.value) return;
@@ -293,7 +304,7 @@ const loadFeeds = async (refresh = false) => {
 };
 
 onPullDownRefresh(async () => {
-  await loadFeeds(true);
+  await Promise.all([loadFeeds(true), loadHot(), loadBanners()]);
   uni.stopPullDownRefresh();
 });
 
@@ -304,25 +315,34 @@ onReachBottom(() => {
 const HOT_TITLE_MAX = 30; // 榜单标题截断长度（rpx 布局按单行省略，防长文挤压）
 const HOT_TAG_MIN_LIKES = 3; // 「热」标门槛：赞或评论 ≥3，避免 1 赞也挂热
 
+const fmtCount = (n?: number): string => {
+  const v = n || 0;
+  if (v < 10000) return String(v);
+  const w = v / 10000;
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, "")}万`;
+};
+
 const loadHot = async () => {
   try {
     // 首页只露前 4 名（完整十强在二级页 pages/hot/index）
     const list = await getHotPosts(4);
-    hotPosts.value = list.map((p, i) => ({
-      id: p.id,
-      rank: i + 1,
-      // 正文首行做标题，超长截断
-      title: (() => {
-        const firstLine = (p.content || "").split("\n").find((s) => s.trim()) || "（无文字）";
-        return firstLine.length > HOT_TITLE_MAX
-          ? firstLine.slice(0, HOT_TITLE_MAX) + "…"
-          : firstLine;
-      })(),
-      isHot:
-        (p.like_count || 0) >= HOT_TAG_MIN_LIKES ||
-        (p.comment_count || 0) >= HOT_TAG_MIN_LIKES,
-      reads: `${p.view_count || 0} 浏览`,
-    }));
+    hotPosts.value = list.slice(0, 4).map((p, i) => {
+      const firstLine =
+        (p.content || "").split("\n").find((s) => s.trim()) || "（无文字）";
+      return {
+        id: p.id,
+        rank: i + 1,
+        // 正文首行做标题，超长截断
+        title:
+          firstLine.length > HOT_TITLE_MAX
+            ? firstLine.slice(0, HOT_TITLE_MAX) + "…"
+            : firstLine,
+        isHot:
+          (p.like_count || 0) >= HOT_TAG_MIN_LIKES ||
+          (p.comment_count || 0) >= HOT_TAG_MIN_LIKES,
+        reads: `${fmtCount(p.view_count)} 浏览`,
+      };
+    });
   } catch {
     /* 热帖非关键，失败静默（整块由 v-if 隐藏） */
   }
@@ -394,9 +414,10 @@ const switchTab = (idx: number) => {
   padding-bottom: 40rpx;
 }
 
-/* 1. 红色头部（沉浸式） */
+/* 1. 顶栏（主题B·X：黑底 + 发丝底线，沉浸式） */
 .header-search-box {
-  background-color: var(--primary);
+  background-color: var(--bg-page);
+  border-bottom: 1rpx solid var(--border-light);
   display: flex;
   flex-direction: column;
 }
@@ -412,22 +433,21 @@ const switchTab = (idx: number) => {
   align-items: center;
 }
 
-/* 左上角火焰签到（LeetCode 式两态）：未签=描边幽灵胶囊，已签=白底实心 */
+/* 左上角火焰签到（主题B·X）：未签=灰描边胶囊，已签=深灰实心 + 蓝字 */
 .checkin-btn {
   flex-shrink: 0;
   height: 64rpx;
   padding: 0 18rpx;
   margin-right: 20rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.9);
-  border-radius: 34rpx;
+  border: 2rpx solid var(--border-strong);
+  border-radius: var(--radius-btn);
   display: flex;
   align-items: center;
   gap: 10rpx;
 }
 .checkin-btn.done {
-  background-color: var(--bg-card);
-  border-color: #ffffff;
-  box-shadow: var(--shadow-primary);
+  background-color: var(--bg-card-2);
+  border-color: var(--border-strong);
 }
 
 .checkin-icon {
@@ -441,37 +461,37 @@ const switchTab = (idx: number) => {
   width: 36rpx;
   height: 36rpx;
 }
-/* 兜底字形：轮廓态「签」（描边风格），燃烧态 🔥 */
+/* 签到图标统一走 SVG：轮廓态/燃烧态两枚填充度不同的火焰 */
 .checkin-fallback {
   font-size: 26rpx;
   line-height: 1;
-  color: var(--text-inverse);
+  color: var(--text-2);
 }
 .checkin-btn.done .checkin-fallback {
   font-size: 30rpx;
+  color: var(--primary-text);
 }
 
 /* 右侧连签数字 */
 .checkin-count {
   font-size: 24rpx;
   font-weight: 700;
-  color: var(--text-inverse);
+  color: var(--text-2);
   line-height: 1;
 }
 .checkin-btn.done .checkin-count {
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 
 .search-bar {
   flex: 1;
   min-width: 0;
   height: 64rpx;
-  background-color: var(--bg-card);
-  border-radius: 32rpx;
+  background-color: var(--bg-card-2);
+  border-radius: var(--radius-btn);
   padding: 0 26rpx;
   display: flex;
   align-items: center;
-  box-shadow: var(--shadow-primary);
 }
 
 .icon-search {
@@ -488,51 +508,59 @@ const switchTab = (idx: number) => {
 }
 
 .search-placeholder {
-  color: var(--text-4);
+  color: var(--text-placeholder);
 }
 
 .search-confirm {
   font-size: 26rpx;
-  color: var(--primary);
+  font-weight: 600;
+  color: var(--primary-text);
   padding-left: 20rpx;
-  border-left: 1rpx solid var(--border-light);
+  display: inline-flex;
+  align-items: center;
+  /* 点击区 ≥64rpx（≈33px） */
+  min-height: 64rpx;
+  border-left: 1rpx solid var(--border-strong);
 }
 
 /* 2. 十大热帖（原"搭乘UFO"通知栏已删，2026-09-01 客户反馈） */
 .hot-posts-section {
+  /* 主题B（X）：Trends 卡——标题行在上 + 细分隔 + 榜单（X What's happening 式） */
   background-color: var(--bg-card);
-  margin: 20rpx 24rpx 24rpx;
+  margin: 16rpx 24rpx 20rpx;
+  border: 1rpx solid var(--border-light);
   border-radius: var(--radius-card);
-  padding: 24rpx;
+  padding: 24rpx 28rpx 8rpx;
   display: flex;
-  align-items: stretch; /* 侧边徽章跟随 10 行列表高度 */
+  flex-direction: column;
 }
 
 .hot-side-banner {
-  width: 150rpx;
-  min-height: 150rpx; /* 兜底：短列表时色块至少装得下"十大热帖"标题，防文字溢出 */
-  background: var(--primary-gradient);
-  border-radius: var(--radius-inner);
-  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  background: transparent;
+  border-radius: 0;
+  justify-content: space-between;
   align-items: center;
   display: flex;
-  flex-direction: column;
-  color: var(--text-inverse);
+  flex-direction: row;
+  color: var(--text-1);
   flex-shrink: 0;
+  padding-bottom: 12rpx;
 }
 
 .hot-title {
   font-size: 30rpx;
-  font-weight: bold;
-  text-align: center;
-  width: 80rpx;
+  font-weight: 800;
+  text-align: left;
+  width: auto;
   line-height: 1.3;
 }
 
 .hot-arrow {
-  font-size: 28rpx;
-  margin-top: 6rpx;
-  opacity: 0.8;
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
 }
 
 /* 右侧主体：前 4 列表 + 「查看完整榜单」脚注 */
@@ -540,7 +568,7 @@ const switchTab = (idx: number) => {
   flex: 1;
   min-width: 0; /* 关键：允许整列收缩，否则被最长行撑爆，热标/浏览数被顶出屏 */
   overflow: hidden;
-  margin-left: 24rpx;
+  margin-left: 0;
   display: flex;
   flex-direction: column;
 }
@@ -557,7 +585,11 @@ const switchTab = (idx: number) => {
   padding-top: 12rpx;
   border-top: 1rpx solid var(--border-light);
   display: flex;
+  align-items: center;
   justify-content: center;
+  /* 「查看完整榜单」是整行可点，点击区高度需 ≥64rpx（≈33px） */
+  min-height: 64rpx;
+  box-sizing: border-box;
 }
 
 .hot-more text {
@@ -570,6 +602,9 @@ const switchTab = (idx: number) => {
   align-items: center;
   font-size: 24rpx;
   line-height: 1.6;
+  /* 榜单行整行可点，高度需 ≥64rpx（≈33px） */
+  min-height: 64rpx;
+  box-sizing: border-box;
   padding: 2rpx 0;
 }
 
@@ -582,14 +617,9 @@ const switchTab = (idx: number) => {
   color: var(--text-3);
 }
 
-.rank-1 {
-  color: var(--primary-strong);
-}
-.rank-2 {
-  color: var(--rank-2);
-}
-.rank-3 {
-  color: var(--rank-3);
+.rank-1, .rank-2, .rank-3 {
+  /* X Trends：名次一律灰 */
+  color: var(--text-3);
 }
 
 .hot-item-title {
@@ -603,9 +633,9 @@ const switchTab = (idx: number) => {
 }
 
 .hot-tag {
-  background-color: var(--primary-strong);
+  background-color: var(--primary-badge);
   color: var(--text-inverse);
-  font-size: 18rpx;
+  font-size: 22rpx;
   padding: 2rpx 8rpx;
   border-radius: var(--radius-tag);
   margin-left: 10rpx;
@@ -627,6 +657,9 @@ const switchTab = (idx: number) => {
 
 .ad-slide {
   height: 100%;
+  /* H5 轮播：相邻 slide 亚像素取整会压住当前卡片右缘 1px，
+     给 1px 左外边距把下一张的着色区推离裁剪边界 */
+  margin-left: 1px;
   border-radius: var(--radius-card);
   padding: 0 28rpx;
   display: flex;
@@ -652,7 +685,14 @@ const switchTab = (idx: number) => {
   right: 0;
   bottom: 0;
   padding: 24rpx 28rpx 16rpx;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+  /* 照片底色不可控：蒙版必须在标题字形顶部就压到 0.6 黑色，
+     否则白字压在亮色照片上几乎不可见（最坏 1.36:1） */
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.8) 30%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
   display: flex;
   align-items: flex-end;
 }
@@ -660,9 +700,25 @@ const switchTab = (idx: number) => {
   flex: 1;
 }
 
-.ad-emoji {
-  font-size: 64rpx;
+/* 纯色渐变 banner 的暗化层：底色由后台下发（可能是浅色渐变），
+   白字白图标无法保证可读，统一压暗右侧文案区 */
+.ad-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 100%);
+}
+
+.ad-icon-img {
+  width: 64rpx;
+  height: 64rpx;
   margin-right: 22rpx;
+  flex-shrink: 0;
 }
 
 .ad-text {
@@ -687,9 +743,12 @@ const switchTab = (idx: number) => {
   position: absolute;
   top: 16rpx;
   right: 20rpx;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 18rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 22rpx;
+  /* 角标自带深色底：图片 banner 顶部无蒙版、渐变 banner 底色由后台下发，
+     两种情况下都能保证白字可读（最坏 5.9:1） */
+  background: rgba(0, 0, 0, 0.6);
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
   padding: 2rpx 12rpx;
   border-radius: var(--radius-inner);
 }
@@ -702,12 +761,25 @@ const switchTab = (idx: number) => {
   background-color: var(--bg-page);
 }
 
+.scroll-x-wrap {
+  position: relative;
+}
+
 .tab-scroll {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   white-space: nowrap;
-  padding: 16rpx 24rpx;
+  padding: 16rpx 0;
+}
+
+/* 左右内边距放在滚动内容上：容器可视宽度 == 测量宽度，滚动位移换算才准 */
+.tab-row {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 24rpx;
+  /* 右侧留出渐隐层宽度，滚到底时末尾胶囊仍完整可见 */
+  padding-right: 72rpx;
 }
 
 .tab-item-wrap {
@@ -724,32 +796,33 @@ const switchTab = (idx: number) => {
 
 .tab-item {
   display: inline-block;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: var(--text-2);
   margin-right: 36rpx;
-  padding-bottom: 12rpx;
+  padding: 20rpx 0 18rpx;
 }
 
 .tab-item.active {
   color: var(--text-1);
-  font-weight: bold;
-  border-bottom: 6rpx solid var(--primary);
+  font-weight: 700;
+  border-bottom: 8rpx solid var(--primary);
 }
 
 .tab-item.tab-category {
   margin-right: 16rpx;
-  padding: 8rpx 20rpx;
-  border-radius: 999rpx;
-  background: var(--bg-card);
-  border: 1rpx solid var(--border-primary-soft);
+  /* 内边距使胶囊高度达到 64rpx（≈33px），满足最小点击区 */
+  padding: 14rpx 24rpx;
+  border-radius: var(--radius-btn);
+  background: var(--pill-bg);
+  border: none;
   color: var(--text-2);
 }
 
 .tab-item.tab-category.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--text-inverse);
-  border-bottom: 1rpx solid var(--primary);
+  background: var(--pill-active-bg);
+  border-color: transparent;
+  color: var(--pill-active-text);
+  border-bottom: none;
 }
 
 /* 7. 信息流 */

@@ -34,13 +34,17 @@
 
     <view class="card-footer">
       <text class="time">{{ formatTime(post.created_at) }}</text>
-      <text v-if="post._is_my_post" class="my-badge">我的</text>
+      <view class="footer-actions">
+        <text v-if="post._is_my_post" class="del-text" @tap.stop="onDelete">删除</text>
+        <text v-if="post._is_my_post" class="my-badge">我的</text>
+      </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import type { PostBrief } from '@/types/api'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
 import { computed } from 'vue'
 import { POST_TYPE_MAP } from '@/types/api'
 
@@ -57,14 +61,8 @@ const author = computed(() => {
   return p.author ?? p.user ?? { nickname: '同学', avatar_url: null }
 })
 
-// 无头像兜底色：昵称哈希取色（与个人主页 colorOf 同款思路）
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
-const fallbackColor = computed(() => {
-  const s = author.value?.nickname || ''
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+// 无头像兜底色：昵称哈希取色（全站唯一来源 utils/avatar）
+const fallbackColor = computed(() => avatarColorOf(author.value?.nickname))
 
 const displayImages = computed(() => {
   return props.post.images?.slice(0, 3) || []
@@ -83,6 +81,12 @@ const formatTime = (time: string) => {
   if (hours < 24) return `${hours}小时前`
   if (days < 7) return `${days}天前`
   return `${date.getMonth() + 1}-${date.getDate()}`
+}
+
+const emit = defineEmits<{ (e: 'delete', id: number): void }>()
+
+const onDelete = () => {
+  emit('delete', props.post.id)
 }
 
 const goDetail = () => {
@@ -121,7 +125,7 @@ const goDetail = () => {
 .avatar-letter {
   font-size: 30rpx;
   font-weight: bold;
-  color: var(--text-inverse);
+  color: var(--on-avatar);
 }
 
 .author-info {
@@ -143,9 +147,9 @@ const goDetail = () => {
 }
 
 .pinned-badge {
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: var(--text-inverse);
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
 }
@@ -200,7 +204,7 @@ const goDetail = () => {
 
 .tag {
   font-size: 22rpx;
-  color: var(--info);
+  color: var(--primary-text);
   background: var(--accent-blue-soft);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
@@ -209,7 +213,7 @@ const goDetail = () => {
 .price {
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--primary-strong);
+  color: var(--primary-text);
   display: block;
   margin-top: 12rpx;
 }
@@ -225,10 +229,24 @@ const goDetail = () => {
   color: var(--text-3);
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.del-text {
+  font-size: 22rpx;
+  color: #f4212e;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx;
+  background: rgba(244, 33, 46, 0.08);
+}
+
 .my-badge {
-  font-size: 20rpx;
-  color: var(--info);
-  border: 1rpx solid var(--info);
+  font-size: 22rpx;
+  color: var(--primary-text);
+  border: 1rpx solid var(--primary-text);
   padding: 2rpx 8rpx;
   border-radius: var(--radius-tag);
 }

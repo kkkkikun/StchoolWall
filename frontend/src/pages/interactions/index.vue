@@ -1,16 +1,13 @@
 <template>
-  <view class="page-interactions">
-    <!-- 1. 头部：返回 + 标题 -->
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">互动消息</text>
-        <view class="header-right" @tap="onMarkAllRead">
+  <view class="page-interactions" :class="themeClass">
+    <!-- 1. 头部：安全避让自定义导航 -->
+    <CustomNavBar show-back title="互动消息" fallback-url="/pages/message/index">
+      <template #right>
+        <view class="mark-read-btn" @tap="onMarkAllRead">
           <text>全部已读</text>
         </view>
-      </view>
-    </view>
+      </template>
+    </CustomNavBar>
 
     <!-- 2. 筛选 chips：全部 / 赞 / 收藏 / 评论（抖音式聚合） -->
     <view class="chip-row">
@@ -29,7 +26,7 @@
     <!-- 3. 聚合列表：点击直达被互动的帖子 -->
     <scroll-view scroll-y class="list-area">
       <view v-if="items.length === 0" class="empty-state">
-        <text class="empty-emoji">💌</text>
+        <image class="empty-emoji" src="/static/icons/state/mail-heart.svg" mode="aspectFit" />
         <text class="empty-text">还没有互动消息</text>
       </view>
       <view
@@ -54,19 +51,19 @@
           </view>
         </view>
         <view v-if="!it.is_read" class="unread-dot" />
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
       <view class="list-foot" />
     </scroll-view>
-
-    <TabBar :current="3" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
+import { useTheme } from '@/utils/theme'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { onShow } from '@dcloudio/uni-app'
-import TabBar from '@/components/tab-bar.vue'
 import {
   listNotifications,
   readNotification,
@@ -76,7 +73,7 @@ import {
 } from '@/api/notification'
 import { tokenStorage } from '@/utils/storage'
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const { themeClass } = useTheme()
 
 type ChipKey = 'all' | 'like' | 'favorite' | 'comment'
 const active = ref<ChipKey>('all')
@@ -130,12 +127,6 @@ const items = computed<Row[]>(() =>
 // 通知未带帖子标题时，用不了内容就显示编号（列表页不额外拉帖，保持轻量）
 const postSnippetOf = (n: NotificationItem) => (n.post_id ? `帖子 #${n.post_id}` : '已删除的帖子')
 
-const AVATAR_COLORS = ['#2f86f6', '#ff5c7a', '#ffb822', '#2ed573', '#d3adf7', '#ffd591']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 const timeAgo = (t: string) => {
   const ts = new Date(t).getTime()
@@ -191,24 +182,19 @@ const onMarkAllRead = async () => {
     uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
   }
 }
-
-const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/message/index' }) })
 </script>
 
 <style scoped>
 .page-interactions { min-height: 100vh; background-color: var(--bg-page); display: flex; flex-direction: column; }
 
-.header { background-color: var(--primary); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
-.header-right { font-size: 24rpx; color: var(--text-inverse); opacity: 0.85; }
+.mark-read-btn { font-size: 26rpx; color: var(--primary-text); font-weight: 500; padding: 17rpx 18rpx; border-radius: 20rpx; background: var(--primary-soft); min-height: 64rpx; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: var(--bg-card); }
-.chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-bottom: 12rpx; line-height: 1.4; }
+/* padding-top 13rpx + 行高 39rpx + padding-bottom 12rpx = 64rpx（≈33px）点击区 */
+.chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-top: 13rpx; padding-bottom: 12rpx; line-height: 1.4; min-width: 64rpx; }
 .chip.on { color: var(--text-1); font-weight: bold; border-bottom: 6rpx solid var(--primary); }
-.chip-badge { margin-left: 8rpx; font-size: 20rpx; font-weight: normal; color: var(--primary-strong); }
+.chip-badge { margin-left: 8rpx; font-size: 22rpx; font-weight: normal; color: var(--primary-text); }
 
 .list-area { flex: 1; padding: 16rpx 24rpx 0; box-sizing: border-box; }
 
@@ -223,23 +209,28 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 }
 .interaction-card.unread { background: var(--primary-soft); }
 
-.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--on-avatar); font-weight: bold; flex-shrink: 0; }
 .main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .line1 { display: flex; align-items: center; flex-wrap: wrap; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
 .action { font-size: 24rpx; color: var(--text-2); margin-left: 10rpx; }
-.act-like { color: var(--danger); }
+.act-like { color: var(--danger-strong); }
 .act-favorite { color: var(--warning); }
-.act-comment { color: var(--info); }
+.act-comment { color: var(--primary-text); }
 .excerpt { display: block; font-size: 26rpx; color: var(--text-1); margin-top: 10rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line2 { display: flex; align-items: center; margin-top: 10rpx; }
 .post-ref { font-size: 22rpx; color: var(--text-3); max-width: 380rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .time { font-size: 22rpx; color: var(--text-3); margin-left: 16rpx; }
 .unread-dot { position: absolute; left: 12rpx; top: 12rpx; width: 14rpx; height: 14rpx; border-radius: 50%; background: var(--primary-strong); }
-.arrow { font-size: 40rpx; color: var(--text-4); margin-left: 8rpx; align-self: center; }
+.arrow { width: 32rpx; height: 32rpx; margin-left: 8rpx; align-self: center; flex-shrink: 0; }
 
 .empty-state { padding-top: 200rpx; display: flex; flex-direction: column; align-items: center; }
-.empty-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.empty-emoji {
+  width: 96rpx;
+  height: 96rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.5;
+}
 .empty-text { font-size: 28rpx; color: var(--text-3); }
 .list-foot { height: 120rpx; }
 </style>

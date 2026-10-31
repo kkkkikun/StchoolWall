@@ -1,13 +1,6 @@
 <template>
-  <view class="page-tag-posts">
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">#{{ tagName }}</text>
-        <view class="header-right" />
-      </view>
-    </view>
+  <view class="page-tag-posts" :class="themeClass">
+    <CustomNavBar show-back :title="'#' + (tagName || '标签')" />
 
     <view class="tabs">
       <view
@@ -40,14 +33,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import FeedCard from '@/components/feed-card.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
 import { getPosts, getFeaturedPosts, getFollowingFeed } from '@/api/posts'
 import { tokenStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const { themeClass } = useTheme()
+
 const tagName = ref('')
 const mode = ref<'all' | 'latest' | 'following' | 'featured'>('all')
 const tabs = [
@@ -111,12 +107,6 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 <style scoped>
 .page-tag-posts { min-height: 100vh; background-color: var(--bg-page); }
 
-.header { background-color: var(--primary); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: var(--text-inverse); line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: var(--text-inverse); }
-.header-right { width: 80rpx; }
-
 .tabs { display: flex; background: var(--bg-card); padding: 0 16rpx; border-bottom: 1rpx solid var(--border-light); }
 .tab { position: relative; flex: 1; text-align: center; font-size: 28rpx; color: var(--text-2); padding: 24rpx 0 20rpx; }
 .tab.on { color: var(--text-1); font-weight: bold; }
@@ -125,6 +115,6 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .skeleton-list { padding: 20rpx 24rpx; }
 .feed-list { padding: 20rpx 24rpx 40rpx; }
 .feed-foot { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 24rpx 0; }
-.more { color: var(--primary-strong); }
+.more { color: var(--primary-text); }
 .empty { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 140rpx 0; }
 </style>

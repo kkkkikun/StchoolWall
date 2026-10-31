@@ -1,5 +1,5 @@
 <template>
-  <view class="page-info">
+  <view class="page-info" :class="themeClass">
     <view class="info-card">
       <text class="info-title">{{ content.title }}</text>
       <text v-for="(p, i) in content.paras" :key="i" class="info-para">{{ p }}</text>
@@ -15,7 +15,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+
+const { themeClass } = useTheme()
 
 type InfoType = 'community' | 'invite' | 'about' | 'contact' | 'privacy' | 'agreement'
 
@@ -69,11 +72,13 @@ const INFO_MAP: Record<InfoType, { title: string; paras: string[] }> = {
     paras: [
       '我们非常重视你的个人信息安全。本应用仅收集提供服务所必需的信息。',
       '',
-      '1. 登录注册：使用网页账号登录时，我们会保存经过加密的密码，不会保存明文密码。',
-      '2. 学籍认证：认证时填写的学号与密码仅用于向教务系统核验身份，核验通过后只保存学号与姓名，绝不保存教务密码。',
-      '3. 发布内容：你发布的帖子、评论会公开展示；请勿在正文中公开真实姓名、电话、住址等隐私信息。',
+      '1. 登录注册：保存密码的单向哈希，不保存明文密码。浏览器刷新会话使用 HttpOnly Cookie；Android 刷新凭据由设备安全存储加密保护。可在设置中查看和撤销登录会话。',
+      '2. 学生证认证：不再收集教务密码。经你主动同意后，使用学生证和同框手写拍摄码人工核验；仅保存学校、学号的不可逆身份指纹和审核状态，不保存明文学号或姓名。私有照片只供授权管理员查看，不公开，不送交外部内容审核；审核结束 7 天后删除，待审超过 14 天自动过期并删除。认证最长有效 12 个月，或更早的证件有效期。',
+      '3. 发布内容：帖子、评论、头像等在通过审核后公开。普通内容和图片可能发送至腾讯云内容安全服务进行审核；学生证照片不进入此流程。请勿在公开内容中披露他人信息。',
       '4. 联系方式：帖子详情仅在交易/拼车等必要场景向认证用户展示微信号，游客不可见。',
-      '5. 注销账号：你可以在「设置 → 注销账号」中注销，我们会清理你的学号、姓名、微信号、头像等隐私字段。',
+      '5. 权限：仅在你主动拍照、认证或选择图片时请求必要权限，拒绝后可以继续浏览；不申请通讯录、电话状态、账号列表、系统日志或位置权限。可在系统设置中撤回授权。',
+      '6. 注销与联系：可以在设置中注销账号或撤销设备会话。法定保留记录与反滥用身份指纹的保存范围、具体期限及申诉删除方式，应由实际运营主体在正式上线政策中公布。',
+      '当前为发布前政策模板：运营主体、有效联系方式、第三方 SDK 清单、备案信息和具体保留期限尚须上线前核实补齐；不能直接作为正式上架材料。',
     ],
   },
   agreement: {
@@ -117,7 +122,7 @@ const copyInvite = () => {
 .info-para { display: block; font-size: 26rpx; color: var(--text-2); line-height: 1.9; }
 .invite-btn {
   margin-top: 36rpx;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 28rpx;
   text-align: center;

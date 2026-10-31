@@ -1,5 +1,5 @@
 <template>
-  <view class="page-oauth">
+  <view class="page-oauth" :class="themeClass">
     <view class="card">
       <text class="title">{{ statusText }}</text>
       <text class="desc">正在完成微信登录，请稍候…</text>
@@ -9,9 +9,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
-import { mpLogin } from '@/api/auth'
-import { tokenStorage, userStorage } from '@/utils/storage'
+import { mpLogin, storeLoginSession } from '@/api/auth'
+
+
+const { themeClass } = useTheme()
 
 const statusText = ref('微信登录中…')
 
@@ -28,20 +31,24 @@ function readCodeFromUrl(): string {
 
 onLoad(async () => {
   const code = readCodeFromUrl()
+  const search = new URLSearchParams(window.location.search)
+  const hashQuery = new URLSearchParams(window.location.hash.split('?')[1] || '')
+  const state = search.get('state') || hashQuery.get('state') || ''
+  const expectedState = sessionStorage.getItem('sw_oauth_state')
+  sessionStorage.removeItem('sw_oauth_state')
+  window.history.replaceState({}, document.title, window.location.pathname + '#/pages/oauth-callback/index')
+  if (!state || !expectedState || state !== expectedState) {
+    statusText.value = '授权状态不匹配，请从登录页重试'
+    return
+  }
   if (!code) {
     statusText.value = '登录失败：缺少微信授权参数'
     setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 1500)
     return
   }
   try {
-    const data = await mpLogin(code)
-    tokenStorage.setToken(data.access_token)
-    userStorage.setUserInfo({
-      id: data.user_info.id,
-      nickname: data.user_info.nickname,
-      role: data.role,
-      is_verified: data.user_info.is_verified,
-    })
+    const data = await mpLogin(code, state)
+    await storeLoginSession(data)
     statusText.value = '登录成功'
     setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 400)
   } catch (e) {

@@ -1,68 +1,84 @@
-name: Deploy to Server
-
+name: Staging then Production
 on:
-  push:
+  workflow_run:
+    workflows: ["Production CI"]
+    types: [completed]
     branches: [main]
-  workflow_dispatch: # 支持手动触发
-
-# 同一时间只允许一个部署，避免并发 git pull / compose 冲突
+permissions: {contents: read, actions: read}
 concurrency:
-  group: deploy-production
+  group: schoolwall-release
   cancel-in-progress: false
-
 jobs:
-  deploy:
+  staging:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    environment: staging
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: DEPLOY_PATH,WEB_ROOT
-          script: |
-            set -eu
-            DEPLOY_PATH="${DEPLOY_PATH:-/opt/schoolwall}"
-            WEB_ROOT="${WEB_ROOT:-/var/www/schoolwall}"
-
-            # 1. 更新代码（服务器需已 clone 私有仓库，凭证见 deploy/GH_ACTIONS.md）
-            cd "$DEPLOY_PATH"
-            git pull --ff-only origin main
-
-            # 2. 构建前端产物（服务器无需装 Node，用 docker 跑构建）
-            mkdir -p "$DEPLOY_PATH/.npm-cache" "$WEB_ROOT"
-            docker run --rm -v "$DEPLOY_PATH":/app -w /app/frontend \
-              -e HOME=/tmp -e npm_config_cache=/npm-cache \
-              --user "$(id -u):$(id -g)" -v "$DEPLOY_PATH/.npm-cache":/npm-cache \
-              node:20-alpine sh -c "npm ci && npm run build:h5"
-            docker run --rm -v "$DEPLOY_PATH":/app -w /app/admin-frontend \
-              -e HOME=/tmp -e npm_config_cache=/npm-cache \
-              --user "$(id -u):$(id -g)" -v "$DEPLOY_PATH/.npm-cache":/npm-cache \
-              node:20-alpine sh -c "npm ci && npm run build -- --base=/admin/"
-
-            # 3. 同步静态站点（uni-app H5 + 管理台 SPA）
-            rsync -a --delete "$DEPLOY_PATH/frontend/dist/build/h5/" "$WEB_ROOT/h5/"
-            rsync -a --delete "$DEPLOY_PATH/admin-frontend/dist/"   "$WEB_ROOT/admin/"
-
-            # 4. 重建后端容器（自动跑 Alembic 迁移）
-            cd "$DEPLOY_PATH/deploy"
-            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-
-            # 5. 健康检查（后端起动+迁移需要几秒）
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
-                echo "deploy ok: backend healthy"
-                exit 0
-              fi
-              sleep 2
-            done
-            echo "deploy failed: backend health check timed out" >&2
-            exit 1
+          name: verified-web
+          path: release
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-manifest
+          path: release
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate release provenance and create transport
         env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/schoolwall' }}
-          WEB_ROOT: ${{ secrets.WEB_ROOT || '/var/www/schoolwall' }}
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+          m = json.load(open("release/manifest.json"))
+          assert m["revision"] == os.environ["EXPECTED_REVISION"]
+          assert re.fullmatch(r"ghcr.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}", m["backend_image"])
+          PY
+          tar -xzf release/verified-web.tar.gz -C release
+          rm release/verified-web.tar.gz
+          tar -czf release.tar.gz -C release .
+          sha256sum release.tar.gz > release.tar.gz.sha256
+      - name: Transfer and deploy staging
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          SERVER: ${{ secrets.SERVER_HOST }}
+          USERNAME: ${{ secrets.SERVER_USERNAME }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:/opt/schoolwall/incoming/"
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" 'cd /opt/schoolwall/incoming && sha256sum -c release.tar.gz.sha256 && UNPACK="$(mktemp -d /opt/schoolwall/incoming/release.XXXXXX)" && tar -xzf release.tar.gz -C "$UNPACK" && bash "$UNPACK/rollout.sh" /opt/schoolwall "$UNPACK"'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: staged-release
+          path: |
+            release.tar.gz
+            release.tar.gz.sha256
+          retention-days: 30
+
+  production:
+    needs: staging
+    runs-on: ubuntu-latest
+    # Configure required reviewers + protected main in repository environment settings.
+    environment: production
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: staged-release, path: .}
+      - name: Deploy the identical staged artifact
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          SERVER: ${{ secrets.SERVER_HOST }}
+          USERNAME: ${{ secrets.SERVER_USERNAME }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:/opt/schoolwall/incoming/"
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" 'cd /opt/schoolwall/incoming && sha256sum -c release.tar.gz.sha256 && UNPACK="$(mktemp -d /opt/schoolwall/incoming/release.XXXXXX)" && tar -xzf release.tar.gz -C "$UNPACK" && bash "$UNPACK/rollout.sh" /opt/schoolwall "$UNPACK"'

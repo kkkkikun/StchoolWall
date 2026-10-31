@@ -1,5 +1,8 @@
 """管理后台（console）认证路由：登录 / 当前账号 / 改密。"""
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from app.config import settings
+import secrets
+from app.utils.mfa import verify_totp
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -33,7 +36,7 @@ LOGIN_RATE_WINDOW = 60
 
 
 @router.post("/auth/login")
-async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_login(body: AdminLoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """账号密码登录（IP 限流 + 按用户名失败退避），返回 console 专用 token。"""
     ip = request.client.host if request.client else "unknown"
     # 超限直接抛 429
@@ -49,13 +52,32 @@ async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSessio
     if admin is None:
         await incr_rate(username_key, window)
         raise HTTPException(status_code=401, detail="用户名或密码错误")
-    await clear_rate(username_key)  # 成功清零
+    mfa = False
+    if admin.mfa_secret_encrypted:
+        await db.refresh(admin, with_for_update=True)
+        counter = verify_totp(admin.mfa_secret_encrypted, body.totp_code or "", admin.mfa_last_counter)
+        if counter is None:
+            await incr_rate(username_key, window)
+            raise HTTPException(401, "用户名、密码或验证码错误")
+        admin.mfa_last_counter = counter
+        await db.commit()
+        mfa = True
+    elif settings.ENVIRONMENT == "production":
+        raise HTTPException(403, "请先在可信终端为管理员启用双重验证")
+    await clear_rate(username_key)
+    response.headers["Cache-Control"] = "no-store"
+    admin_token = issue_console_token(admin, mfa=mfa)
+    csrf = secrets.token_urlsafe(32)
+    response.set_cookie("sw_admin", admin_token, httponly=True, secure=settings.ENVIRONMENT == "production",
+                        samesite="strict", path="/api/v1/admin", max_age=settings.ADMIN_TOKEN_EXPIRE_HOURS * 3600)
+    response.set_cookie("sw_admin_csrf", csrf, secure=settings.ENVIRONMENT == "production",
+                        samesite="strict", path="/", max_age=settings.ADMIN_TOKEN_EXPIRE_HOURS * 3600)
 
     return {
         "code": 0,
         "message": "登录成功",
         "data": {
-            "access_token": issue_console_token(admin),
+            "access_token": admin_token,
             "admin": {"id": str(admin.id), "username": admin.username, "nickname": admin.nickname},
         },
     }
@@ -171,3 +193,14 @@ async def reset_admin_account_password(
                            ip=_client_ip(request))
     await db.commit()
     return {"code": 0, "message": "密码已重置", "data": {"id": str(admin.id)}}
+
+@router.post("/auth/logout")
+async def admin_logout(response: Response, actor: AdminActor = Depends(require_admin_console),
+                       db: AsyncSession = Depends(get_db)):
+    admin = await get_admin_by_id(db, actor.id)
+    if admin:
+        admin.pwd_version += 1
+        await db.commit()
+    response.delete_cookie("sw_admin", path="/api/v1/admin")
+    response.delete_cookie("sw_admin_csrf", path="/")
+    return {"code": 0, "message": "已退出管理后台"}

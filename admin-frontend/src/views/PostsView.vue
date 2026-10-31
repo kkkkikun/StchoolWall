@@ -3,8 +3,11 @@
     <!-- 筛选栏 -->
     <el-card shadow="never" class="filter-card">
       <el-form inline @submit.prevent>
+        <el-form-item label="帖子 ID">
+          <el-input v-model.number="filters.id" placeholder="精确 ID" clearable style="width: 110px" @keyup.enter="load(1)" />
+        </el-form-item>
         <el-form-item label="关键词">
-          <el-input v-model="filters.q" placeholder="搜索帖子内容" clearable style="width: 200px" @keyup.enter="load(1)" />
+          <el-input v-model="filters.q" placeholder="搜索帖子内容" clearable style="width: 180px" @keyup.enter="load(1)" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filters.status" clearable placeholder="全部" style="width: 120px">
@@ -44,12 +47,27 @@
       <el-table :data="items" @selection-change="(rows: AdminPost[]) => selected = rows" v-loading="loading">
         <el-table-column type="selection" width="44" />
         <el-table-column label="ID" prop="id" width="72" />
-        <el-table-column label="内容" min-width="260">
+        <el-table-column label="内容" min-width="280">
           <template #default="{ row }">
             <div class="content-cell">
-              <span class="pin-flag" v-if="row.is_pinned">置顶</span>
-              <span class="featured-flag" v-if="row.is_featured">精华</span>
-              <span class="content-text">{{ row.content }}</span>
+              <div class="content-top">
+                <span class="pin-flag" v-if="row.is_pinned">置顶</span>
+                <span class="featured-flag" v-if="row.is_featured">精华</span>
+                <span class="content-text">{{ row.content }}</span>
+              </div>
+              <!-- 图片画廊预览 -->
+              <div v-if="row.images && row.images.length" class="post-thumbs">
+                <el-image
+                  v-for="(img, idx) in row.images"
+                  :key="idx"
+                  :src="img"
+                  fit="cover"
+                  class="thumb-img"
+                  :preview-src-list="row.images"
+                  :initial-index="idx"
+                  preview-teleported
+                />
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -67,7 +85,11 @@
         </el-table-column>
         <el-table-column label="互动" width="130">
           <template #default="{ row }">
-            <span class="stats-text">👍{{ row.like_count }} 💬{{ row.comment_count }} 👁{{ row.view_count }}</span>
+            <span class="stats-text">
+              <span class="stat"><el-icon><Pointer /></el-icon>{{ row.like_count }}</span>
+              <span class="stat"><el-icon><ChatDotRound /></el-icon>{{ row.comment_count }}</span>
+              <span class="stat"><el-icon><View /></el-icon>{{ row.view_count }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="发布时间" width="150">
@@ -104,7 +126,11 @@
         </el-table-column>
         <el-table-column label="互动" width="150">
           <template #default="{ row }">
-            <span class="stats-text">👍{{ row.like_count }} 💬{{ row.comment_count }} 👁{{ row.view_count }}</span>
+            <span class="stats-text">
+              <span class="stat"><el-icon><Pointer /></el-icon>{{ row.like_count }}</span>
+              <span class="stat"><el-icon><ChatDotRound /></el-icon>{{ row.comment_count }}</span>
+              <span class="stat"><el-icon><View /></el-icon>{{ row.view_count }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="100">
@@ -139,8 +165,11 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPosts, updatePostStatus, pinPost, featurePost, getFeatureCandidates, editPost, batchPostStatus, exportPostsUrl, type AdminPost } from '@/api/posts'
-import { getToken } from '@/utils/request'
+import { Pointer, ChatDotRound, View } from '@element-plus/icons-vue'
+import { getPosts, updatePostStatus, pinPost, featurePost, getFeatureCandidates, editPost, batchPostStatus, exportPosts, type AdminPost } from '@/api/posts'
+
+import { useRoute } from 'vue-router'
+const route = useRoute()
 
 const STATUS: Record<number, string> = { '-2': '已删除', '-1': '已封禁', 0: '待审核', 1: '正常', 2: '已归档' }
 const STATUS_TAG: Record<number, string> = { '-2': 'info', '-1': 'danger', 0: 'warning', 1: 'success', 2: 'info' }
@@ -148,7 +177,7 @@ const TYPES: Record<string, string> = {
   general: '动态', lost_found: '失物招领', second_hand: '二手', carpool: '拼车', advertisement: '广告',
 }
 
-const filters = reactive<{ q?: string; status?: number; post_type?: string }>({})
+const filters = reactive<{ q?: string; status?: number; post_type?: string; id?: number }>({})
 const range = ref<[string, string] | null>(null)
 const items = ref<AdminPost[]>([])
 const selected = ref<AdminPost[]>([])
@@ -170,6 +199,7 @@ const load = async (targetPage?: number) => {
     const params: Record<string, unknown> = {
       page: page.value, page_size: pageSize.value,
     }
+    if (filters.id) params.post_id = filters.id
     if (filters.q) params.q = filters.q
     if (filters.status !== undefined && filters.status !== null) params.status = filters.status
     if (filters.post_type) params.post_type = filters.post_type
@@ -186,6 +216,7 @@ const load = async (targetPage?: number) => {
 }
 
 const reset = () => {
+  filters.id = undefined
   filters.q = undefined
   filters.status = undefined
   filters.post_type = undefined
@@ -267,43 +298,56 @@ const saveEdit = async () => {
   }
 }
 
-const exportCsv = () => {
-  // 带 token 的下载（fetch → blob）
-  const url = exportPostsUrl(filters.status, filters.q)
-  fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } })
-    .then(r => {
-      if (!r.ok) throw new Error('导出失败')
-      return r.blob()
-    })
-    .then(blob => {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = `posts-${Date.now()}.csv`
-      a.click()
-      URL.revokeObjectURL(a.href)
-    })
-    .catch(() => ElMessage.error('导出失败'))
+const exportCsv = async () => {
+  try {
+    const blob = await exportPosts(filters.status, filters.q)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `posts-${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    ElMessage.success('已导出')
+  } catch {
+    ElMessage.error('导出失败')
+  }
 }
 
-onMounted(() => load())
+onMounted(() => {
+  if (route.query.post_id) {
+    filters.id = Number(route.query.post_id)
+  }
+  load()
+})
 </script>
 
 <style scoped>
 .filter-card { margin-bottom: 16px; }
 .toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
-.selected-tip { font-size: 13px; color: #f73b43; }
-.content-cell { display: flex; align-items: flex-start; gap: 6px; }
+.selected-tip { font-size: 13px; color: var(--el-color-primary); }
+.content-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.content-top { display: flex; align-items: flex-start; gap: 6px; }
+.post-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.thumb-img {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  border: 1px solid var(--el-border-color-lighter);
+}
 .pin-flag {
   flex-shrink: 0;
-  font-size: 11px; color: #fff; background: #f73b43;
+  font-size: 11px; color: #fff; background: var(--el-color-primary);
   padding: 1px 6px; border-radius: 4px; margin-top: 2px;
 }
 .featured-flag {
   flex-shrink: 0;
-  font-size: 11px; color: #e26d7d; background: #fdf0f2; border: 1px solid #ef8a97;
+  font-size: 11px; color: var(--el-color-primary-dark-2); background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-7);
   padding: 0 6px; border-radius: 4px; margin-top: 2px;
 }
-.content-text { color: #303133; }
-.stats-text { font-size: 12px; color: #909399; }
+.content-text { color: var(--el-text-color-primary); }
+.stats-text { font-size: 12px; color: var(--el-text-color-secondary); display: inline-flex; align-items: center; gap: 12px; }
+.stat { display: inline-flex; align-items: center; gap: 4px; }
 .pager { margin-top: 16px; justify-content: flex-end; }
+
+/* 窄屏适配：固定像素宽的弹窗在 ≤560px 视口下会溢出，统一限宽 */
+:deep(.el-dialog) { max-width: 92vw; }
 </style>

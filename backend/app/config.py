@@ -1,107 +1,112 @@
+from urllib.parse import urlparse
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
-# 仓库公开的占位密钥黑名单：生产环境命中即拒绝启动
 PLACEHOLDER_JWT_SECRETS = {"your_super_secret_key_change_me"}
 
-
 class Settings(BaseSettings):
-    # Environment（fail-secure：默认按生产对待，dev 需在 .env 显式声明）
-    ENVIRONMENT: str = "production"  # development, test, production
-
-    # Database
+    ENVIRONMENT: str = "production"
+    BUILD_REVISION: str = "development"
     DATABASE_URL: str = "postgresql+asyncpg://eywall:eywall123@localhost:5432/ey_wall"
-
-    # 数据库连接池（高并发读多场景，给足连接避免请求排队）
-    DB_POOL_SIZE: int = 10
-    DB_MAX_OVERFLOW: int = 20
-
-    # Redis
+    DB_POOL_SIZE: int = Field(10, ge=1, le=100)
+    DB_MAX_OVERFLOW: int = Field(10, ge=0, le=100)
+    DB_POOL_TIMEOUT: int = 10
+    DB_STATEMENT_TIMEOUT_MS: int = 10000
     REDIS_URL: str = "redis://localhost:6379/0"
-
-    # JWT
+    TEST_DATABASE_URL: str = ""
+    TEST_REDIS_URL: str = ""
     JWT_SECRET: str = "your_super_secret_key_change_me"
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 43200  # 30 days（网页端免登录持久化）
-
-    # WeChat Mini Program
+    JWT_EXPIRE_MINUTES: int = Field(15, ge=1, le=15)
+    REFRESH_EXPIRE_DAYS: int = Field(30, ge=1, le=30)
     WECHAT_APP_ID: str = ""
     WECHAT_APP_SECRET: str = ""
-
-    # WeChat Official Account 网页授权（H5 经公众号入口免密登录）
     WECHAT_MP_APP_ID: str = ""
     WECHAT_MP_APP_SECRET: str = ""
-    # 内容审核降级策略：True=微信故障时放行（可用性优先），False=保持待审等人工（合规优先）
     MODERATION_FAIL_OPEN: bool = False
-    # dev-login 双闸之二：即使 ENVIRONMENT=development 也需显式 true 才暴露一键登录
+    PUBLISHING_ENABLED: bool = True
     DEV_LOGIN_ENABLED: bool = False
-
-    # CORS 白名单（逗号分隔）：H5 预览 + 管理台；小程序原生请求不受 CORS 约束
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174"
-
-    # Admin console（独立 Web 管理后台）
-    ADMIN_TOKEN_EXPIRE_HOURS: int = 12
+    ADMIN_TOKEN_EXPIRE_HOURS: int = 1
+    ADMIN_MFA_ENCRYPTION_KEY: str = ""
     STATIC_BASE_DIR: str = "static"
-
-    # Storage
-    STORAGE_PROVIDER: str = "local"  # local, r2, aliyun
+    PRIVATE_MEDIA_DIR: str = "private-media"
+    MEDIA_MAX_PIXELS: int = 25000000
+    MEDIA_MAX_BYTES: int = 10485760
+    STORAGE_PROVIDER: str = "local"
     CF_R2_ACCOUNT_ID: str = ""
     CF_R2_ACCESS_KEY: str = ""
     CF_R2_SECRET_KEY: str = ""
     CF_R2_BUCKET: str = ""
     CF_R2_PUBLIC_URL: str = ""
-
-    # Zhengfang Academic System
+    COS_SECRET_ID: str = ""
+    COS_SECRET_KEY: str = ""
+    COS_REGION: str = "ap-guangzhou"
+    COS_BUCKET: str = ""
+    COS_ENDPOINT: str = ""
+    COS_PUBLIC_BASE_URL: str = ""
+    TENCENT_SECRET_ID: str = ""
+    TENCENT_SECRET_KEY: str = ""
+    TENCENT_REGION: str = "ap-guangzhou"
+    TENCENT_BIZ_TYPE: str = ""
+    STUDENT_VERIFICATION_ENABLED: bool = False
+    VERIFICATION_SCHOOL_ID: str = "pilot"
+    VERIFICATION_SCHOOL_NAME: str = "本校"
+    VERIFICATION_FINGERPRINT_KEY: str = ""
+    VERIFICATION_FINGERPRINT_KEY_VERSION: str = "v1"
+    VERIFICATION_FINGERPRINT_PREVIOUS_KEYS: str = "{}"
+    VERIFICATION_PRIVATE_DIR: str = "private-verifications"
+    VERIFICATION_STORAGE_PROVIDER: str = "local"
+    VERIFICATION_COS_BUCKET: str = ""
     ZHENGFANG_BASE_URL: str = ""
     ZHENGFANG_TEST_STUDENT_ID: str = ""
     ZHENGFANG_TEST_PASSWORD: str = ""
-
     model_config = {"env_file": ".env", "extra": "ignore"}
-
 
 settings = Settings()
 
-
 def validate_security_config() -> None:
-    """启动安全闸门：生产环境密钥不合格即拒绝启动（fail-fast）。
-
-    覆盖"忘配 .env / env 文件路径解析失败"两类静默降级——两者都会落入默认值，
-    而默认密钥是仓库内公开的占位符，等于允许任意 token 伪造。
-    """
+    if settings.ENVIRONMENT not in {"production", "development", "test"}:
+        raise RuntimeError("ENVIRONMENT 必须为 production/development/test")
     if settings.ENVIRONMENT != "production":
         return
     secret = settings.JWT_SECRET
-    if not secret or secret in PLACEHOLDER_JWT_SECRETS or len(secret) < 32:
-        raise RuntimeError(
-            "JWT_SECRET 未配置或仍为占位符/过短（需 ≥32 字符），生产环境拒绝启动。"
-            "生成随机密钥：openssl rand -hex 32"
-        )
-
-    db_url = settings.DATABASE_URL
-    if not db_url or "CHANGE_ME" in db_url or ":eywall123@" in db_url:
-        raise RuntimeError(
-            "DATABASE_URL 未配置或仍为默认/占位密码，生产环境拒绝启动。"
-            "请通过 deploy/.env.prod 设置强数据库密码。"
-        )
-
-    redis_url = settings.REDIS_URL
-    if not redis_url or "CHANGE_ME" in redis_url or redis_url.rstrip("/") == "redis://localhost:6379/0":
-        raise RuntimeError(
-            "REDIS_URL 未配置或未设置鉴权密码，生产环境拒绝启动。"
-            "请通过 deploy/.env.prod 设置 REDIS_PASSWORD。"
-        )
-
-    cors = settings.CORS_ORIGINS
-    if not cors or "localhost" in cors:
-        raise RuntimeError(
-            "CORS_ORIGINS 未配置或仍含 localhost，生产环境拒绝启动。"
-            "请填写正式部署域名（逗号分隔）。"
-        )
-
+    if (not secret or secret in PLACEHOLDER_JWT_SECRETS or len(secret) < 32
+            or any(marker in secret.upper() for marker in ("CHANGE_ME", "REPLACE_"))):
+        raise RuntimeError("JWT_SECRET 未配置或仍为占位符/过短（需 ≥32 字符）")
+    if not settings.DATABASE_URL or "CHANGE_ME" in settings.DATABASE_URL or ":eywall123@" in settings.DATABASE_URL:
+        raise RuntimeError("DATABASE_URL 未配置或仍为默认/占位密码")
+    if not urlparse(settings.REDIS_URL).password or "CHANGE_ME" in settings.REDIS_URL:
+        raise RuntimeError("REDIS_URL 必须配置鉴权密码")
+    origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+    if not origins or any(not o.startswith("https://") or "*" in o or "localhost" in o for o in origins):
+        raise RuntimeError("CORS_ORIGINS 必须为正式 HTTPS 域名白名单")
+    if settings.MODERATION_FAIL_OPEN or settings.DEV_LOGIN_ENABLED:
+        raise RuntimeError("生产禁止审核失败放行和开发登录")
+    if settings.STUDENT_VERIFICATION_ENABLED:
+        import json
+        keys = {settings.VERIFICATION_FINGERPRINT_KEY_VERSION: settings.VERIFICATION_FINGERPRINT_KEY}
+        try:
+            previous = json.loads(settings.VERIFICATION_FINGERPRINT_PREVIOUS_KEYS)
+            if not isinstance(previous, dict):
+                raise ValueError()
+            keys.update(previous)
+        except (ValueError, TypeError):
+            raise RuntimeError("VERIFICATION_FINGERPRINT_PREVIOUS_KEYS 必须为 JSON 字典") from None
+        if any(not isinstance(k, str) or len(k) < 32 or k == secret or
+               any(marker in k.upper() for marker in ("CHANGE_ME", "REPLACE_")) for k in keys.values()):
+            raise RuntimeError("学籍指纹密钥必须独立且至少32字符")
+        if settings.VERIFICATION_STORAGE_PROVIDER != "cos" or not settings.VERIFICATION_COS_BUCKET:
+            raise RuntimeError("生产学生证必须使用独立私有 COS 桶")
+        if settings.VERIFICATION_COS_BUCKET == settings.COS_BUCKET:
+            raise RuntimeError("学生证与公开媒体必须使用不同 COS 桶")
+        if not settings.COS_SECRET_ID or not settings.COS_SECRET_KEY:
+            raise RuntimeError("学生证 COS 凭证未配置")
+    if settings.ZHENGFANG_BASE_URL or settings.ZHENGFANG_TEST_PASSWORD:
+        raise RuntimeError("教务密码认证已停用，请删除生产教务配置")
 
 def docs_url() -> str | None:
-    """交互式 API 文档地址：生产关闭（防 admin 路由/模型枚举）。"""
     return None if settings.ENVIRONMENT == "production" else "/docs"
-
 
 def redoc_url() -> str | None:
     return None if settings.ENVIRONMENT == "production" else "/redoc"

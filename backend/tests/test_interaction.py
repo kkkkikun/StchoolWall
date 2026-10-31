@@ -1,3 +1,4 @@
+from tests.production_helpers import approve_comments
 """互动模块测试：评论 / 点赞 / 收藏 / 足迹 / 个人统计 / 帖子计数。"""
 
 import pytest
@@ -86,9 +87,11 @@ class TestComment:
             json={"content": "好帖"},
             headers=auth_header(_token(student_user)),
         )
+        await approve_comments()
         assert r.status_code == 200
         assert r.json()["data"]["content"] == "好帖"
-        assert r.json()["data"]["comment_count"] == 1
+        assert r.json()["data"]["status"] == 0
+        assert r.json()["data"]["comment_count"] == 0
 
     @pytest.mark.asyncio
     async def test_list_comments(self, client: AsyncClient, student_user: User, admin_user: User):
@@ -99,6 +102,7 @@ class TestComment:
                 json={"content": f"c{i}"},
                 headers=auth_header(_token(student_user)),
             )
+            await approve_comments()
         r = await client.get(f"/api/v1/posts/{post.id}/comments")
         assert r.status_code == 200
         items = r.json()["data"]["items"]
@@ -112,6 +116,7 @@ class TestComment:
             json={"content": "删我"},
             headers=auth_header(_token(student_user)),
         )
+        await approve_comments()
         cid = r.json()["data"]["id"]
         r2 = await client.delete(f"/api/v1/comments/{cid}", headers=auth_header(_token(student_user)))
         assert r2.status_code == 200
@@ -128,6 +133,7 @@ class TestComment:
             json={"content": "管理员的评论"},
             headers=auth_header(_token(admin_user)),
         )
+        await approve_comments()
         cid = r.json()["data"]["id"]
         r2 = await client.delete(f"/api/v1/comments/{cid}", headers=auth_header(_token(student_user)))
         assert r2.status_code == 403
@@ -140,6 +146,7 @@ class TestComment:
             json={"content": "x"},
             headers=auth_header(_token(guest_user)),
         )
+        await approve_comments()
         assert r.status_code == 403
 
 
@@ -207,7 +214,7 @@ class TestFootprint:
         await client.get(f"/api/v1/posts/{post.id}")
         # 无 token 访问 /me/footprints -> 403（HTTPBearer 默认）
         r = await client.get("/api/v1/me/footprints")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
 
 # ============================================================
@@ -224,6 +231,7 @@ class TestStats:
         post = await _seed_post(admin_user.id, status=1)
         await client.post(f"/api/v1/posts/{post.id}/comments", json={"content": "hi"},
                           headers=auth_header(_token(student_user)))
+        await approve_comments()
         await client.post(f"/api/v1/posts/{post.id}/favorite", headers=auth_header(_token(student_user)))
 
         r = await client.get("/api/v1/me/stats", headers=auth_header(_token(student_user)))
@@ -236,7 +244,7 @@ class TestStats:
     @pytest.mark.asyncio
     async def test_stats_requires_auth(self, client: AsyncClient):
         r = await client.get("/api/v1/me/stats")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
 
 # ============================================================

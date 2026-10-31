@@ -99,7 +99,12 @@ export interface AdminLogItem {
 }
 
 export function getLogs(params: Record<string, unknown>) {
-  return request.get<any, { items: AdminLogItem[]; next_cursor: number | null; has_more: boolean }>(
-    '/admin/logs', { params },
-  )
+  return request.get<any, {
+    items: AdminLogItem[]
+    next_cursor: number | null
+    has_more: boolean
+    total?: number
+    page?: number
+    page_size?: number
+  }>('/admin/logs', { params })
 }

@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -8,6 +9,7 @@ class PostCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
     category: str | None = Field(None, max_length=20)
     images: list[str] = Field(default_factory=list, max_length=6)
+    media_ids: list[UUID] = Field(default_factory=list, max_length=6)
     price: float | None = Field(None, ge=0, le=10_000_000)
     tag_ids: list[int] = Field(default_factory=list, max_length=10)
 

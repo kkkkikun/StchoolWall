@@ -33,9 +33,9 @@ async def _seed_records(user_id, n: int = 5) -> list[int]:
 class TestModerationRecords:
 
     async def test_requires_console(self, client: AsyncClient, student_user: User, student_token: str):
-        """匿名与学生 token 均 403。"""
+        """匿名返回 401；学生 token 无管理权限返回 403。"""
         r = await client.get("/api/v1/admin/moderation-records")
-        assert r.status_code == 403
+        assert r.status_code == 401
         r2 = await client.get("/api/v1/admin/moderation-records", headers=auth_header(student_token))
         assert r2.status_code == 403
 

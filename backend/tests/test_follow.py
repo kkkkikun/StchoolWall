@@ -62,7 +62,7 @@ class TestFollowingFeed:
     @pytest.mark.asyncio
     async def test_feed_requires_auth(self, client: AsyncClient):
         r = await client.get("/api/v1/posts/following")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
     @pytest.mark.asyncio
     async def test_feed_empty_when_no_follow(self, client: AsyncClient, student_user: User, admin_user: User):

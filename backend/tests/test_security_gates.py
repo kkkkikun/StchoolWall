@@ -42,7 +42,10 @@ class TestValidateSecurityConfig:
             settings.ENVIRONMENT = "test"
             settings.JWT_SECRET = "test_secret_for_unit_tests_only_not_used_in_ci"
 
-    def test_production_strong_secret_passes(self):
+    def test_production_strong_secret_passes(self, monkeypatch):
+        monkeypatch.setattr(settings, "ZHENGFANG_BASE_URL", "")
+        monkeypatch.setattr(settings, "ZHENGFANG_TEST_PASSWORD", "")
+        monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", False)
         settings.ENVIRONMENT = "production"
         settings.JWT_SECRET = "a" * 48
         settings.DATABASE_URL = "postgresql+asyncpg://u:strongpass@db:5432/ey_wall"
@@ -158,3 +161,30 @@ class TestCorsAllowlist:
     async def test_unknown_origin_gets_no_acao(self, client: AsyncClient):
         r = await client.get("/health", headers={"Origin": "https://evil.example.com"})
         assert "access-control-allow-origin" not in r.headers
+
+@pytest.mark.parametrize('field,value', [
+    ('JWT_SECRET', 'CHANGE_ME_INDEPENDENT_RANDOM_SECRET_AT_LEAST_32_CHARACTERS'),
+    ('JWT_SECRET', 'REPLACE_WITH_RANDOM_PRODUCTION_JWT_SECRET'),
+    ('VERIFICATION_FINGERPRINT_KEY', 'CHANGE_ME_INDEPENDENT_FINGERPRINT_SECRET_32_CHARS'),
+])
+def test_long_production_example_keys_are_rejected(monkeypatch, field, value):
+    from app.config import validate_security_config
+    configured = {
+        'ENVIRONMENT': 'production', 'JWT_SECRET': 'j' * 48,
+        'DATABASE_URL': 'postgresql+asyncpg://u:longrandom@db:5432/ey_wall',
+        'REDIS_URL': 'redis://:longrandom@redis:6379/0',
+        'CORS_ORIGINS': 'https://campus.example.edu.cn',
+        'DEV_LOGIN_ENABLED': False, 'MODERATION_FAIL_OPEN': False,
+        'ZHENGFANG_BASE_URL': '', 'ZHENGFANG_TEST_PASSWORD': '',
+        'STUDENT_VERIFICATION_ENABLED': True,
+        'VERIFICATION_FINGERPRINT_KEY': 'f' * 48,
+        'VERIFICATION_FINGERPRINT_PREVIOUS_KEYS': '{}',
+        'VERIFICATION_STORAGE_PROVIDER': 'cos',
+        'VERIFICATION_COS_BUCKET': 'private-evidence', 'COS_BUCKET': 'private-media',
+        'COS_SECRET_ID': 'synthetic-id', 'COS_SECRET_KEY': 'synthetic-key',
+    }
+    for name, setting in configured.items():
+        monkeypatch.setattr(settings, name, setting)
+    monkeypatch.setattr(settings, field, value)
+    with pytest.raises(RuntimeError):
+        validate_security_config()

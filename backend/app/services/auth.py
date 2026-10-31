@@ -1,252 +1,121 @@
 import random
 import string
+import uuid
 
 import httpx
+from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models.session import LoginIdentity
 from app.models.user import User
+from app.services.sessions import issue_session
 from app.utils.password import hash_password, verify_password
-from app.utils.security import create_access_token
-from app.utils.zhengfang import verify_student
 
 
 def _generate_nickname() -> str:
-    code = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    return f"鄂应学子_{code}"
+    return "校园同学_" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
-async def wx_login(code: str, db: AsyncSession) -> dict:
-    url = (
-        f"https://api.weixin.qq.com/sns/jscode2session"
-        f"?appid={settings.WECHAT_APP_ID}"
-        f"&secret={settings.WECHAT_APP_SECRET}"
-        f"&js_code={code}"
-        f"&grant_type=authorization_code"
-    )
-    async with httpx.AsyncClient(trust_env=False) as client:
-        resp = await client.get(url, timeout=10)
-        data = resp.json()
+async def _identity(db, provider: str, subject: str, legacy_openid: str):
+    identity = (await db.execute(select(LoginIdentity).where(
+        LoginIdentity.provider == provider, LoginIdentity.subject == subject))).scalar_one_or_none()
+    if identity:
+        return identity, await db.get(User, identity.user_id)
+    user = (await db.execute(select(User).where(User.openid == legacy_openid))).scalar_one_or_none()
+    if user:
+        identity = LoginIdentity(user_id=user.id, provider=provider, subject=subject,
+                                 password_hash=user.web_password_hash if provider == "password" else None)
+        db.add(identity)
+        await db.flush()
+    return identity, user
 
-    openid = data.get("openid")
-    if not openid:
-        return {"code": 400, "message": "微信登录失败，请重试", "data": None}
 
-    result = await db.execute(select(User).where(User.openid == openid))
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        user = User(
-            openid=openid,
-            nickname=_generate_nickname(),
-            role="guest",
-            is_verified=False,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
+async def _login_result(db, user, identity, client_type="native"):
     if user.status != 1:
         return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
-
-    token = create_access_token({"sub": str(user.id), "role": user.role})
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "access_token": token,
-            "role": user.role,
-            "user_info": {
-                "id": str(user.id),
-                "nickname": user.nickname,
-                "is_verified": user.is_verified,
-            },
-        },
-    }
+    return {"code": 0, "message": "success", "data": await issue_session(db, user, identity, client_type)}
 
 
-async def mp_oauth_login(db: AsyncSession, code: str) -> dict:
-    """公众号网页授权登录：code 换 openid，然后与现有用户体系打通。
+async def _wechat_identity(db, provider, subject, legacy_openid, client_type):
+    identity, user = await _identity(db, provider, subject, legacy_openid)
+    if user is None:
+        user = User(openid=legacy_openid, nickname=_generate_nickname(), role="guest", is_verified=False)
+        db.add(user)
+        await db.flush()
+        identity = LoginIdentity(user_id=user.id, provider=provider, subject=subject)
+        db.add(identity)
+        await db.flush()
+    return await _login_result(db, user, identity, client_type)
 
-    - openid 命名空间 mp:{openid}，与小程序 / 网页账号互不冲突
-    - 新用户 role=guest，发帖互动需走学籍认证升级
-    """
+
+async def wx_login(code: str, db: AsyncSession, client_type="weixin") -> dict:
+    try:
+        async with httpx.AsyncClient(trust_env=False, timeout=10) as client:
+            response = await client.get("https://api.weixin.qq.com/sns/jscode2session", params={
+                "appid": settings.WECHAT_APP_ID, "secret": settings.WECHAT_APP_SECRET,
+                "js_code": code, "grant_type": "authorization_code"})
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError):
+        return {"code": 503, "message": "微信登录服务暂时不可用，请稍后重试", "data": None}
+    if not data.get("openid"):
+        return {"code": 400, "message": "微信登录失败，请重试", "data": None}
+    return await _wechat_identity(db, "weixin:" + settings.WECHAT_APP_ID, data["openid"],
+                                  data["openid"], client_type)
+
+
+async def mp_oauth_login(db: AsyncSession, code: str, client_type="web") -> dict:
     if not settings.WECHAT_MP_APP_ID or not settings.WECHAT_MP_APP_SECRET:
         return {"code": 400, "message": "公众号登录未配置，请联系管理员", "data": None}
-
-    url = (
-        "https://api.weixin.qq.com/sns/oauth2/access_token"
-        f"?appid={settings.WECHAT_MP_APP_ID}"
-        f"&secret={settings.WECHAT_MP_APP_SECRET}"
-        f"&code={code}"
-        "&grant_type=authorization_code"
-    )
     try:
-        async with httpx.AsyncClient(trust_env=False) as client:
-            resp = await client.get(url, timeout=10)
-        data = resp.json()
-    except httpx.HTTPError:
-        return {"code": 400, "message": "微信授权请求失败，请重试", "data": None}
-
-    mp_openid = data.get("openid")
-    if not mp_openid:
+        async with httpx.AsyncClient(trust_env=False, timeout=10) as client:
+            response = await client.get("https://api.weixin.qq.com/sns/oauth2/access_token", params={
+                "appid": settings.WECHAT_MP_APP_ID, "secret": settings.WECHAT_MP_APP_SECRET,
+                "code": code, "grant_type": "authorization_code"})
+            data = response.json()
+    except (httpx.HTTPError, ValueError):
+        return {"code": 503, "message": "微信授权服务暂时不可用，请重试", "data": None}
+    if not data.get("openid"):
         return {"code": 400, "message": "微信授权失败，请重试", "data": None}
-
-    openid = f"mp:{mp_openid}"
-    result = await db.execute(select(User).where(User.openid == openid))
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        user = User(
-            openid=openid,
-            nickname=_generate_nickname(),
-            role="guest",
-            is_verified=False,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
-    if user.status != 1:
-        return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
-
-    token = create_access_token({"sub": str(user.id), "role": user.role})
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "access_token": token,
-            "role": user.role,
-            "user_info": {
-                "id": str(user.id),
-                "nickname": user.nickname,
-                "is_verified": user.is_verified,
-            },
-        },
-    }
+    return await _wechat_identity(db, "mp:" + settings.WECHAT_MP_APP_ID, data["openid"],
+                                  "mp:" + data["openid"], client_type)
 
 
-async def dev_login(db: AsyncSession, as_admin: bool = False) -> dict:
-    """开发环境一键登录（演示身份），仅 ENVIRONMENT=development 暴露路由。
-
-    as_admin=True 登演示管理员（管理后台联调用）；默认演示学生。
-    用户不存在时自动创建（管理员同样落 student_id/real_name，仅演示库使用）。
-    """
-    if as_admin:
-        openid = "dev_demo_admin"
-        defaults = dict(nickname="演示管理员", role="admin", student_id="2024ADMIN", real_name="演示管理员")
-    else:
-        openid = "dev_demo_student"
-        defaults = dict(nickname="演示同学", role="student", student_id="2024DEV", real_name="演示同学")
-
-    result = await db.execute(select(User).where(User.openid == openid))
-    user = result.scalar_one_or_none()
-    if user is None:
-        user = User(openid=openid, is_verified=True, **defaults)
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
-    token = create_access_token({"sub": str(user.id), "role": user.role})
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "access_token": token,
-            "role": user.role,
-            "user_info": {
-                "id": str(user.id),
-                "nickname": user.nickname,
-                "is_verified": user.is_verified,
-            },
-        },
-    }
-
-
-async def student_verify(
-    user: User, student_id: str, password: str, db: AsyncSession
-) -> dict:
-    if user.is_verified:
-        return {"code": 400, "message": "你已完成学籍认证", "data": None}
-
-    # Check if student_id already bound
-    result = await db.execute(select(User).where(User.student_id == student_id))
-    existing = result.scalar_one_or_none()
-    if existing and existing.id != user.id:
-        return {
-            "code": 40901,
-            "message": "该学号已被其他微信号绑定，请联系管理员申诉",
-        }
-
-    # Call zhengfang crawler
-    result = await verify_student(student_id, password, settings.ZHENGFANG_BASE_URL)
-
-    if result["status"] != "success":
-        return {"code": 400, "message": result.get("msg", "认证失败"), "data": None}
-
-    # Update user
-    user.student_id = student_id
-    user.real_name = result.get("real_name")
-    user.is_verified = True
-    user.role = "student"
-    await db.commit()
-
-    # Issue upgraded token
-    token = create_access_token({"sub": str(user.id), "role": "student"})
-    return {
-        "code": 0,
-        "message": "认证成功",
-        "data": {
-            "access_token": token,
-            "role": "student",
-            "user_info": {
-                "id": str(user.id),
-                "nickname": user.nickname,
-                "is_verified": True,
-            },
-        },
-    }
-
-
-async def web_login(db: AsyncSession, username: str, password: str) -> dict:
-    """网页版登录：账号不存在即注册（昵称即用户名），存在则校验密码。
-
-    - openid 命名空间 web:{username}，与微信用户互不冲突
-    - role=guest：网页注册仅可浏览/签到，发帖互动需走学籍认证升级为 student
-    - 冻结用户拒登；密码 bcrypt 存储，绝不落明文
-    """
-    openid = f"web:{username}"
+async def dev_login(db: AsyncSession, as_admin=False) -> dict:
+    openid = "dev_demo_admin" if as_admin else "dev_demo_student"
     user = (await db.execute(select(User).where(User.openid == openid))).scalar_one_or_none()
-
     if user is None:
-        user = User(
-            openid=openid,
-            nickname=username,
-            role="guest",
-            is_verified=False,
-            web_password_hash=hash_password(password),
-        )
+        user = User(openid=openid, nickname="演示管理员" if as_admin else "演示同学",
+                    role="admin" if as_admin else "student", is_verified=True)
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    else:
-        if user.status != 1:
-            return {"code": 403, "message": "账号已被冻结或已注销", "data": None}
-        if not user.web_password_hash or not verify_password(password, user.web_password_hash):
-            return {"code": 401, "message": "用户名或密码错误", "data": None}
+        await db.flush()
+    return await _login_result(db, user, None)
 
-    token = create_access_token({"sub": str(user.id), "role": user.role})
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "access_token": token,
-            "role": user.role,
-            "user_info": {
-                "id": str(user.id),
-                "nickname": user.nickname,
-                "is_verified": user.is_verified,
-            },
-        },
-    }
+
+async def student_verify(user, student_id, password, db):
+    return {"code": 410, "message": "教务密码认证已停用，请使用学生证人工核验", "data": None}
+
+
+async def web_login(db: AsyncSession, username: str, password: str, client_type="native",
+                    register: bool | None = None) -> dict:
+    identity, user = await _identity(db, "password", username, "web:" + username)
+    if user is None:
+        if register is False or (register is None and settings.ENVIRONMENT == "production"):
+            verify_password(password, "$2b$12$C6UzMDM.H6dfI/f/IKcEe.uoC5m.zZC6xvFX9Vv3Xb.vJxJ9QfQuG")
+            return {"code": 401, "message": "用户名或密码错误", "data": None}
+        user = User(openid="web:" + username, nickname=_generate_nickname(), role="guest", is_verified=False,
+                    web_password_hash=hash_password(password))
+        db.add(user)
+        await db.flush()
+        identity = LoginIdentity(user_id=user.id, provider="password", subject=username,
+                                 password_hash=user.web_password_hash)
+        db.add(identity)
+        await db.flush()
+    elif register is True:
+        raise HTTPException(409, "该登录名不可用")
+    elif not identity.password_hash or not verify_password(password, identity.password_hash):
+        return {"code": 401, "message": "用户名或密码错误", "data": None}
+    return await _login_result(db, user, identity, client_type)

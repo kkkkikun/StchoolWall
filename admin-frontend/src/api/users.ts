@@ -45,6 +45,12 @@ export function updateUserRole(id: string, role: string) {
   return request.put(`/admin/users/${id}/role`, { role })
 }
 
+export function exportUsers(): Promise<Blob> {
+  return request.get<never, Blob>('/admin/export/users', {
+    responseType: 'blob',
+  })
+}
+
 export function exportUsersUrl() {
   return '/api/v1/admin/export/users'
 }

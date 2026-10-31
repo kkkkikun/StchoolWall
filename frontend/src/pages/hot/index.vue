@@ -1,24 +1,17 @@
 <template>
-  <view class="page-hot">
-    <!-- 1. 头部（与首页/互动页同款粉色沉浸头） -->
-    <view class="header">
-      <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="header-row">
-        <text class="back-btn" @tap="goBack">‹</text>
-        <text class="header-title">十大热帖</text>
-        <view class="header-right" />
-      </view>
-    </view>
+  <view class="page-hot" :class="themeClass">
+    <CustomNavBar show-back title="十大热帖" />
 
     <!-- 2. 规则说明条 -->
     <view class="intro-bar">
-      <text class="intro-text">🔥 近 7 天 · 赞×3 + 评论×2 + 浏览 加权排序</text>
+      <image class="intro-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+      <text class="intro-text">近 7 天 ·（赞×3 + 评论×2 + 浏览）加权排序</text>
     </view>
 
     <!-- 3. 完整榜单 -->
     <view v-if="loading" class="state"><text>加载中…</text></view>
     <view v-else-if="!items.length" class="state">
-      <text class="state-emoji">🧊</text>
+      <image class="state-emoji" src="/static/icons/state/ice.svg" mode="aspectFit" />
       <text>本周还没有热帖，发一帖点燃它吧</text>
     </view>
     <view v-else class="rank-card">
@@ -36,11 +29,17 @@
             <text v-if="it.isHot" class="hot-tag">热</text>
           </view>
           <view class="line2">
-            <text class="meta">♡ {{ it.likes }} · 💬 {{ it.comments }}</text>
+            <view class="meta">
+              <image class="meta-icon" src="/static/icons/common/heart.svg" mode="aspectFit" />
+              <text>{{ it.likes }}</text>
+              <text class="meta-sep">·</text>
+              <image class="meta-icon" src="/static/icons/common/comment.svg" mode="aspectFit" />
+              <text>{{ it.comments }}</text>
+            </view>
             <text class="views">{{ it.reads }}</text>
           </view>
         </view>
-        <text class="arrow">›</text>
+        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -48,11 +47,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
+import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getHotPosts } from '@/api/posts'
 import type { PostBrief } from '@/types/api'
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const { themeClass } = useTheme()
 
 interface HotRow {
   id: number
@@ -71,13 +72,20 @@ const loading = ref(true)
 const TITLE_MAX = 40 // 二级页行宽更大，截断上限比首页(30)宽
 const HOT_TAG_MIN = 3
 
+const fmtCount = (n?: number): string => {
+  const v = n || 0
+  if (v < 10000) return String(v)
+  const w = v / 10000
+  return `${w >= 100 ? Math.round(w) : w.toFixed(1).replace(/\.0$/, '')}万`
+}
+
 const load = async () => {
   loading.value = true
   try {
     const list: PostBrief[] = await getHotPosts(10)
     items.value = list.map((p, i) => {
       const firstLine =
-        (p.content || '').split('\n').find((s) => s.trim()) || '（无文字）'
+        (p.content || '').split('\n').find((s: string) => s.trim()) || '（无文字）'
       return {
         id: p.id,
         rank: i + 1,
@@ -90,7 +98,7 @@ const load = async () => {
           (p.comment_count || 0) >= HOT_TAG_MIN,
         likes: p.like_count || 0,
         comments: p.comment_count || 0,
-        reads: `${p.view_count || 0} 浏览`,
+        reads: `${fmtCount(p.view_count)} 浏览`,
       }
     })
   } catch {
@@ -115,18 +123,12 @@ const goBack = () =>
   background: var(--bg-page);
 }
 
-/* 头部：粉色沉浸式，与首页/互动页统一 */
-.header { background-color: var(--brand-red); }
-.header-row { height: 88rpx; display: flex; align-items: center; padding: 0 24rpx; }
-.back-btn { font-size: 56rpx; color: #ffffff; line-height: 1; padding: 0 12rpx; }
-.header-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: bold; color: #ffffff; }
-.header-right { width: 100rpx; }
-
 .intro-bar { padding: 20rpx 32rpx 4rpx; }
+.intro-icon { width: 24rpx; height: 24rpx; margin-right: 6rpx; flex-shrink: 0; }
 .intro-text { font-size: 22rpx; color: var(--text-3); }
 
 .rank-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-card);
   margin: 20rpx 24rpx 40rpx;
   padding: 8rpx 28rpx;
@@ -136,7 +138,7 @@ const goBack = () =>
   display: flex;
   align-items: center;
   padding: 26rpx 0;
-  border-bottom: 1rpx solid #f5f5f6;
+  border-bottom: 1rpx solid var(--border-light);
 }
 .rank-row:last-child { border-bottom: none; }
 
@@ -151,9 +153,9 @@ const goBack = () =>
   text-align: center;
 }
 .rank-row.top3 .rank { font-size: 44rpx; }
-.rank-1 { color: var(--brand-red-dark); }
-.rank-2 { color: #e8a23f; }
-.rank-3 { color: #d9b23f; }
+.rank-1 { color: var(--primary-text); }
+.rank-2 { color: var(--rank-2); }
+.rank-3 { color: var(--rank-3); }
 
 .mid { flex: 1; min-width: 0; margin-left: 20rpx; }
 
@@ -169,11 +171,11 @@ const goBack = () =>
 }
 .hot-tag {
   flex-shrink: 0;
-  background: var(--brand-red-dark);
-  color: #ffffff;
-  font-size: 18rpx;
+  background: var(--primary-badge);
+  color: var(--text-inverse);
+  font-size: 22rpx;
   padding: 2rpx 8rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-tag);
   margin-left: 10rpx;
 }
 
@@ -183,10 +185,12 @@ const goBack = () =>
   justify-content: space-between;
   margin-top: 8rpx;
 }
-.meta { font-size: 22rpx; color: var(--text-3); }
+.meta { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--text-3); }
+.meta-icon { width: 22rpx; height: 22rpx; margin-right: 4rpx; flex-shrink: 0; }
+.meta-sep { margin: 0 8rpx; }
 .views { font-size: 22rpx; color: var(--text-3); }
 
-.arrow { font-size: 40rpx; color: #c8c9cc; margin-left: 12rpx; }
+.arrow { width: 32rpx; height: 32rpx; margin-left: 12rpx; flex-shrink: 0; }
 
 .state {
   display: flex;
@@ -196,5 +200,5 @@ const goBack = () =>
   color: var(--text-3);
   font-size: 26rpx;
 }
-.state-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.state-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 </style>

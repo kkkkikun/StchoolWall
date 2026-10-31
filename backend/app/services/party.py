@@ -6,6 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.party import Party, PartyMember
 from app.models.user import User
+from app.models.notification import Notification
+from app.services.jobs import enqueue_job
+from app.services.blocks import visible_author, require_interaction
 from app.services.notification import create_notification
 
 # 组局分类白名单（与前端组局页一致）
@@ -19,8 +22,12 @@ async def create_party(
     p = Party(
         user_id=user.id, type=type, category=category, title=title,
         content=content, total=total, meet_time=meet_time, location=location,
+        status=1 if user.role == "admin" else 0,
     )
     db.add(p)
+    await db.flush()
+    if p.status == 0:
+        await enqueue_job(db, "moderate_party", {"party_id": p.id}, f"party:{p.id}")
     await db.commit()
     await db.refresh(p)
     return p
@@ -48,7 +55,7 @@ async def list_parties(
     db: AsyncSession, category: str | None = None, only_vacant: bool = False,
     cursor: int | None = None, limit: int = 20, viewer: User | None = None,
 ) -> tuple[list[dict], int | None, bool]:
-    conds = [Party.status >= 1]  # 1 招募中 / 2 已满，不显示已关闭
+    conds = [Party.status >= 1, visible_author(Party.user_id, viewer)]  # 1 招募中 / 2 已满，不显示已关闭
     if category:
         conds.append(Party.category == category)
     if only_vacant:
@@ -83,8 +90,9 @@ async def join_party(db: AsyncSession, user: User, party_id: int) -> dict | None
     p = (await db.execute(
         select(Party).where(Party.id == party_id).with_for_update()
     )).scalar_one_or_none()
-    if not p:
+    if not p or p.status not in (1, 2):
         return None
+    await require_interaction(db, user.id, p.user_id)
     existing = (await db.execute(
         select(PartyMember).where(PartyMember.party_id == party_id, PartyMember.user_id == user.id)
     )).scalar_one_or_none()
@@ -96,10 +104,10 @@ async def join_party(db: AsyncSession, user: User, party_id: int) -> dict | None
     p.joined_count = (p.joined_count or 0) + 1
     if p.joined_count >= p.total:
         p.status = 2  # 满额自动关闭
+    if p.user_id != user.id:
+        db.add(Notification(user_id=p.user_id, actor_id=user.id, type="group"))
     await db.commit()
     await db.refresh(p)
-    # 通知发起人（不通知自己）
-    await create_notification(db, p.user_id, user.id, "group")
     return {"joined": True, "joined_count": p.joined_count}
 
 

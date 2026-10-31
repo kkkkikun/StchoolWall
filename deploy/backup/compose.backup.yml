@@ -1,0 +1,19 @@
+# Overlay for the existing PG15 data volume. Requires a separately tested immutable image.
+services:
+  db:
+    image: ${BACKUP_POSTGRES_IMAGE:?set scanned PostgreSQL+pgBackRest image digest}
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --config=/run/secrets/pgbackrest.conf --stanza=schoolwall archive-push %p
+      - -c
+      - archive_timeout=60
+    volumes:
+      - /opt/schoolwall/shared/pgbackrest.conf:/run/secrets/pgbackrest.conf:ro
+      - pgbackrest_spool:/var/spool/pgbackrest
+volumes:
+  pgbackrest_spool:

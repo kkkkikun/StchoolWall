@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "prompt": "template",
+  "title": "隐私保护提示",
+  "message": "欢迎使用校园墙。请先阅读<a href=\"https://REPLACE_WITH_VERIFIED_DOMAIN/privacy\">隐私政策</a>和<a href=\"https://REPLACE_WITH_VERIFIED_DOMAIN/agreement\">用户协议</a>。注册和互动会处理账户与内容信息；仅在你主动拍照认证或上传图片时申请相机/相册权限。学生证照片仅供授权管理员核验，不公开，审核结束7天后删除，待审最长14天。不同意时可退出应用。",
+  "buttonAccept": "同意并继续",
+  "buttonRefuse": "不同意并退出",
+  "second": {
+    "title": "请确认隐私选择",
+    "message": "你可以退出应用，也可以阅读并同意后继续。",
+    "buttonAccept": "同意并继续",
+    "buttonRefuse": "退出应用"
+  },
+  "disagreeMode": {
+    "support": false,
+    "loadNativePlugins": false,
+    "visitorEntry": false,
+    "showAlways": true
+  },
+  "hrefLoader": "system",
+  "backToExit": "true"
+}

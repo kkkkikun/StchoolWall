@@ -75,7 +75,7 @@ class TestListReports:
     async def test_no_token_rejected(self, client: AsyncClient):
         """无 Token 不能查看"""
         r = await client.get("/api/v1/admin/reports")
-        assert r.status_code == 403
+        assert r.status_code == 401
 
 
 # ============================================================

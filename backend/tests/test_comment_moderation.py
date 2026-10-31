@@ -1,3 +1,4 @@
+from tests.production_helpers import approve_comments
 """评论头像透出 + 评论本地审核（同步词检：hard 拒 / gray 待审 / clean 即见）。"""
 import pytest
 from httpx import AsyncClient
@@ -49,6 +50,7 @@ class TestCommentAvatar:
             json={"content": "头像测试评论"},
             headers=auth_header(_token(student_user)),
         )
+        await approve_comments()
         r = await client.get(f"/api/v1/posts/{pid}/comments")
         items = r.json()["data"]["items"]
         assert items[0]["user"]["avatar_url"] == "/static/avatars/2026/cmt.jpg"
@@ -119,8 +121,8 @@ class TestCommentModeration:
             assert notif is not None
 
     @pytest.mark.asyncio
-    async def test_clean_comment_instant(self, client, admin_user, student_user):
-        """干净评论：即发即见（现状保持）。"""
+    async def test_clean_comment_waits_for_machine_review(self, client, admin_user, student_user):
+        """干净评论同样先待审，机器通过后才公开。"""
         pid = await _seed_post(admin_user.id)
         r = await client.post(
             f"/api/v1/posts/{pid}/comments",
@@ -128,7 +130,10 @@ class TestCommentModeration:
             headers=auth_header(_token(student_user)),
         )
         assert r.status_code == 200
-        assert r.json()["data"]["status"] == 1
+        assert r.json()["data"]["status"] == 0
+        pending = await client.get(f"/api/v1/posts/{pid}/comments")
+        assert pending.json()["data"]["items"] == []
+        await approve_comments()
         pub = await client.get(f"/api/v1/posts/{pid}/comments")
         assert len(pub.json()["data"]["items"]) == 1
 

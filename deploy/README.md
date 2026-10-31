@@ -1,109 +1,24 @@
-# SchoolWall 网页测试版部署手册
+# SchoolWall 可审核的生产发布
 
-> 自动部署（推送到 main 触发）见 [`GH_ACTIONS.md`](./GH_ACTIONS.md)；本手册是手工部署与服务器初始化流程。
+此目录提供单校、单机起步的发布工具，不代表生产已上线。真实域名、备案/资质、微信审核、COS/腾讯审核凭证、告警接收人及备份恢复报告均需要运营者配置并验收。入口为 [发布门禁](../docs/production/release-gates.md)、[运行手册](../docs/production/runbook.md)、[容量验证](../docs/production/capacity.md)。
 
-> 目标拓扑：一台公网云服务器 + 域名 + HTTPS。
-> 宿主机 nginx 负责 TLS/静态文件/路径分流；db/redis/backend 跑 Docker。
+## 一次性准备
 
-```
-用户浏览器
-   │ https://your-domain
-   ▼
-nginx (宿主机, 80/443, certbot)
-   ├── /                    → /var/www/schoolwall/h5     （uni-app H5 构建）
-   ├── /static/*            → h5/static                  （前端静态资源）
-   ├── /static/(avatars|banners|uploads|parties)/ → 后端（用户上传图）
-   ├── /admin/              → /var/www/schoolwall/admin  （管理台构建, SPA）
-   └── /api/                → 127.0.0.1:8000             （后端容器）
-                                            │
-                        docker: postgres 15 + redis 7 + backend
-```
+- 预发布与生产使用隔离主机/数据库/Redis/COS桶和密钥；预发布数据必须脱敏。
+- 每台主机安装 Docker Compose v2、Python3、curl、flock、Nginx、TLS；预建 /opt/schoolwall/{incoming,releases,shared}，赋给专用部署账号。部署账号能管理 Docker，属于高权限账号，SSH密钥只保存在对应 GitHub environment secret。
+- 复制 env.prod.example 到 shared/.env，权限0600；替换占位符。预发布额外写 DEPLOY_ENVIRONMENT=staging；应用 ENVIRONMENT 仍为 production，验证同样的安全闸门。
+- 注册私有 GHCR 的主机只读拉取凭证。CI 使用 GITHUB_TOKEN 推送，不把读写仓库凭证放进应用环境。
+- 备份接入见 [pgBackRest](backup/README.md)。现有本地上传卷需要设置安全目录权限；新版容器 uid10001。将历史数据在维护窗口备份后迁移，禁止直接修改生产卷并宣称验证完成。
+- Nginx 使用 nginx.schoolwall.conf，将域名替换、签发 HTTPS 证书；新静态根目录为 /opt/schoolwall/current/web/{h5,admin}。首次发布前符号链接不存在，站点暂时不可用属初始化状态。
+- GitHub: branch protection 要求 Production CI 成功；staging 和 production environment 分别设置 SERVER_HOST、SERVER_USERNAME、SERVER_SSH_KEY、SERVER_KNOWN_HOSTS；production 设置 required reviewers 和保护 main。PUBLIC_API_BASE_URL 变量必须是真实 HTTPS API地址，否则小程序制品不能上架。
+- 生产发布每次复制 release-gates.example.json 到 shared/release-gates.json，填写匹配 commit、审核人、时间与 G0..G4 证据；默认 false 会阻止发布。
 
-## 0. 前置条件
+## 发布与回滚
 
-- Ubuntu 20.04+/Debian（CentOS 命令自查替换），root 或 sudo 用户
-- 域名已解析 A 记录到服务器公网 IP
-- 本地开发机能 SSH 到服务器
+Production CI 执行后端、操作脚本测试、真实 Alembic 迁移链检查、OpenAPI契约、依赖和密钥扫描、H5/微信小程序/Android代码包/后台构建、最终镜像扫描。验证运行的完整Python依赖约束随制品保存，镜像按同一约束安装并执行导入/契约烟测，通过扫描后才推送不可变镜像digest。Android代码包仍需在平台工具中使用真实签名打包和真机审核。部署工作流下载同一 CI 的制品和manifest，在预发布部署，再通过 production environment 发放相同制品。不会在服务器 git pull 或重新编译。
 
-## 1. 服务器装基础软件
+scripts/rollout.sh 加主机级锁，拉取image，停止worker，单独执行一次迁移，再启动API/worker；检查 readiness 和返回的 commit 后原子切换静态站点链接。失败自动恢复上版应用镜像。数据库不会自动降级，所以每次发布必须采用兼容旧应用的 expand/contract 迁移，并在预发布确认恢复旧应用仍能运行。首次单机容器替换存在短暂连接中断，没有宣称零停机。
 
-```bash
-sudo apt update && sudo apt install -y nginx certbot python3-certbot-nginx rsync
-# Docker（官方脚本）
-curl -fsSL https://get.docker.com | sudo sh
-```
+手工应用回退使用 `bash /path/to/repository/scripts/rollback-release.sh /opt/schoolwall`；只回退应用。破坏性数据库变更、PG大版本升级、bucket迁移属于独立维护变更，不能交给自动回退。不要通过再次运行旧的git源码部署脚本覆盖新制品。旧 deploy/ci/ 脚本保留用于已有环境，生产门禁由 GitHub工作流负责。
 
-## 2. 本地构建前端产物
-
-```bash
-# 小程序 H5（输出 frontend/dist/build/h5/）
-cd frontend && npm run build:h5
-
-# 管理后台（子路径 /admin/ 部署，输出 admin-frontend/dist/）
-cd ../admin-frontend && npm run build -- --base=/admin/
-```
-
-## 3. 同步文件到服务器
-
-```bash
-# 假设部署根目录 /opt/schoolwall，站点静态根 /var/www/schoolwall
-ssh your-server 'sudo mkdir -p /opt/schoolwall /var/www/schoolwall && sudo chown -R $USER /opt/schoolwall /var/www/schoolwall'
-rsync -av --delete backend/ your-server:/opt/schoolwall/backend/
-rsync -av --delete deploy/   your-server:/opt/schoolwall/deploy/
-rsync -av --delete frontend/dist/build/h5/ your-server:/var/www/schoolwall/h5/
-rsync -av --delete admin-frontend/dist/    your-server:/var/www/schoolwall/admin/
-```
-
-## 4. 生成生产配置（服务器上）
-
-```bash
-cd /opt/schoolwall/deploy
-cp env.prod.example .env.prod
-vim .env.prod   # 填：JWT_SECRET（openssl rand -hex 32）、DB_PASSWORD、CORS_ORIGINS=https://你的域名
-```
-
-## 5. 起后端（自动跑全部数据库迁移）
-
-```bash
-cd /opt/schoolwall/deploy
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-docker compose -f docker-compose.prod.yml logs -f backend   # 看到 alembic 迁移跑完 + Uvicorn running
-curl http://127.0.0.1:8000/health   # {"status":"ok"}
-```
-
-## 6. nginx + HTTPS
-
-```bash
-sudo cp nginx.schoolwall.conf /etc/nginx/sites-available/schoolwall
-sudo sed -i 's/SERVER_NAME/你的域名/' /etc/nginx/sites-available/schoolwall
-sudo ln -sf /etc/nginx/sites-available/schoolwall /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-# 签证书（自动改写 80 块加 301 与 443）
-sudo certbot --nginx -d 你的域名
-```
-
-## 7. 创建管理台账号（一次性）
-
-```bash
-cd /opt/schoolwall/deploy
-docker compose -f docker-compose.prod.yml exec backend python -m app.create_admin boss
-# 交互输入两次密码（≥8 位）；浏览器开 https://你的域名/admin/ 登录
-```
-
-## 8. 验收清单
-
-- [ ] `https://域名/health` → `{"status":"ok"}`，证书小绿锁
-- [ ] 我的页「登录 / 注册」注册新账号 → 发帖 → 首页可见（审核通过后）
-- [ ] 发一条含敏感词的帖子被自动拦截（管理台「审核记录」可见判定原因）
-- [ ] 换头像 → 图片正常显示（`/static/avatars/...` 分流正确）
-- [ ] `https://域名/admin/` 管理台登录正常
-- [ ] `https://域名/api/v1/auth/dev-login` → 404（安全闸门生效）
-- [ ] `https://域名/docs` → 404
-
-## 常见问题
-
-- **改了后端代码**：重跑步骤 3 的 backend rsync + `docker compose ... up -d --build`
-- **改了前端**：重跑步骤 2 构建 + 步骤 3 的静态 rsync 即可，不碰后端
-- **新增上传 kind**：nginx 的 `/static/` 正则里同步加子目录
-- **CORS 报错**：检查 `.env.prod` 的 `CORS_ORIGINS` 是否精确匹配站点域名（协议+域名，不带端口尾斜杠）
-- **502**：`docker compose logs backend` 看后端是否起来（常见：JWT_SECRET 没改被闸门拦下）
+镜像/依赖扫描需要联网，首次执行可能暴露原有高危依赖，此时管线应失败。修复/升级后重新出制品；禁止为赶上线全局忽略高危项。当前仓库执行环境没有可用Docker引擎、官方凭证或外部生产环境，真实扫描/容器部署/恢复证明仍需 CI 与运营方提供。

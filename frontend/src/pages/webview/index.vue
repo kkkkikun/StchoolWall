@@ -1,7 +1,7 @@
 <template>
-  <view class="page-webview">
+  <view class="page-webview" :class="themeClass">
     <view v-if="!url" class="invalid">
-      <text class="invalid-emoji">🔗</text>
+      <image class="invalid-emoji" src="/static/icons/settings/link.svg" mode="aspectFit" />
       <text class="invalid-text">链接无效</text>
     </view>
 
@@ -30,7 +30,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+
+const { themeClass } = useTheme()
 
 const url = ref('')
 
@@ -82,14 +85,14 @@ const openExternal = () => {
   align-items: center;
   justify-content: center;
 }
-.invalid-emoji { font-size: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.invalid-emoji { width: 96rpx; height: 96rpx; margin-bottom: 24rpx; opacity: 0.5; }
 .invalid-text { font-size: 28rpx; color: var(--text-3); }
 
 .hint {
   padding: 14rpx 24rpx;
   font-size: 22rpx;
   color: var(--text-3);
-  background: #fffbe6;
+  background: var(--warning-soft);
   flex-shrink: 0;
 }
 
@@ -99,19 +102,19 @@ const openExternal = () => {
   align-items: center;
   justify-content: center;
   gap: 24rpx;
-  background: #ffffff;
-  border-top: 1rpx solid #eeeeef;
+  background: var(--bg-card);
+  border-top: 1rpx solid var(--border-light);
   flex-shrink: 0;
 }
 .tool-btn {
   padding: 14rpx 40rpx;
-  border: 2rpx solid #e5e6eb;
+  border: 2rpx solid var(--border-strong);
   border-radius: 999rpx;
   font-size: 26rpx;
   color: var(--text-1);
 }
 .tool-btn.primary {
-  border-color: var(--brand-red);
-  color: var(--brand-red-dark);
+  border-color: var(--primary);
+  color: var(--primary-text);
 }
 </style>

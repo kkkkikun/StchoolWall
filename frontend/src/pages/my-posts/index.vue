@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="themeClass">
     <view class="type-tabs">
       <view
         v-for="tab in tabs"
@@ -20,7 +20,12 @@
         <text>暂无帖子</text>
       </view>
       <view v-else>
-        <post-card v-for="post in posts" :key="post.id" :post="post" />
+        <post-card
+          v-for="post in posts"
+          :key="post.id"
+          :post="post"
+          @delete="onDeletePost"
+        />
       </view>
     </scroll-view>
   </view>
@@ -28,9 +33,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import { get } from '@/utils/request'
+import { deletePost } from '@/api/posts'
 import PostCard from '@/components/post-card.vue'
+
+const { themeClass } = useTheme()
 
 interface Tab {
   label: string
@@ -55,12 +64,31 @@ const loadPosts = async () => {
     const res = await get<{ items: PostBrief[] }>('/posts/my', {
       status: currentStatus.value || undefined,
     })
-    posts.value = res.items
+    posts.value = (res.items || []).map((it) => ({ ...it, _is_my_post: true }))
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' })
   } finally {
     loading.value = false
   }
+}
+
+const onDeletePost = (id: number) => {
+  uni.showModal({
+    title: '删除帖子',
+    content: '确定要删除这条帖子吗？删除后将不再公开展示。',
+    confirmText: '删除',
+    confirmColor: '#f4212e',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await deletePost(id)
+        uni.showToast({ title: '已删除', icon: 'success' })
+        loadPosts()
+      } catch (e) {
+        uni.showToast({ title: (e as Error).message || '删除失败', icon: 'none' })
+      }
+    },
+  })
 }
 
 const switchStatus = (status: string) => {
@@ -77,7 +105,7 @@ onMounted(() => {
 <style scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-card-2);
   display: flex;
   flex-direction: column;
 }
@@ -85,7 +113,7 @@ onMounted(() => {
 /* 与首页吸顶 Tab 同规格：左对齐下划线式，弃用蓝色药丸 */
 .type-tabs {
   display: flex;
-  background: #fff;
+  background: var(--bg-card);
   padding: 16rpx 24rpx;
   gap: 36rpx;
 }
@@ -93,13 +121,15 @@ onMounted(() => {
 .tab {
   font-size: 28rpx;
   color: var(--text-2);
+  padding-top: 14rpx;
   padding-bottom: 12rpx;
+  min-width: 64rpx;
 }
 
 .tab.active {
   color: var(--text-1);
   font-weight: bold;
-  border-bottom: 6rpx solid var(--brand-red);
+  border-bottom: 6rpx solid var(--primary);
 }
 
 .scroll-container {

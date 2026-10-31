@@ -23,7 +23,7 @@ class TestMpLogin:
         monkeypatch.setattr(settings, "WECHAT_MP_APP_ID", "mp_app_id")
         monkeypatch.setattr(settings, "WECHAT_MP_APP_SECRET", "mp_app_secret")
 
-        async def fake_get(self, url, timeout=None):
+        async def fake_get(self, url, timeout=None, params=None):
             return FakeResp({"openid": "oauth_openid_001"})
 
         monkeypatch.setattr(httpx_lib.AsyncClient, "get", fake_get)
@@ -50,7 +50,7 @@ class TestMpLogin:
             db.add(User(openid="mp:oauth_openid_002", nickname="老用户", role="student", is_verified=True))
             await db.commit()
 
-        async def fake_get(self, url, timeout=None):
+        async def fake_get(self, url, timeout=None, params=None):
             return FakeResp({"openid": "oauth_openid_002"})
 
         monkeypatch.setattr(httpx_lib.AsyncClient, "get", fake_get)

@@ -61,6 +61,11 @@ class AnnouncementRequest(BaseModel):
     audience: Literal["all", "verified"] = "all"
 
 
+class MaintenanceCleanupRequest(BaseModel):
+    max_age_seconds: int = Field(86400, ge=300)
+    dry_run: bool = False
+
+
 router = APIRouter()
 
 
@@ -72,11 +77,17 @@ def _client_ip(request: Request) -> str:
 async def get_reports(
     status: str | None = Query(None),
     cursor: int | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     actor: AdminActor = Depends(require_admin_console),
 ):
-    """获取举报列表（仅 admin）"""
-    items, next_cursor, has_more = await list_reports(db, status, cursor)
+    """获取举报列表（仅 admin）：支持 cursor 或 page 分页。"""
+    res = await list_reports(db, status=status, cursor=cursor, page=page, page_size=page_size)
+    if len(res) == 4:
+        items, next_cursor, has_more, total = res
+        return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more, "total": total, "page": page, "page_size": page_size}}
+    items, next_cursor, has_more = res
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
@@ -186,6 +197,7 @@ async def change_user_status(
 
 @router.get("/posts")
 async def get_admin_posts(
+    post_id: int | None = Query(None, ge=1),
     status: int | None = Query(None),
     q: str | None = Query(None, max_length=100),
     cursor: int | None = Query(None),
@@ -204,7 +216,7 @@ async def get_admin_posts(
         db, status, q, cursor,
         post_type=post_type, category=category, author_id=author_id,
         time_start=time_start, time_end=time_end,
-        page=page, page_size=page_size,
+        page=page, page_size=page_size, post_id=post_id,
     )
     data: dict = {"items": items, "next_cursor": next_cursor, "has_more": has_more}
     if total is not None:
@@ -340,14 +352,21 @@ async def get_admin_logs(
     time_start: datetime | None = Query(None),
     time_end: datetime | None = Query(None),
     cursor: int | None = Query(None),
+    page: int | None = Query(None, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     actor: AdminActor = Depends(require_admin_console),
 ):
-    """审计日志查询（仅 admin）：动作/管理员/时间范围筛选。"""
-    items, next_cursor, has_more = await list_admin_logs(
+    """审计日志查询（仅 admin）：动作/管理员/时间范围筛选，支持游标与页码分页。"""
+    res = await list_admin_logs(
         db, action=action, admin_id=admin_id,
         time_start=time_start, time_end=time_end, cursor=cursor,
+        page=page, page_size=page_size,
     )
+    if len(res) == 4:
+        items, next_cursor, has_more, total = res
+        return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more, "total": total, "page": page, "page_size": page_size}}
+    items, next_cursor, has_more = res
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
 
 
@@ -575,40 +594,33 @@ async def admin_upload_image(
     db: AsyncSession = Depends(get_db),
     actor: AdminActor = Depends(require_admin_console),
 ):
-    """管理端图片上传：存 banners/{年}/{uuid}.ext，返回可访问的 public_url。"""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="缺少文件名")
-
-    from app.utils.storage import MAX_FILE_SIZE, get_storage_backend, validate_file
-
-    err = validate_file(file.filename, file.content_type or "")
-    if err:
-        raise HTTPException(status_code=400, detail=err)
-
-    content = await file.read()
+    """Trusted console uploads still pass real image decoding and private storage."""
+    from app.models.user import User
+    from app.models.job import Job
+    from app.services.media import create_media, media_url
+    from app.utils.storage import MAX_FILE_SIZE
+    from app.utils.rate_limit import check_rate_limit
+    from sqlalchemy import update
+    await check_rate_limit(f"rl:admin_upload:{actor.id}", 30, 3600)
+    content = await file.read(MAX_FILE_SIZE + 1)
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="文件大小超过 10MB 限制")
-
-    # 强制 banners/ 前缀 + 随机文件名（不接受客户端 path，防穿越）
-    from pathlib import Path as _Path
-    ext = _Path(file.filename).suffix.lower()
-    path = f"banners/{datetime.now().year}/{uuid.uuid4().hex}{ext}"
-
-    backend = get_storage_backend()
-    if not hasattr(backend, "save_upload"):
-        raise HTTPException(status_code=400, detail="当前存储模式不支持直接上传")
-
-    await file.seek(0)
+        raise HTTPException(400, "图片超过大小限制")
+    owner_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    owner = await db.get(User, owner_id)
+    if not owner:
+        owner = User(id=owner_id, openid="system:console-media", nickname="系统媒体", role="system", status=0)
+        db.add(owner)
+        await db.flush()
     try:
-        public_url = await backend.save_upload(file, path)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    await log_admin_action(db, actor, admin_log.IMAGE_UPLOAD, target_type="banner",
-                           detail={"path": path, "filename": file.filename},
-                           ip=_client_ip(request))
+        asset = await create_media(db, owner, "banners", content)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    asset.status, asset.public_path, asset.entity_type = "approved", media_url(asset), "banner"
+    await db.execute(update(Job).where(Job.dedupe_key == f"media:{asset.id}").values(status="succeeded"))
+    await log_admin_action(db, actor, admin_log.IMAGE_UPLOAD, target_type="media", target_id=str(asset.id),
+                           detail={"purpose": "banner"}, ip=_client_ip(request))
     await db.commit()
-    return {"code": 0, "message": "上传成功", "data": {"public_url": public_url, "path": path}}
-
+    return {"code": 0, "data": {"public_url": media_url(asset), "media_id": str(asset.id)}}
 
 # ---- 敏感词库（自动审核本地规则，命中即生效） ----
 
@@ -708,7 +720,7 @@ async def admin_delete_sensitive_word(
 @router.get("/moderation-records")
 async def admin_list_moderation_records(
     verdict: str | None = Query(None, pattern="^(pass|review|reject|error)$"),
-    source: str | None = Query(None, pattern="^(rule|wechat)$"),
+    source: str | None = Query(None, pattern="^(rule|wechat|tencent)$"),
     post_id: int | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -726,3 +738,36 @@ async def admin_list_moderation_records(
                    "created_at": r.created_at.isoformat() if r.created_at else None} for r in items],
         "total": total, "page": page, "page_size": page_size,
     }}
+
+
+# ---- 系统维护（静态孤儿文件与私有媒体清理） ----
+
+
+@router.post("/maintenance/cleanup")
+async def admin_maintenance_cleanup(
+    request: Request,
+    body: MaintenanceCleanupRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    actor: AdminActor = Depends(require_admin_console),
+):
+    """系统维护：扫描并清理超过指定时间的无引用孤儿静态文件及未绑定私有媒体。"""
+    from app.services.maintenance import cleanup_orphan_static_files
+
+    max_age = body.max_age_seconds if body else 86400
+    dry_run = body.dry_run if body else False
+
+    result = await cleanup_orphan_static_files(db, max_age_seconds=max_age, dry_run=dry_run)
+    await log_admin_action(
+        db,
+        actor,
+        admin_log.MAINTENANCE_CLEANUP,
+        target_type="system",
+        detail={
+            "dry_run": dry_run,
+            "max_age_seconds": max_age,
+            **result,
+        },
+        ip=_client_ip(request),
+    )
+    await db.commit()
+    return {"code": 0, "message": "清理完成" if not dry_run else "模拟清理完成", "data": result}

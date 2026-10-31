@@ -9,7 +9,10 @@ from tests.conftest import auth_header
 
 
 def _jpg(name="banner.jpg"):
-    return {"file": (name, io.BytesIO(b"\xff\xd8\xff\xe0fakejpg"), "image/jpeg")}
+    from PIL import Image
+    output = io.BytesIO()
+    Image.new("RGB", (16, 16), color="blue").save(output, format="JPEG")
+    return {"file": (name, output.getvalue(), "image/jpeg")}
 
 
 class TestAdminImageUpload:
@@ -17,11 +20,10 @@ class TestAdminImageUpload:
         r = await client.post("/api/v1/admin/upload/image", files=_jpg(), headers=console_headers)
         assert r.status_code == 200, r.text
         data = r.json()["data"]
-        assert data["public_url"].startswith("/static/banners/")
-        assert data["public_url"].endswith(".jpg")
+        assert data["public_url"] == f'/api/v1/upload/media/{data["media_id"]}/content'
 
     async def test_legacy_admin_token_accepted(self, client: AsyncClient, admin_token: str):
-        """双 token：legacy users.admin 也能上传。"""
+        """仅隔离测试允许旧管理员fixture，生产边界另有回归验证。"""
         r = await client.post("/api/v1/admin/upload/image", files=_jpg(),
                               headers=auth_header(admin_token))
         assert r.status_code == 200
@@ -43,17 +45,19 @@ class TestAdminImageUpload:
         await client.post("/api/v1/admin/upload/image", files=_jpg(), headers=console_headers)
         async with TestSession() as db:
             log = (await db.execute(select(AdminLog).where(AdminLog.action == "image.upload"))).scalar_one()
-            assert log.detail["filename"] == "banner.jpg"
+            assert log.detail["purpose"] == "banner"
 
 
 class TestStaticFiles:
     async def test_static_serves_uploaded_file(self, client: AsyncClient, console_headers: dict):
-        """上传后 /static/{path} 可直接访问。"""
+        """管理员明确批准的媒体通过数据库授权端点读取。"""
         r = await client.post("/api/v1/admin/upload/image", files=_jpg(), headers=console_headers)
         url = r.json()["data"]["public_url"]
         r2 = await client.get(url)
         assert r2.status_code == 200
-        assert r2.content == b"\xff\xd8\xff\xe0fakejpg"
+        from PIL import Image
+        assert Image.open(io.BytesIO(r2.content)).size == (16, 16)
+        assert r2.headers["cache-control"] == "no-store"
 
     async def test_static_unknown_404(self, client: AsyncClient):
         r = await client.get("/static/banners/no_such_file.jpg")
@@ -75,7 +79,13 @@ class TestSafePath:
             files=files, headers=auth_header(student_token),
         )
         assert r2.status_code == 200
-        assert r2.json()["data"]["public_url"].startswith("/static/banners/")
+        assert r2.json()["data"]["public_url"] is None
+        from app.models.media import MediaAsset
+        from tests.conftest import TestSession
+        import uuid
+        async with TestSession() as db:
+            asset = await db.get(MediaAsset, uuid.UUID(r2.json()["data"]["media_id"]))
+            assert asset.storage_key.startswith("quarantine/") and ".." not in asset.storage_key
 
     def test_safe_path_unit(self):
         from app.utils.storage import LocalStorage

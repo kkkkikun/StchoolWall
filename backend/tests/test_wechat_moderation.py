@@ -1,4 +1,4 @@
-"""微信内容安全审核测试：门禁 / verdict 分流 / 重试降级 / 通知。"""
+"""腾讯内容安全与持久任务审核测试：门禁 / verdict 分流 / 重试降级 / 通知。"""
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -36,19 +36,19 @@ async def _get_post_status(pid: int) -> int:
 
 
 class TestGating:
-    async def test_not_configured_passes(self, monkeypatch):
+    async def test_not_configured_requires_manual_review(self, monkeypatch):
         """WECHAT_APP_ID 为空（开发环境）→ 直接 pass，不调微信。"""
-        monkeypatch.setattr(settings, "WECHAT_APP_ID", "")
+        monkeypatch.setattr(settings, "TENCENT_SECRET_ID", "")
         result = await check_text("任何内容", "openid_x")
-        assert result.verdict == "pass"
+        assert result.verdict == "review"
 
         called = []
         async def _should_not_call(*a, **kw):
             called.append(1)
             raise AssertionError("不应调用微信 API")
-        monkeypatch.setattr(moderation_module, "_check_text_via_wechat", _should_not_call)
+        monkeypatch.setattr(moderation_module, "moderate", _should_not_call)
         result = await check_text("内容", "openid_x")
-        assert result.verdict == "pass"
+        assert result.verdict == "review"
         assert called == []
 
     async def test_images_empty_passes(self):
@@ -104,7 +104,8 @@ class TestVerdictFlow:
         self._patch_checks(monkeypatch, "review")
 
         pid = await _seed_pending(student_user.id, "存疑内容")
-        await service_module.check_post_moderation(pid)
+        with pytest.raises(service_module.ManualReviewRequired):
+            await service_module.check_post_moderation(pid)
         assert await _get_post_status(pid) == 0
 
     async def test_pass_approved(self, monkeypatch, student_user: User):
@@ -159,14 +160,10 @@ class TestFailOpen:
 
         monkeypatch.setattr(service_module, "async_session", lambda: _ctx())
 
-    async def test_error_fail_open_true(self, monkeypatch, student_user: User):
-        """网络错误重试耗尽 + FAIL_OPEN=True → 放行 status=1。"""
+    async def test_deprecated_fail_open_flag_does_not_bypass_review(self, monkeypatch, student_user: User):
+        """旧配置也不能令审核故障的内容公开，交给持久任务重试。"""
         self._patch_service(monkeypatch)
         monkeypatch.setattr(settings, "MODERATION_FAIL_OPEN", True)
-        # 退避 sleep 置零加速测试
-        async def _no_sleep(s):
-            pass
-        monkeypatch.setattr(service_module, "_backoff_sleep", _no_sleep)
 
         async def _error(content, openid):
             return _result("error")
@@ -176,16 +173,14 @@ class TestFailOpen:
         monkeypatch.setattr(service_module, "check_images", _img_ok)
 
         pid = await _seed_pending(student_user.id, "网络故障时发布")
-        await service_module.check_post_moderation(pid)
-        assert await _get_post_status(pid) == 1
+        with pytest.raises(service_module.ModerationRetry):
+            await service_module.check_post_moderation(pid)
+        assert await _get_post_status(pid) == 0
 
     async def test_error_fail_open_false(self, monkeypatch, student_user: User):
         """FAIL_OPEN=False → 保持 0 等人工。"""
         self._patch_service(monkeypatch)
         monkeypatch.setattr(settings, "MODERATION_FAIL_OPEN", False)
-        async def _no_sleep(s):
-            pass
-        monkeypatch.setattr(service_module, "_backoff_sleep", _no_sleep)
 
         async def _error(content, openid):
             return _result("error")
@@ -195,7 +190,8 @@ class TestFailOpen:
         monkeypatch.setattr(service_module, "check_images", _img_ok)
 
         pid = await _seed_pending(student_user.id, "网络故障时发布2")
-        await service_module.check_post_moderation(pid)
+        with pytest.raises(service_module.ModerationRetry):
+            await service_module.check_post_moderation(pid)
         assert await _get_post_status(pid) == 0
 
 

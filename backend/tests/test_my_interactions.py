@@ -76,5 +76,5 @@ class TestMyLists:
 
     @pytest.mark.asyncio
     async def test_my_lists_require_login(self, client: AsyncClient):
-        assert (await client.get("/api/v1/me/likes")).status_code == 403
-        assert (await client.get("/api/v1/me/comments")).status_code == 403
+        assert (await client.get("/api/v1/me/likes")).status_code == 401
+        assert (await client.get("/api/v1/me/comments")).status_code == 401

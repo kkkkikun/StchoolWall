@@ -14,11 +14,12 @@
           <el-input v-model="form.password" type="password" placeholder="密码" size="large"
                     :prefix-icon="Lock" show-password />
         </el-form-item>
+        <el-form-item><el-input v-model="form.totpCode" placeholder="验证器六位动态码" maxlength="6" inputmode="numeric" size="large" /></el-form-item>
         <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="onLogin">
           登 录
         </el-button>
       </el-form>
-      <p class="tip">初始账号请在后端执行 python -m app.create_admin 创建</p>
+      <p class="tip">管理员需先创建账号，并通过 python -m app.admin_mfa 启用双重验证</p>
     </div>
   </div>
 </template>
@@ -34,7 +35,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', totpCode: '' })
 const loading = ref(false)
 
 const onLogin = async () => {
@@ -44,7 +45,7 @@ const onLogin = async () => {
   }
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
+    await auth.login(form.username, form.password, form.totpCode)
     ElMessage.success('登录成功')
     router.push((route.query.redirect as string) || '/')
   } catch {
@@ -57,32 +58,45 @@ const onLogin = async () => {
 
 <style scoped>
 .login-page {
-  height: 100%;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f73b43 0%, #c9302c 100%);
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(45% 40% at 50% 0%, rgba(29, 155, 240, 0.10) 0%, transparent 70%),
+    var(--app-bg);
 }
 .login-card {
-  width: 380px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 40px 36px 28px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 380px;
+  box-sizing: border-box;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter, #eff3f4);
+  border-radius: 16px;
+  padding: 40px 32px 28px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
 }
+@media (max-width: 480px) {
+  .login-card {
+    padding: 30px 20px 22px;
+  }
+}
+html.dark .login-card { box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); }
 .login-header { text-align: center; margin-bottom: 28px; }
 .logo {
   width: 64px; height: 64px;
   margin: 0 auto 14px;
-  border-radius: 16px;
-  background: #f73b43;
+  border-radius: 50%;
+  background: var(--el-color-primary);
   color: #fff;
-  font-size: 34px;
-  font-weight: bold;
+  font-size: 32px;
+  font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-h1 { font-size: 20px; color: #303133; }
-.sub { font-size: 12px; color: #909399; margin-top: 6px; letter-spacing: 1px; }
-.login-btn { width: 100%; margin-top: 6px; }
-.tip { font-size: 12px; color: #c0c4cc; text-align: center; margin-top: 16px; }
+h1 { font-size: 22px; color: var(--el-text-color-primary); font-weight: 800; }
+.sub { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 6px; letter-spacing: 1px; }
+.login-btn { width: 100%; margin-top: 6px; border-radius: 9999px; font-weight: 700; }
+.tip { font-size: 12px; color: var(--el-text-color-placeholder); text-align: center; margin-top: 16px; }
 </style>

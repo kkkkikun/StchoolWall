@@ -102,7 +102,7 @@ class TestCreatePost:
         r = await client.post("/api/v1/posts", json={
             "post_type": "general", "content": "test",
         })
-        assert r.status_code == 403
+        assert r.status_code == 401
 
 
 # ============================================================

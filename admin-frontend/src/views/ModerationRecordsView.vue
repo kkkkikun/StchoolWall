@@ -29,7 +29,13 @@
 
     <el-table :data="items" v-loading="loading">
       <el-table-column label="ID" prop="id" width="80" />
-      <el-table-column label="帖子" prop="post_id" width="90" />
+      <el-table-column label="帖子" width="100">
+        <template #default="{ row }">
+          <el-link type="primary" :underline="false" @click="goPost(row.post_id)">
+            #{{ row.post_id }}
+          </el-link>
+        </template>
+      </el-table-column>
       <el-table-column label="来源" width="130">
         <template #default="{ row }">
           <el-tag :type="row.source === 'rule' ? 'warning' : 'success'" size="small" effect="plain">
@@ -72,7 +78,14 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getModerationRecords, type ModerationRecord } from '@/api/moderation'
+
+const router = useRouter()
+
+const goPost = (postId: number) => {
+  router.push({ path: '/posts', query: { post_id: postId } })
+}
 
 const VERDICT: Record<string, string> = { reject: '拒绝', review: '转人工', pass: '通过', error: '故障' }
 const VERDICT_TAG: Record<string, string> = { reject: 'danger', review: 'warning', pass: 'success', error: 'info' }
@@ -107,6 +120,6 @@ onMounted(() => load())
 
 <style scoped>
 .pager { margin-top: 16px; justify-content: flex-end; }
-.muted { color: #909399; font-size: 12px; }
-.matched { color: #f56c6c; font-size: 12px; font-weight: 600; }
+.muted { color: var(--el-text-color-secondary); font-size: 12px; }
+.matched { color: var(--el-color-danger); font-size: 12px; font-weight: 600; }
 </style>

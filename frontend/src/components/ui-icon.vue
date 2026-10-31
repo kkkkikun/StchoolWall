@@ -1,93 +1,76 @@
 <template>
-  <text class="ui-icon" :style="styleObj">{{ glyph }}</text>
+  <image v-if="src" class="ui-icon" :src="src" :style="styleObj" mode="aspectFit" />
 </template>
 
 <script setup lang="ts">
 /**
- * UiIcon —— 跨平台图标组件
+ * UiIcon —— 跨平台图标组件（SVG）
  *
- * 为什么用 Unicode/emoji 而不是内联 <svg>：
- *   mp-weixin 不支持 <svg> 标签，也不支持 <image> 引用 .svg。
- *   Unicode 符号 + emoji 经 <text> 渲染，H5 与 mp-weixin 行为一致，且零外部资源。
- *   分类/彩色图标用 emoji；需要随 currentColor 变色的线条图标（› ∨ + ✓ ‹ ☆ ♡ ☰ ▤）用纯符号。
+ * 为什么不用 emoji：
+ *   emoji 在各系统/微信里的字形不一致（缺 emoji 字体时退化成黑白方块），
+ *   也无法随主题变色；SVG 线条图标在 H5 / mp-weixin / App 三端渲染一致。
+ *
+ * 为什么不用内联 <svg>：
+ *   mp-weixin 不支持 <svg> 标签，但支持 <image> 引用 .svg，
+ *   因此统一走 static/icons 下的 .svg 资源 + <image mode="aspectFit">。
+ *
+ * 颜色：SVG 的描边色固化在文件里，所以「换色」通过 tone 变体实现
+ *   default 中性 #6b7684 / primary 玫瑰红 #c2455c / inverse 反白 / danger 语义红
+ *   like 点赞粉 #f918b6 / favorite 收藏深金 #b8860b（激活态图标的基色）
  */
 import { computed } from 'vue'
+import { ICONS, ICON_TONES } from '@/utils/icons'
+
+export type IconTone = 'default' | 'primary' | 'inverse' | 'danger' | 'like' | 'favorite'
 
 interface Props {
+  /** 图标语义名，见 utils/icons.ts 的 ICONS */
   name: string
-  /** 字号 rpx，默认 40 */
+  /** 尺寸 rpx，默认 40 */
   size?: number
-  /** 颜色，对纯符号生效（emoji 自带颜色不受影响）；默认继承 */
+  /** 颜色（兼容旧调用）：映射到 tone，仅识别品牌色系 */
   color?: string
+  /** 显式色调，优先于 color */
+  tone?: IconTone
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 40,
   color: '',
+  tone: undefined,
 })
 
-const GLYPHS: Record<string, string> = {
-  // 线条/符号图标（可被 color 着色）
-  arrowRight: '›',
-  arrowDown: '∨',
-  arrowUp: '∧',
-  back: '‹',
-  plus: '＋',
-  publish: '✚',
-  check: '✓',
-  star: '☆',
-  starFill: '★',
-  heart: '♡',
-  heartFill: '♥',
-  list: '☰',
-  layers: '▤',
-  // 彩色/语义图标（emoji）
-  search: '🔍',
-  share: '↗',
-  favorite: '☆',
-  like: '♡',
-  comment: '💬',
-  location: '📍',
-  emoji: '😀',
-  folder: '📁',
-  mic: '🎤',
-  // tab（单色字形，可随 color 变色：选中深黑/未选中浅黑；后续可换 static/tabbar/ 下的 SVG）
-  home: '⌂',
-  group: '♟',
-  message: '✉',
-  mine: '☻',
-  // 品牌/运营
-  signin: '🐵',
-  ufo: '🛸',
-  verify: '✅',
-  hot: '🔥',
-  notice: '📢',
-  // 菜单
-  shield: '🛡️',
-  help: '❓',
-  invite: '🎁',
-  settings: '⚙️',
-  about: 'ℹ️',
-  contact: '📞',
-  stats: '📊',
+/** 旧 color 参数 → tone 映射（SVG 无法用 CSS 直接染色，只能选变体） */
+const COLOR_TONES: Record<string, IconTone> = {
+  '#c2455c': 'primary',
+  '#9b374a': 'primary',
+  '#ffffff': 'inverse',
+  '#fff': 'inverse',
+  '#c93a3a': 'danger',
+  '#f56c6c': 'danger',
 }
 
-const glyph = computed(() => GLYPHS[props.name] ?? props.name)
-
-const styleObj = computed(() => {
-  const s: Record<string, string | number> = {
-    fontSize: `${props.size}rpx`,
-    lineHeight: 1,
-  }
-  if (props.color) s.color = props.color
-  return s
+const activeTone = computed<IconTone>(() => {
+  if (props.tone) return props.tone
+  if (props.color) return COLOR_TONES[props.color.toLowerCase()] ?? 'default'
+  return 'default'
 })
+
+const src = computed(() => {
+  const toned = ICON_TONES[props.name]?.[activeTone.value]
+  if (toned) return toned
+  return ICONS[props.name] ?? ''
+})
+
+const styleObj = computed(() => ({
+  width: `${props.size}rpx`,
+  height: `${props.size}rpx`,
+}))
 </script>
 
 <style scoped>
 .ui-icon {
   display: inline-block;
-  line-height: 1;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 </style>

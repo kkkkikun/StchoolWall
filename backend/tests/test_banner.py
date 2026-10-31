@@ -91,7 +91,7 @@ class TestBannerAdminCrud:
 
     async def test_anonymous_forbidden(self, client: AsyncClient):
         resp = await client.get("/api/v1/admin/banners")
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     async def test_full_crud_lifecycle(self, client: AsyncClient, admin_token: str, admin_user: User):
         from app.models.post import Post

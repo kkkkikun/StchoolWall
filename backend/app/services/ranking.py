@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.post import Post
 from app.models.user import User
+from app.services.blocks import visible_author
 
 
-async def hot_users(db: AsyncSession, limit: int = 5) -> list[dict]:
+async def hot_users(db: AsyncSession, limit: int = 5, viewer: User | None = None) -> list[dict]:
     """Top 用户：heat = 其 status=1、非广告帖的 like_count 之和（全量口径）。
 
     内连接天然过滤掉没发过帖的用户；广告不计入热度。
@@ -15,6 +16,7 @@ async def hot_users(db: AsyncSession, limit: int = 5) -> list[dict]:
     stmt = (
         select(User.id, User.nickname, User.avatar_url, heat.label("heat"))
         .join(Post, (Post.user_id == User.id) & (Post.status == 1) & (Post.post_type != "advertisement"))
+        .where(User.status == 1, visible_author(User.id, viewer))
         .group_by(User.id, User.nickname, User.avatar_url)
         .order_by(heat.desc(), User.id.asc())
         .limit(limit)

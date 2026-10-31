@@ -1,6 +1,7 @@
 from sqlalchemy import select, func, and_, update, text, literal, tuple_
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload, aliased
 
 from app.models.interaction import Favorite, Footprint, Like
@@ -9,6 +10,9 @@ from app.models.report import Report
 from app.models.tag import PostTag
 from app.models.user import User
 from app.utils.query import escape_like
+from app.services.jobs import enqueue_job
+from app.services.blocks import visible_author
+from app.services.media import bind_media, media_url
 
 # 微号披露允许的帖型：交易/拼车联系刚需，其余帖型不向其他学生返回 contact_wechat
 TRADE_POST_TYPES = {"second_hand", "carpool"}
@@ -30,6 +34,7 @@ async def create_post(
     db: AsyncSession, user: User, post_type: str, content: str,
     images: list[str], price: float | None, tag_ids: list[int],
     category: str | None = None,
+    media_ids: list[uuid.UUID] | None = None,
 ) -> Post:
     is_admin = user.role == "admin"
     status = 1 if is_admin else 0  # admin 直接通过审核
@@ -46,7 +51,16 @@ async def create_post(
     db.add(post)
     await db.flush()
 
-    for tid in tag_ids:
+    assets = await bind_media(db, user.id, media_ids or [], "posts", "post", post.id)
+    if assets:
+        post.images = [media_url(asset) for asset in assets if asset.status == "approved"]
+    if post.status == 0:
+        await enqueue_job(db, "moderate_post", {"post_id": post.id}, f"post:{post.id}")
+    elif assets:
+        from app.services.media import publish_entity_media
+        post.images = await publish_entity_media(db, "post", post.id)
+
+    for tid in set(tag_ids):
         db.add(PostTag(post_id=post.id, tag_id=tid))
 
     await db.commit()
@@ -77,6 +91,7 @@ async def list_posts(
             .join(User, Post.user_id == User.id)
             .where(
                 Post.post_type != "advertisement",
+                visible_author(Post.user_id, viewer),
                 Post.status == 1,
                 Post.is_pinned.is_(True),
             )
@@ -85,7 +100,7 @@ async def list_posts(
         pinned_rows = (await db.execute(pinned_stmt)).all()
 
     # 普通帖子：游标分页
-    conditions = [Post.post_type != "advertisement", Post.status == 1]
+    conditions = [Post.post_type != "advertisement", Post.status == 1, visible_author(Post.user_id, viewer)]
     # 推荐位置顶帖从主流排除（只在置顶块出现，防止翻页重复）
     if is_recommend:
         conditions.append(Post.is_pinned.is_(False))
@@ -170,7 +185,7 @@ async def get_post_detail(
     stmt = (
         select(Post, User)
         .join(User, Post.user_id == User.id)
-        .where(Post.id == post_id)
+        .where(Post.id == post_id, visible_author(Post.user_id, viewer))
     )
     result = await db.execute(stmt)
     row = result.first()
@@ -192,13 +207,10 @@ async def get_post_detail(
         await db.execute(
             update(Post).where(Post.id == post_id).values(view_count=Post.view_count + 1)
         )
-        fp = (await db.execute(
-            select(Footprint).where(Footprint.user_id == viewer.id, Footprint.post_id == post_id)
-        )).scalar_one_or_none()
-        if fp:
-            await db.execute(update(Footprint).where(Footprint.id == fp.id).values(viewed_at=func.now()))
-        else:
-            db.add(Footprint(user_id=viewer.id, post_id=post_id))
+        await db.execute(
+            pg_insert(Footprint).values(user_id=viewer.id, post_id=post_id)
+            .on_conflict_do_update(constraint="uq_footprints_user_post", set_={"viewed_at": func.now()})
+        )
         await db.commit()
         await db.refresh(post)
 
@@ -296,6 +308,9 @@ async def update_post_status(
         return None
 
     post.status = new_status
+    if new_status in (-1, -2):
+        from app.services.media import reject_entity_media
+        await reject_entity_media(db, "post", post_id)
     await db.commit()
     await db.refresh(post)
     return post
@@ -343,7 +358,7 @@ def _post_to_dict(post: Post, author: User) -> dict:
     }
 
 
-async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
+async def hot_posts(db: AsyncSession, limit: int = 10, viewer: User | None = None) -> list[dict]:
     """十大热帖：近 7 天、正常、非广告，按 like*3 + comment*2 + view 加权倒序。"""
     score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
     stmt = (
@@ -351,6 +366,7 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
         .join(User, Post.user_id == User.id)
         .where(
             Post.status == 1,
+            visible_author(Post.user_id, viewer),
             Post.post_type != "advertisement",
             # 热帖门槛：零互动新帖不进榜（否则 tie-break 让新帖冒充热帖）
             (Post.like_count * 3 + Post.comment_count * 2 + Post.view_count) > 0,
@@ -364,11 +380,12 @@ async def hot_posts(db: AsyncSession, limit: int = 10) -> list[dict]:
 
 
 async def featured_posts(
-    db: AsyncSession, cursor: int | None = None, limit: int = 20, tag_text: str | None = None
+    db: AsyncSession, cursor: int | None = None, limit: int = 20, tag_text: str | None = None,
+    viewer: User | None = None,
 ) -> tuple[list[dict], int | None, bool]:
     """精华流：经验贴等长尾内容，按历史总热度排序（无时间衰减），键集分页。"""
     score = Post.like_count * 3 + Post.comment_count * 2 + Post.view_count
-    conds = [Post.is_featured.is_(True), Post.status == 1, Post.post_type != "advertisement"]
+    conds = [Post.is_featured.is_(True), Post.status == 1, Post.post_type != "advertisement", visible_author(Post.user_id, viewer)]
     if tag_text:
         conds.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
     if cursor:
@@ -428,10 +445,10 @@ async def set_post_featured(db: AsyncSession, post_id: int, featured: bool) -> P
 
 
 async def search_posts(
-    db: AsyncSession, q: str, cursor: int | None = None, limit: int = 20
+    db: AsyncSession, q: str, cursor: int | None = None, limit: int = 20, viewer: User | None = None
 ) -> tuple[list[dict], int | None, bool]:
     """全文搜索（PostgreSQL ILIKE），仅正常非广告帖；精华帖置顶（键集分页）。"""
-    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{escape_like(q)}%")]
+    conds = [Post.status == 1, Post.post_type != "advertisement", Post.content.ilike(f"%{escape_like(q)}%"), visible_author(Post.user_id, viewer)]
     if cursor:
         # 精华置顶后的键集翻页：游标行的 (is_featured, id) 之后再取
         cur = aliased(Post)
@@ -459,7 +476,7 @@ async def following_feed(
     from app.models.follow import UserFollow
 
     followed = select(UserFollow.followee_id).where(UserFollow.follower_id == user.id)
-    conds = [Post.status == 1, Post.post_type != "advertisement", Post.user_id.in_(followed)]
+    conds = [Post.status == 1, Post.post_type != "advertisement", Post.user_id.in_(followed), visible_author(Post.user_id, user)]
     if tag_text:
         conds.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
     if cursor:
@@ -488,7 +505,7 @@ async def following_feed(
             it["is_liked"] = it["id"] in liked_ids
             it["is_favorited"] = it["id"] in fav_ids
 
-    next_cursor = rows[-1].id if has_more and rows else None
+    next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more
 
 
@@ -497,7 +514,7 @@ async def user_posts(
     cursor: int | None = None, limit: int = 20,
 ) -> tuple[list[dict], int | None, bool]:
     """某用户公开主页的帖子（status=1、非广告），带查看者互动视角。"""
-    conds = [Post.user_id == user_id, Post.status == 1, Post.post_type != "advertisement"]
+    conds = [Post.user_id == user_id, Post.status == 1, Post.post_type != "advertisement", visible_author(Post.user_id, viewer)]
     if cursor:
         conds.append(Post.id < cursor)
     stmt = (
@@ -524,5 +541,5 @@ async def user_posts(
             it["is_liked"] = it["id"] in liked_ids
             it["is_favorited"] = it["id"] in fav_ids
 
-    next_cursor = rows[-1].id if has_more and rows else None
+    next_cursor = rows[-1][0].id if has_more and rows else None
     return items, next_cursor, has_more

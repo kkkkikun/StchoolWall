@@ -1,3 +1,4 @@
+from tests.production_helpers import approve_comments
 """并发计数回归测试：点赞/评论在并发写时不得丢失计数或抛 500。
 
 背景：计数曾是 read-modify-write（post.like_count = post.like_count + 1），
@@ -95,6 +96,8 @@ class TestConcurrentCounts:
         ])
         assert all(r.status_code == 200 for r in resps)
 
+        assert all(r.json()["data"]["status"] == 0 for r in resps)
+        await approve_comments()
         detail = (await client.get(f"/api/v1/posts/{pid}")).json()["data"]
         assert detail["comment_count"] == 8
 

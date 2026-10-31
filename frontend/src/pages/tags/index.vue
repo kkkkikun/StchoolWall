@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="themeClass">
     <view class="tags-grid">
       <view
         v-for="tag in tags"
@@ -15,8 +15,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '@/utils/theme'
 import type { Tag } from '@/types/api'
 import { getTags } from '@/api/tags'
+
+const { themeClass } = useTheme()
 
 const tags = ref<Tag[]>([])
 
@@ -44,7 +47,7 @@ onMounted(async () => {
 <style scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-card-2);
   padding: 20rpx;
 }
 
@@ -55,10 +58,10 @@ onMounted(async () => {
 }
 
 .tag-card {
-  background: #fff;
+  background: var(--bg-card);
   padding: 24rpx 32rpx;
   border-radius: 40rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-card);
 }
 
 .tag-name {

@@ -26,5 +26,7 @@ class AdminUser(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # 改密 +1；token 中的 pwd_version 与库不匹配即失效
     pwd_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    mfa_secret_encrypted: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mfa_last_counter: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_login_at = mapped_column(DateTime(timezone=True), nullable=True)
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())

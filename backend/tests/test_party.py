@@ -1,3 +1,4 @@
+from tests.production_helpers import approve_party
 """组局模块测试：创建 / 列表(筛选) / 报名(幂等/满额) / 退出 / 我的局 / 累计人数。"""
 
 import pytest
@@ -12,10 +13,12 @@ def _token(u: User) -> str:
     return create_access_token({"sub": str(u.id), "role": u.role})
 
 
-async def _create_party(client, token, **kw):
+async def _create_party(client, token, approve=True, **kw):
     payload = {"type": "group", "category": "自习", "title": "今晚图书馆自习", "content": "求组队", "total": 4}
     payload.update(kw)
     r = await client.post("/api/v1/parties", json=payload, headers=auth_header(token))
+    if approve and r.status_code == 200:
+        await approve_party(r.json()["data"]["id"])
     return r
 
 
@@ -27,12 +30,12 @@ async def _create_party(client, token, **kw):
 class TestCreateParty:
     @pytest.mark.asyncio
     async def test_student_create(self, client: AsyncClient, student_user: User):
-        r = await _create_party(client, _token(student_user))
+        r = await _create_party(client, _token(student_user), approve=False)
         assert r.status_code == 200
         d = r.json()["data"]
         assert d["title"] == "今晚图书馆自习"
         assert d["joined_count"] == 0
-        assert d["status"] == 1
+        assert d["status"] == 0
         assert d["total"] == 4
 
     @pytest.mark.asyncio

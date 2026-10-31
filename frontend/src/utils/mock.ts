@@ -36,23 +36,23 @@ export const POST_CATEGORIES = [
 
 /** 金刚区 10 宫格（点击按 category 过滤信息流；「更多分类」跳搜索） */
 export const MENU_ITEMS: MenuItem[] = [
-  { name: '校园广场', icon: '🏫' },
-  { name: '二手市场', icon: '🛒', badge: '新' },
-  { name: '失物招领', icon: '🔎' },
-  { name: '兼职实习', icon: '💼' },
-  { name: '表白墙', icon: '💌' },
-  { name: '一起自习', icon: '📖' },
-  { name: '兴趣社团', icon: '🎨' },
-  { name: '校园活动', icon: '🎉' },
-  { name: '树洞倾诉', icon: '🌳' },
-  { name: '更多分类', icon: '⋯', badge: '全部' },
+  { name: '校园广场', icon: '/static/icons/common/campus.svg' },
+  { name: '二手市场', icon: '/static/icons/common/cart.svg', badge: '新' },
+  { name: '失物招领', icon: '/static/icons/common/search.svg' },
+  { name: '兼职实习', icon: '/static/icons/state/briefcase.svg' },
+  { name: '表白墙', icon: '/static/icons/state/mail-heart.svg' },
+  { name: '一起自习', icon: '/static/icons/common/book.svg' },
+  { name: '兴趣社团', icon: '/static/icons/state/palette.svg' },
+  { name: '校园活动', icon: '/static/icons/state/party.svg' },
+  { name: '树洞倾诉', icon: '/static/icons/state/tree.svg' },
+  { name: '更多分类', icon: '/static/icons/common/more.svg', badge: '全部' },
 ]
 
 /** 首页广告位轮播 */
 export const AD_BANNERS: AdBanner[] = [
   {
     id: 1,
-    emoji: '🎓',
+    icon: '/static/icons/banner/grad.svg',
     title: '毕业季 · 鄂应专属',
     desc: '留下你的校园回忆，赢毕业礼包',
     tag: '活动',
@@ -60,7 +60,7 @@ export const AD_BANNERS: AdBanner[] = [
   },
   {
     id: 2,
-    emoji: '🎉',
+    icon: '/static/icons/banner/guide.svg',
     title: '迎新季 · 新生攻略',
     desc: '一键获取校园生存指南',
     tag: '热门',
@@ -68,7 +68,7 @@ export const AD_BANNERS: AdBanner[] = [
   },
   {
     id: 3,
-    emoji: '🛒',
+    icon: '/static/icons/banner/market.svg',
     title: '跳蚤集市 · 闲置流转',
     desc: '毕业季二手好物，低价淘',
     tag: '集市',
@@ -76,7 +76,7 @@ export const AD_BANNERS: AdBanner[] = [
   },
   {
     id: 4,
-    emoji: '📝',
+    icon: '/static/icons/banner/book.svg',
     title: '期末互助 · 真题共享',
     desc: '组队复习，资料一键互传',
     tag: '学习',
@@ -89,7 +89,7 @@ export const HOME_FEEDS: Feed[] = [
   {
     id: 10001,
     username: '小熊软糖',
-    avatar: '🐻',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffd591',
     verified: true,
     time: '1分钟前',
@@ -100,7 +100,7 @@ export const HOME_FEEDS: Feed[] = [
   {
     id: 10002,
     username: '鄂小鹰0007',
-    avatar: '🦅',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#adc6ff',
     verified: false,
     time: '12分钟前',
@@ -110,7 +110,7 @@ export const HOME_FEEDS: Feed[] = [
   {
     id: 10003,
     username: '最爱吃兽奶',
-    avatar: '🥛',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffe7ba',
     verified: true,
     time: '半小时前',
@@ -121,7 +121,7 @@ export const HOME_FEEDS: Feed[] = [
   {
     id: 10004,
     username: '匿名树洞',
-    avatar: '🌳',
+    avatar: '/static/icons/state/tree.svg',
     avatarColor: '#d9f7be',
     verified: false,
     time: '1小时前',
@@ -137,16 +137,16 @@ export const GROUP_TOTAL_USER = 6693
 
 /** 组局分类筛选 */
 export const PARTY_CATEGORIES: PartyCategory[] = [
-  { id: 0, icon: '⭐', name: '有空位', count: 128 },
-  { id: 1, icon: '📖', name: '自习', count: 86 },
-  { id: 2, icon: '🎬', name: '电影', count: 112 },
-  { id: 3, icon: '🍴', name: '聚餐', count: 98 },
-  { id: 4, icon: '🚗', name: '拼车', count: 76 },
-  { id: 5, icon: '🛍️', name: '拼单', count: 64 },
-  { id: 6, icon: '🏃', name: '运动', count: 142 },
-  { id: 7, icon: '🎮', name: '游戏', count: 95 },
-  { id: 8, icon: '🌴', name: '旅行', count: 39 },
-  { id: 9, icon: '⚙️', name: '其他', count: 63 },
+  { id: 0, icon: '/static/icons/party/star.svg', name: '有空位', count: 128 },
+  { id: 1, icon: '/static/icons/party/book.svg', name: '自习', count: 86 },
+  { id: 2, icon: '/static/icons/party/film.svg', name: '电影', count: 112 },
+  { id: 3, icon: '/static/icons/party/dining.svg', name: '聚餐', count: 98 },
+  { id: 4, icon: '/static/icons/party/car.svg', name: '拼车', count: 76 },
+  { id: 5, icon: '/static/icons/party/shopping.svg', name: '拼单', count: 64 },
+  { id: 6, icon: '/static/icons/party/running.svg', name: '运动', count: 142 },
+  { id: 7, icon: '/static/icons/party/game.svg', name: '游戏', count: 95 },
+  { id: 8, icon: '/static/icons/party/palm.svg', name: '旅行', count: 39 },
+  { id: 9, icon: '/static/icons/party/gear.svg', name: '其他', count: 63 },
 ]
 
 /** 组局/拼单列表 */
@@ -156,7 +156,7 @@ export const PARTY_LIST: PartyItem[] = [
     type: '组局',
     title: '大学生创新创业大赛来带！想找一个靠谱团队一起冲大创，一起认真做项目！',
     username: '小熊软糖',
-    avatar: '🐻',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffd591',
     date: '6-1',
     joined: 6,
@@ -167,36 +167,36 @@ export const PARTY_LIST: PartyItem[] = [
     type: '组局',
     title: '今晚有人打半场篮球吗？',
     username: '最爱吃兽奶',
-    avatar: '🥛',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffe7ba',
     date: '6-1',
     joined: 3,
     total: 10,
-    decorIcon: '🏀',
+    decorIcon: '/static/icons/common/ball.svg',
   },
   {
     id: 2003,
     type: '组局',
     title: '晚上有没有人来操场玩狼人杀？',
     username: '最爱吃兽奶',
-    avatar: '🥛',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffe7ba',
     date: '6-1',
     joined: 5,
     total: 8,
-    decorIcon: '🐺',
+    decorIcon: '/static/icons/party/game.svg',
   },
   {
     id: 2004,
     type: '拼单',
     title: '打车去东胜万达，下午2点出发，还差2人，车费AA',
     username: '小熊软糖',
-    avatar: '🐻',
+    avatar: '/static/icons/common/mine.svg',
     avatarColor: '#ffd591',
     date: '6-1',
     joined: 2,
     total: 4,
-    decorIcon: '🚗',
+    decorIcon: '/static/icons/party/car.svg',
   },
 ]
 
@@ -204,10 +204,10 @@ export const PARTY_LIST: PartyItem[] = [
 
 /** 消息 4 分类 */
 export const MESSAGE_CATEGORIES: MessageCategory[] = [
-  { type: 'comment', name: '评论', icon: '💬', colorClass: 'blue', unreadCount: 0 },
-  { type: 'like', name: '赞', icon: '♡', colorClass: 'pink', unreadCount: 0 },
-  { type: 'party', name: '组局', icon: '👥', colorClass: 'yellow', unreadCount: 0 },
-  { type: 'im', name: '私信', icon: '✉️', colorClass: 'green', unreadCount: 12 },
+  { type: 'comment', name: '评论', icon: '/static/icons/common/comment.svg', colorClass: 'blue', unreadCount: 0 },
+  { type: 'like', name: '赞', icon: '/static/icons/common/heart.svg', colorClass: 'pink', unreadCount: 0 },
+  { type: 'party', name: '组局', icon: '/static/icons/common/group.svg', colorClass: 'yellow', unreadCount: 0 },
+  { type: 'im', name: '私信', icon: '/static/icons/common/message.svg', colorClass: 'green', unreadCount: 12 },
 ]
 
 /** 帖子动态（默认空，触发"暂无消息"） */
@@ -221,7 +221,7 @@ export const PUBLISH_HOT_TAGS = ['考研交流', '失物招领', '二手交易',
 /* ============ 我的 ============ */
 
 export const MINE_USER: MineUser = {
-  avatarUrl: '🦅',
+  avatarUrl: '/static/icons/common/mine.svg',
   nickName: '鄂小鹰0001',
   schoolName: '鄂尔多斯应用技术学院',
 }
@@ -234,13 +234,13 @@ export const MINE_STATS: MineStats = {
 }
 
 export const MINE_MENU_1: MineMenu[] = [
-  { name: '社区规范', icon: '🛡️', action: 'guidelines' },
-  { name: '新手帮助', icon: '❓', action: 'help' },
-  { name: '邀请校友', icon: '🎁', action: 'invite' },
+  { name: '社区规范', icon: '/static/icons/common/shield.svg', action: 'guidelines' },
+  { name: '新手帮助', icon: '/static/icons/common/help.svg', action: 'help' },
+  { name: '邀请校友', icon: '/static/icons/settings/gift.svg', action: 'invite' },
 ]
 
 export const MINE_MENU_2: MineMenu[] = [
-  { name: '设置', icon: '⚙️', action: 'settings' },
-  { name: '关于我们', icon: 'ℹ️', action: 'about' },
-  { name: '联系我们', icon: '📞', action: 'contact' },
+  { name: '设置', icon: '/static/icons/settings/gear.svg', action: 'settings' },
+  { name: '关于我们', icon: '/static/icons/settings/info.svg', action: 'about' },
+  { name: '联系我们', icon: '/static/icons/settings/phone.svg', action: 'contact' },
 ]

@@ -235,13 +235,13 @@ const onSave = async () => {
 .input { font-size: 28rpx; color: var(--text-1); }
 .textarea { font-size: 28rpx; color: var(--text-1); width: 100%; min-height: 100rpx; line-height: 1.6; }
 .ph { color: var(--text-placeholder); }
-.counter { position: absolute; right: 0; bottom: 26rpx; font-size: 20rpx; color: var(--text-3); }
+.counter { position: absolute; right: 0; bottom: 26rpx; font-size: 22rpx; color: var(--text-3); }
 .readonly { font-size: 28rpx; color: var(--text-2); }
-.ro-tip { display: block; font-size: 20rpx; color: var(--text-3); padding: 16rpx 0 8rpx; line-height: 1.6; }
+.ro-tip { display: block; font-size: 22rpx; color: var(--text-3); padding: 16rpx 0 8rpx; line-height: 1.6; }
 
 .save-btn {
   margin: 40rpx 24rpx 0;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 30rpx;
   font-weight: 600;

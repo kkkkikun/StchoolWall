@@ -110,6 +110,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
@@ -164,12 +165,6 @@ const iconOf = (type: string) =>
     comment: '/static/icons/common/comment-inverse.svg',
   } as Record<string, string>)[type] || '/static/icons/common/comment-inverse.svg'
 
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5', '#f5d0d8']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 /** 热度格式化：≥1000 → 2.4k */
 const fmtHeat = (n: number) => {
@@ -277,7 +272,7 @@ const onMessage = async (m: MsgRow) => {
 .panel { background: var(--bg-card); border-radius: var(--radius-card); margin: 20rpx 24rpx 0; padding: 24rpx 24rpx 20rpx; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .panel-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.panel-more { font-size: 24rpx; color: var(--text-3); display: inline-flex; align-items: center; }
+.panel-more { font-size: 24rpx; color: var(--text-3); display: inline-flex; align-items: center; min-height: 64rpx; }
 .chev { width: 20rpx; height: 20rpx; margin-left: 2rpx; flex-shrink: 0; }
 .more-check { width: 22rpx; height: 22rpx; margin-right: 4rpx; flex-shrink: 0; }
 
@@ -285,11 +280,11 @@ const onMessage = async (m: MsgRow) => {
 .rank-scroll { white-space: nowrap; }
 .rank-user { display: inline-flex; flex-direction: column; align-items: center; width: 138rpx; vertical-align: top; }
 .crown { width: 34rpx; height: 34rpx; flex-shrink: 0; }
-.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: var(--text-inverse); font-weight: bold; }
-.rank-badge { margin-top: -12rpx; background: var(--primary-strong); color: var(--text-inverse); font-size: 18rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: var(--radius-inner); border: 3rpx solid #fff; line-height: 1.5; }
-.rank-badge.dim { background: var(--primary); }
+.rank-avatar { width: 96rpx; height: 96rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: var(--on-avatar); font-weight: bold; }
+.rank-badge { margin-top: -12rpx; background: var(--primary-badge); color: var(--text-inverse); font-size: 22rpx; font-weight: bold; padding: 2rpx 14rpx; border-radius: var(--radius-inner); border: 3rpx solid #fff; line-height: 1.5; }
+.rank-badge.dim { background: var(--primary-fill); }
 .rank-name { margin-top: 8rpx; font-size: 22rpx; color: var(--text-1); max-width: 130rpx; overflow: hidden; text-overflow: ellipsis; }
-.rank-heat { margin-top: 4rpx; font-size: 20rpx; color: var(--primary-strong); font-weight: 600;
+.rank-heat { margin-top: 4rpx; font-size: 22rpx; color: var(--primary-text); font-weight: 600;
   display: inline-flex; align-items: center; }
 .heat-icon { width: 20rpx; height: 20rpx; margin-right: 4rpx; flex-shrink: 0; }
 
@@ -312,13 +307,13 @@ const onMessage = async (m: MsgRow) => {
 .msg-row { display: flex; align-items: center; padding: 24rpx 4rpx; border-bottom: 1rpx solid var(--border-light); }
 .msg-row:last-child { border-bottom: none; }
 .msg-row.unread { background: var(--card-gradient); border-radius: var(--radius-inner); padding-left: 12rpx; padding-right: 12rpx; }
-.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
-.sender-avatar.sys { color: var(--primary-strong); font-size: 40rpx; }
+.sender-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: var(--on-avatar); font-weight: bold; flex-shrink: 0; }
+.sender-avatar.sys { color: var(--primary-text); font-size: 40rpx; }
 .sys-icon { width: 40rpx; height: 40rpx; }
 .msg-main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .msg-title-row { display: flex; align-items: center; gap: 12rpx; }
 .msg-name { font-size: 28rpx; font-weight: bold; color: var(--text-1); }
-.sys-tag { font-size: 20rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 2rpx 10rpx; border-radius: 999rpx; }
+.sys-tag { font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 2rpx 10rpx; border-radius: 999rpx; }
 .msg-text { display: block; font-size: 25rpx; color: var(--text-2); margin-top: 8rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-sub { display: block; font-size: 22rpx; color: var(--text-3); margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-right { display: flex; flex-direction: column; align-items: flex-end; margin-left: 16rpx; gap: 12rpx; }

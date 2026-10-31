@@ -5,7 +5,7 @@
     <!-- 2. 规则说明条 -->
     <view class="intro-bar">
       <image class="intro-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
-      <text class="intro-text">近 7 天 · 赞×3 + 评论×2 + 浏览 加权排序</text>
+      <text class="intro-text">近 7 天 ·（赞×3 + 评论×2 + 浏览）加权排序</text>
     </view>
 
     <!-- 3. 完整榜单 -->
@@ -153,7 +153,7 @@ const goBack = () =>
   text-align: center;
 }
 .rank-row.top3 .rank { font-size: 44rpx; }
-.rank-1 { color: var(--primary-strong); }
+.rank-1 { color: var(--primary-text); }
 .rank-2 { color: var(--rank-2); }
 .rank-3 { color: var(--rank-3); }
 
@@ -171,9 +171,9 @@ const goBack = () =>
 }
 .hot-tag {
   flex-shrink: 0;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
-  font-size: 18rpx;
+  font-size: 22rpx;
   padding: 2rpx 8rpx;
   border-radius: var(--radius-tag);
   margin-left: 10rpx;

@@ -77,7 +77,7 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
   padding: 32rpx 30rpx 40rpx;
 }
 .badge-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; }
-.badge { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 6rpx 16rpx; border-radius: 999rpx; }
+.badge { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 6rpx 16rpx; border-radius: 999rpx; }
 .title { display: block; font-size: 36rpx; font-weight: bold; color: var(--text-1); line-height: 1.5; margin-top: 22rpx; }
 .time { display: block; font-size: 24rpx; color: var(--text-3); margin-top: 16rpx; }
 .divider { height: 1rpx; background: var(--bg-card-2); margin: 26rpx 0; }

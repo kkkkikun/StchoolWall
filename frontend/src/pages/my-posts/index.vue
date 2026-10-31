@@ -121,7 +121,9 @@ onMounted(() => {
 .tab {
   font-size: 28rpx;
   color: var(--text-2);
+  padding-top: 14rpx;
   padding-bottom: 12rpx;
+  min-width: 64rpx;
 }
 
 .tab.active {

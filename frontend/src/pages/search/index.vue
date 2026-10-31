@@ -207,6 +207,10 @@ onShow(() => {
   padding: 4rpx 10rpx;
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* 点击区 ≥64rpx（≈33px） */
+  min-width: 64rpx;
+  min-height: 64rpx;
 }
 
 .search-bar {
@@ -249,10 +253,12 @@ onShow(() => {
 }
 
 .search-btn {
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 28rpx;
   font-weight: 600;
-  padding: 8rpx 12rpx;
+  /* inline-block + 内边距：搜索按钮撑到 64rpx（≈33px）最小点击区 */
+  display: inline-block;
+  padding: 15rpx 16rpx;
   white-space: nowrap;
 }
 
@@ -312,7 +318,7 @@ onShow(() => {
   padding: 12rpx 24rpx;
   border-radius: var(--radius-btn);
   font-size: 26rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   display: flex;
   align-items: center;
   gap: 4rpx;

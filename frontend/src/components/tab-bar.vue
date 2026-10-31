@@ -152,13 +152,13 @@ const onTap = (path: string, index: number) => {
 
 .tab-badge-text {
   color: #ffffff;
-  font-size: 18rpx;
+  font-size: 22rpx;
   font-weight: 700;
   line-height: 1;
 }
 
 .tab-label {
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: inherit;
   margin-top: 2rpx;
 }

@@ -131,7 +131,7 @@ onUnload(() => { photoPath.value = ''; studentId.value = ''; challenge.value = n
 
 <style scoped>
 .container { min-height: 100vh; background: var(--bg-page); padding-bottom: 60rpx; }
-.header { background: var(--info-gradient); padding: 50rpx 32rpx; color: var(--text-inverse); }
+.header { background: var(--primary-fill-gradient); padding: 50rpx 32rpx; color: var(--text-inverse); }
 .title { display: block; font-size: 42rpx; font-weight: 600; margin-bottom: 16rpx; }
 .subtitle { font-size: 26rpx; }
 .form { padding: 32rpx; }
@@ -143,8 +143,8 @@ onUnload(() => { photoPath.value = ''; studentId.value = ''; challenge.value = n
 .tips-title, .tips-text { display: block; font-size: 25rpx; color: var(--text-2); line-height: 1.9; }
 .tips-title { font-weight: 600; }
 .consent { display: flex; gap: 12rpx; align-items: flex-start; margin: 28rpx 0; font-size: 25rpx; color: var(--text-2); }
-.challenge { display: block; text-align: center; font-size: 64rpx; font-weight: bold; letter-spacing: 12rpx; margin: 28rpx 0; color: var(--primary); }
+.challenge { display: block; text-align: center; font-size: 64rpx; font-weight: bold; letter-spacing: 12rpx; margin: 28rpx 0; color: var(--primary-text); }
 button { margin: 24rpx 0; font-size: 28rpx; border-radius: 40rpx; }
-.submit-btn { background: var(--primary); color: var(--text-inverse); }
+.submit-btn { background: var(--primary-fill); color: var(--text-inverse); }
 .proof-preview { width: 100%; height: 440rpx; }
 </style>

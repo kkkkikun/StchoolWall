@@ -80,7 +80,7 @@
       :duration="500"
     >
       <swiper-item v-for="ad in adBanners" :key="ad.id" @tap="onAd(ad)">
-        <!-- 有图 banner：图片铺满 + 底部渐变标题 -->
+        <!-- 有图 banner：图片铺满 + 底部暗化层 + 底部标题 -->
         <view v-if="ad.image_url" class="ad-slide ad-slide-img">
           <image class="ad-img" :src="ad.image_url" mode="aspectFill" />
           <view class="ad-img-mask">
@@ -91,7 +91,7 @@
           </view>
           <text v-if="ad.tag" class="ad-tag">{{ ad.tag }}</text>
         </view>
-        <!-- 无图 banner：emoji / 矢量图标 + 渐变背景（mock fallback 同款样式） -->
+        <!-- 无图 banner：矢量图标 + 渐变背景 + 暗化层（mock fallback 同款样式） -->
         <view
           v-else
           class="ad-slide"
@@ -99,11 +99,13 @@
             background: ad.bg || 'linear-gradient(135deg, #1d9bf0, #1a8cd8)',
           }"
         >
-          <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
-          <image v-else class="ad-icon-img" src="/static/icons/common/notice-inverse.svg" mode="aspectFit" />
-          <view class="ad-text">
-            <text class="ad-title">{{ ad.title }}</text>
-            <text class="ad-desc">{{ ad.desc }}</text>
+          <view class="ad-scrim">
+            <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
+            <image v-else class="ad-icon-img" src="/static/icons/common/notice-inverse.svg" mode="aspectFit" />
+            <view class="ad-text">
+              <text class="ad-title">{{ ad.title }}</text>
+              <text class="ad-desc">{{ ad.desc }}</text>
+            </view>
           </view>
           <text class="ad-tag">{{ ad.tag }}</text>
         </view>
@@ -112,22 +114,28 @@
 
     <!-- 6. 吸顶分类 Tab -->
     <view class="tab-bar-sticky">
-      <scroll-view class="tab-scroll" scroll-x :show-scrollbar="false">
-        <view
-          v-for="(t, idx) in TABS"
-          :key="idx"
-          class="tab-item-wrap"
-        >
-          <view v-if="idx === 4" class="tab-sep" />
-          <view
-            class="tab-item"
-            :class="{ active: currentTab === idx, 'tab-category': t.kind === 'category' }"
-            @tap="switchTab(idx)"
-          >
-            {{ t.label }}
+      <view class="scroll-x-wrap">
+        <scroll-view class="tab-scroll" scroll-x :show-scrollbar="false" @scroll="onTabScroll">
+          <view class="tab-row">
+            <view
+              v-for="(t, idx) in TABS"
+              :key="idx"
+              class="tab-item-wrap"
+            >
+              <view v-if="idx === 4" class="tab-sep" />
+              <view
+                class="tab-item"
+                :class="{ active: currentTab === idx, 'tab-category': t.kind === 'category' }"
+                @tap="switchTab(idx)"
+              >
+                {{ t.label }}
+              </view>
+            </view>
           </view>
-        </view>
-      </scroll-view>
+        </scroll-view>
+        <view class="scroll-x-fade left" :class="{ show: showFadeLeft }" />
+        <view class="scroll-x-fade right" :class="{ show: showFadeRight }" />
+      </view>
     </view>
 
     <!-- 7. 信息流 -->
@@ -169,6 +177,7 @@ import { getBanners, type BannerItem } from "@/api/banner";
 import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
 import { getNavBarMetrics } from "@/utils/navbar";
+import { useScrollFade } from "@/utils/scroll-fade";
 
 const { themeClass } = useTheme()
 
@@ -184,6 +193,8 @@ const TABS: Array<{ label: string; mode: string; kind: 'mode' | 'category' }> = 
   { label: "失物", mode: "失物", kind: "category" },
 ];
 const currentTab = ref(0);
+/* 分类 Tab 横向滚动：两侧渐隐，滚到端点时对应侧隐藏 */
+const { showLeft: showFadeLeft, showRight: showFadeRight, onScroll: onTabScroll } = useScrollFade('.tab-scroll');
 // feed 模式：'all'(推荐) | 'following'(关注) | <分类名>
 const feedMode = ref<string>("all");
 interface HotItem {
@@ -458,7 +469,7 @@ const switchTab = (idx: number) => {
 }
 .checkin-btn.done .checkin-fallback {
   font-size: 30rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* 右侧连签数字 */
@@ -469,7 +480,7 @@ const switchTab = (idx: number) => {
   line-height: 1;
 }
 .checkin-btn.done .checkin-count {
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 
 .search-bar {
@@ -503,8 +514,12 @@ const switchTab = (idx: number) => {
 .search-confirm {
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   padding-left: 20rpx;
+  display: inline-flex;
+  align-items: center;
+  /* 点击区 ≥64rpx（≈33px） */
+  min-height: 64rpx;
   border-left: 1rpx solid var(--border-strong);
 }
 
@@ -570,7 +585,11 @@ const switchTab = (idx: number) => {
   padding-top: 12rpx;
   border-top: 1rpx solid var(--border-light);
   display: flex;
+  align-items: center;
   justify-content: center;
+  /* 「查看完整榜单」是整行可点，点击区高度需 ≥64rpx（≈33px） */
+  min-height: 64rpx;
+  box-sizing: border-box;
 }
 
 .hot-more text {
@@ -583,6 +602,9 @@ const switchTab = (idx: number) => {
   align-items: center;
   font-size: 24rpx;
   line-height: 1.6;
+  /* 榜单行整行可点，高度需 ≥64rpx（≈33px） */
+  min-height: 64rpx;
+  box-sizing: border-box;
   padding: 2rpx 0;
 }
 
@@ -611,9 +633,9 @@ const switchTab = (idx: number) => {
 }
 
 .hot-tag {
-  background-color: var(--primary-strong);
+  background-color: var(--primary-badge);
   color: var(--text-inverse);
-  font-size: 18rpx;
+  font-size: 22rpx;
   padding: 2rpx 8rpx;
   border-radius: var(--radius-tag);
   margin-left: 10rpx;
@@ -635,6 +657,9 @@ const switchTab = (idx: number) => {
 
 .ad-slide {
   height: 100%;
+  /* H5 轮播：相邻 slide 亚像素取整会压住当前卡片右缘 1px，
+     给 1px 左外边距把下一张的着色区推离裁剪边界 */
+  margin-left: 1px;
   border-radius: var(--radius-card);
   padding: 0 28rpx;
   display: flex;
@@ -660,12 +685,33 @@ const switchTab = (idx: number) => {
   right: 0;
   bottom: 0;
   padding: 24rpx 28rpx 16rpx;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+  /* 照片底色不可控：蒙版必须在标题字形顶部就压到 0.6 黑色，
+     否则白字压在亮色照片上几乎不可见（最坏 1.36:1） */
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.8) 30%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
   display: flex;
   align-items: flex-end;
 }
 .ad-slide-img .ad-text {
   flex: 1;
+}
+
+/* 纯色渐变 banner 的暗化层：底色由后台下发（可能是浅色渐变），
+   白字白图标无法保证可读，统一压暗右侧文案区 */
+.ad-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 100%);
 }
 
 .ad-icon-img {
@@ -697,9 +743,12 @@ const switchTab = (idx: number) => {
   position: absolute;
   top: 16rpx;
   right: 20rpx;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 18rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 22rpx;
+  /* 角标自带深色底：图片 banner 顶部无蒙版、渐变 banner 底色由后台下发，
+     两种情况下都能保证白字可读（最坏 5.9:1） */
+  background: rgba(0, 0, 0, 0.6);
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
   padding: 2rpx 12rpx;
   border-radius: var(--radius-inner);
 }
@@ -712,12 +761,25 @@ const switchTab = (idx: number) => {
   background-color: var(--bg-page);
 }
 
+.scroll-x-wrap {
+  position: relative;
+}
+
 .tab-scroll {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   white-space: nowrap;
-  padding: 16rpx 24rpx;
+  padding: 16rpx 0;
+}
+
+/* 左右内边距放在滚动内容上：容器可视宽度 == 测量宽度，滚动位移换算才准 */
+.tab-row {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 24rpx;
+  /* 右侧留出渐隐层宽度，滚到底时末尾胶囊仍完整可见 */
+  padding-right: 72rpx;
 }
 
 .tab-item-wrap {
@@ -748,7 +810,8 @@ const switchTab = (idx: number) => {
 
 .tab-item.tab-category {
   margin-right: 16rpx;
-  padding: 8rpx 22rpx;
+  /* 内边距使胶囊高度达到 64rpx（≈33px），满足最小点击区 */
+  padding: 14rpx 24rpx;
   border-radius: var(--radius-btn);
   background: var(--pill-bg);
   border: none;

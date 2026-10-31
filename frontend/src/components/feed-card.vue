@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
 import type { PostBrief } from '@/types/api'
 import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
@@ -107,14 +108,8 @@ const onTag = (tag: string) => uni.navigateTo({ url: `/pages/tag-posts/index?nam
 
 const typeLabel = computed(() => (POST_TYPE_MAP as Record<string, string>)[props.post.post_type] || '动态')
 
-const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
 const avatarLetter = computed(() => (props.post.author.nickname || '?').slice(0, 1))
-const avatarColor = computed(() => {
-  const s = props.post.author.nickname || ''
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+const avatarColor = computed(() => avatarColorOf(props.post.author.nickname))
 
 const timeAgo = computed(() => {
   const t = new Date(props.post.created_at).getTime()
@@ -217,30 +212,31 @@ const onFavorite = async () => {
   width: 84rpx; height: 84rpx; border-radius: 50%; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
 }
-.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 40rpx; font-weight: bold; color: var(--on-avatar); }
 .user-meta { display: flex; flex-direction: column; }
 .name-box { display: flex; align-items: center; }
 .username { font-size: 30rpx; color: var(--text-1); font-weight: 700; }
 .pinned-badge {
   margin-left: 10rpx;
-  font-size: 18rpx;
+  font-size: 22rpx;
   color: var(--text-inverse);
-  background: var(--primary);
+  background: var(--primary-badge);
   padding: 2rpx 10rpx;
   border-radius: var(--radius-tag);
 }
 
 .featured-badge {
   margin-left: 10rpx;
-  font-size: 18rpx;
-  color: var(--primary-strong);
+  font-size: 22rpx;
+  color: var(--primary-text);
   background: var(--primary-soft);
   border: 1rpx solid var(--primary);
   padding: 1rpx 10rpx;
   border-radius: var(--radius-tag);
 }
 .time-ago { font-size: 24rpx; color: var(--text-2); margin-top: 4rpx; }
-.more-action { color: var(--text-3); font-size: 36rpx; padding: 0 10rpx; letter-spacing: 2rpx; }
+/* 右上角「···」：inline-block + 定高居中，点击区 64rpx（≈33px） */
+.more-action { color: var(--text-3); font-size: 36rpx; padding: 0; letter-spacing: 2rpx; display: inline-flex; align-items: center; justify-content: center; min-width: 64rpx; min-height: 64rpx; }
 .feed-body { margin-top: 20rpx; }
 .feed-text { font-size: 30rpx; color: var(--text-1); line-height: 1.55; white-space: pre-wrap; }
 .feed-text .hashtag { color: var(--link); }
@@ -251,7 +247,8 @@ const onFavorite = async () => {
   display: flex; margin-top: 28rpx; border-top: 1rpx solid var(--border-light);
   padding-top: 24rpx; justify-content: space-between;
 }
-.action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); }
+/* min-height/min-width 64rpx（≈33px）：图标本身只有 36rpx，需靠内边距撑出最小点击区 */
+.action-item { display: flex; align-items: center; gap: 10rpx; color: var(--text-2); min-height: 64rpx; min-width: 64rpx; }
 .action-item.on .act-num { color: var(--like); }
 .act-icon { width: 36rpx; height: 36rpx; }
 .act-num { font-size: 24rpx; color: var(--text-2); }

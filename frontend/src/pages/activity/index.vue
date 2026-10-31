@@ -97,7 +97,7 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
   padding: 30rpx;
 }
 .tag-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; }
-.tag { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 6rpx 16rpx; border-radius: 999rpx; }
+.tag { display: inline-flex; align-items: center; font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); border: 1rpx solid var(--primary); padding: 6rpx 16rpx; border-radius: 999rpx; }
 .title { display: block; font-size: 38rpx; font-weight: bold; color: var(--text-1); line-height: 1.4; margin-top: 20rpx; }
 .summary { display: block; font-size: 26rpx; color: var(--text-3); line-height: 1.6; margin-top: 14rpx; }
 .meta-row { display: flex; align-items: flex-start; margin-top: 16rpx; }

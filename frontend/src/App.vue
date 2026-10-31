@@ -22,10 +22,20 @@ page {
   --primary: #1d9bf0;            /* 主品牌色：X 蓝 */
   --primary-strong: #1a8cd8;     /* 深一档：按下态 */
   --primary-soft: rgba(29, 155, 240, 0.12);   /* 蓝色软底（标签/徽章） */
+  --primary-text: #0d74ab;       /* 蓝色正文小字：白底 5.12:1 / 浅蓝底 4.52:1，达 WCAG AA */
+  --primary-fill: #0d6fa5;        /* 蓝底白字填充面（主按钮/卡片）：白字 5.48:1，达 WCAG AA */
+  --primary-fill-strong: #0a5f8f; /* 填充面渐变深端：白字 7.24:1 */
+  --primary-fill-gradient: linear-gradient(135deg, #0d6fa5, #0a5f8f);
+  --primary-fill-gradient-rev: linear-gradient(135deg, #0a5f8f, #0d6fa5);
+  --primary-badge: var(--primary-fill);  /* 徽章沿用填充面色 */
   --like: #f918b6;               /* X 点赞粉 */
   --favorite: #b8860b;           /* 收藏深金：白底 3.4:1，达 WCAG 非文本对比度 */
   --accent-warm: #00ba7c;        /* 点缀：X 转发绿 */
   --accent-warm-strong: #00a06a; /* 点缀深一档 */
+  --accent-warm-fill: #00794f;    /* 绿底白字填充面：白字 5.46:1，达 WCAG AA */
+  --accent-warm-fill-strong: #00663f;
+  --accent-warm-text: var(--accent-warm-fill);   /* 绿色标签文字：浅绿底 4.87:1，达 WCAG AA */
+  --accent-warm-soft: rgba(0, 186, 124, 0.12);   /* 绿色标签底 */
   --primary-gradient: linear-gradient(135deg, #1d9bf0, #1a8cd8);
   --primary-gradient-rev: linear-gradient(135deg, #1a8cd8, #1d9bf0);
   --hero-gradient: linear-gradient(160deg, #1d6aa8 0%, #1d9bf0 115%);
@@ -46,9 +56,10 @@ page {
   --text-1: #0f1419;             /* 主文本：X 近黑 */
   --text-2: #536471;             /* 次级：X 灰蓝 */
   --text-3: #536471;             /* 辅助/时间 */
-  --text-4: #8b98a5;             /* 占位/禁用 */
+  --text-4: #6b7684;             /* 占位/禁用：白底 4.62:1，灰底 4.13:1，达占位符 4.0:1 */
   --text-placeholder: #5f6b78;   /* 输入占位：在白底与 #eff3f4 灰底上均达 WCAG AA */
   --text-inverse: #ffffff;       /* 品牌色/深底上的文字 */
+  --on-avatar: #1a2229;          /* 头像首字：深墨，全调色板最差 8.42:1 */
 
   /* —— 边框（X Light 分隔线） —— */
   --border-light: #eff3f4;       /* 发丝分隔线 */
@@ -61,18 +72,22 @@ page {
   --pill-active-text: #ffffff;   /* 胶囊激活字：白 */
   --hover-fill: rgba(15, 20, 25, 0.06); /* 行悬停/按压 */
 
+  /* —— 横向滚动行渐隐（小程序不支持 mask，用覆盖层实现） —— */
+  --scroll-fade-from: rgba(255, 255, 255, 0);
+  --scroll-fade-to: #ffffff;
+
   /* —— 功能色（X 官方功能色板，全主题恒定） —— */
-  --link: #1d9bf0;               /* 话题/链接 */
+  --link: var(--primary-text);     /* 话题/链接：与蓝色正文同源，暗色自动跟随 */
   --info: #1d9bf0;
   --info-gradient: linear-gradient(135deg, #1d9bf0 0%, #1a8cd8 100%);
   --success: #00ba7c;
-  --warning: #ffd400;
+  --warning: #9a6700;            /* 警示/收藏文字：白底 4.87:1 */
   --warning-soft: rgba(255, 212, 0, 0.14);
   --danger: #f4212e;
   --danger-soft: rgba(244, 33, 46, 0.10);
   --danger-strong: #b42318;       /* 深一档语义红：小字在浅红底上达 WCAG AA（5.8:1） */
-  --rank-2: #ffd400;             /* 榜单第 2 名 */
-  --rank-3: #ff7a00;             /* 榜单第 3 名 */
+  --rank-2: #9a6700;             /* 榜单第 2 名（金）：白底 4.87:1 */
+  --rank-3: #b45309;             /* 榜单第 3 名（铜）：白底 5.02:1 */
   --accent-violet: #7856ff;      /* X 紫 */
   --accent-violet-strong: #9a86ff;
   --accent-violet-soft: rgba(120, 86, 255, 0.14);
@@ -111,10 +126,12 @@ page {
   --bg-disabled: #2f3336;
 
   --text-1: #e7e9ea;             /* X 近白 */
-  --text-2: #8b98a5;             /* X meta 浅灰（高对比） */
-  --text-3: #71767b;             /* X 辅助灰 */
-  --text-4: #71767b;             /* 占位/禁用 */
+  --text-2: #9aa4b0;             /* X meta 浅灰（高对比）：深底 7.03:1 */
+  --text-3: #8c9299;             /* X 辅助灰：最差底(#172a3a) 4.68:1，达 AA */
+  --text-4: #8c9299;             /* 占位/禁用：达 AA */
   --text-placeholder: #8b98a5;   /* 输入占位：深底上保持可读 */
+  /* 暗色下蓝色文字必须提亮：深蓝在深底上不可读 */
+  --primary-text: #4ba3e3;       /* 蓝色正文小字：全部暗底 ≥5.35:1 */
 
   --border-light: #2f3336;       /* X 分隔线灰 */
   --border-strong: #536471;      /* 控件描边 */
@@ -124,10 +141,19 @@ page {
   --pill-active-text: #0f1419;
   --hover-fill: rgba(231, 233, 234, 0.06);
 
+  --scroll-fade-from: rgba(0, 0, 0, 0);
+  --scroll-fade-to: #000000;
+
+  --accent-warm-text: #3fd6a0;   /* 绿色标签文字：暗绿底 7.21:1 */
+  --accent-warm-soft: rgba(0, 186, 124, 0.16);
+
   --card-gradient: linear-gradient(180deg, #16181c, #16181c);
   --shimmer-gradient: linear-gradient(90deg, #16181c 25%, #202327 37%, #16181c 63%);
   --hero-gradient: linear-gradient(160deg, #0d3a5c 0%, #1d6aa8 60%, #1d9bf0 130%);
+  --warning: #ffb020;             /* 暗底警示/收藏文字：深底 9.72:1 */
   --warning-soft: rgba(255, 212, 0, 0.10);
+  --rank-2: #ffd400;             /* 暗底金：12.42:1 */
+  --rank-3: #ffa552;             /* 暗底铜：9.10:1 */
   --danger-soft: rgba(244, 33, 46, 0.16);
   --danger-strong: #ff6b74;       /* 暗底上的浅红：深底文字对比度 6.1:1 */
   --accent-violet-soft: rgba(120, 86, 255, 0.16);
@@ -167,8 +193,49 @@ image { display: block; }
   color: var(--text-placeholder);
 }
 
+/* ===== 横向滚动行渐隐（全局） =====
+   横向滚动的分类/筛选行在容器边缘会把胶囊从字形中间硬切，看起来像渲染坏了。
+   小程序不支持 CSS mask，故用绝对定位的渐变覆盖层实现；配合 utils/scroll-fade.ts 使用。 */
+.scroll-x-wrap {
+  position: relative;
+}
+.scroll-x-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48rpx;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.scroll-x-fade.show {
+  opacity: 1;
+}
+.scroll-x-fade.left {
+  left: 0;
+  /* 左缘：靠近左端不透明、向右淡出 */
+  background: linear-gradient(270deg, var(--scroll-fade-from), var(--scroll-fade-to));
+}
+.scroll-x-fade.right {
+  right: 0;
+  /* 右缘：靠近右端不透明、向左淡出 */
+  background: linear-gradient(90deg, var(--scroll-fade-from), var(--scroll-fade-to));
+}
+
 /* H5：夜间同步 <html> 底色，滚动溢出区域不露白 */
 /* #ifdef H5 */
 html.theme-dark { background: #000000; }
+/* #endif */
+
+/* H5 框架默认导航（未设 navigationStyle: custom 的页面）返回键只有 26×26，
+   扩到 40×40 满足最小点击区，箭头图形保持 26×26 不变 */
+/* #ifdef H5 */
+.uni-page-head-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 /* #endif */
 </style>

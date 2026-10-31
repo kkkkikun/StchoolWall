@@ -8,7 +8,7 @@
     <input v-model="entityId" class="field" :maxlength="64" placeholder="输入帖子 / 评论 / 组局 / 认证申请编号" placeholder-class="ph" />
     <textarea v-model="reason" class="field reason" :maxlength="1000" placeholder="申诉理由（5–1000字）" placeholder-class="ph" />
     <button :disabled="saving" @tap="submit">{{ saving ? '提交中…' : '提交申诉' }}</button>
-    <view class="records-title"><text>我的申诉</text><text @tap="load(1)">刷新</text></view>
+    <view class="records-title"><text>我的申诉</text><text class="refresh-link" @tap="load(1)">刷新</text></view>
     <view v-for="item in items" :key="item.id" class="record">
       <text>{{ typeLabels[item.entity_type] }} · {{ statusLabels[item.status] }}</text>
       <text class="tip">编号 {{ item.entity_id }}</text>
@@ -75,8 +75,9 @@ onLoad((options) => {
 .tip { display: block; color: var(--text-2); font-size: 24rpx; line-height: 1.8; }
 .field { margin: 24rpx 0; padding: 24rpx; box-sizing: border-box; background: var(--bg-card-2); border-radius: 12rpx; font-size: 26rpx; }
 .reason { width: 100%; height: 220rpx; }
-button { font-size: 28rpx; background: var(--primary); color: var(--text-inverse); }
+button { font-size: 28rpx; background: var(--primary-fill); color: var(--text-inverse); }
 .records-title { display: flex; justify-content: space-between; margin: 44rpx 0 20rpx; font-size: 28rpx; }
+.refresh-link { display: inline-flex; align-items: center; justify-content: center; min-width: 64rpx; min-height: 64rpx; }
 .record { border-bottom: 1rpx solid var(--border-light); padding: 24rpx 0; }
 .record > text { display: block; margin-bottom: 12rpx; font-size: 26rpx; }
 </style>

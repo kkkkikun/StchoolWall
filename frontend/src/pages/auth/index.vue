@@ -57,12 +57,9 @@
             :placeholder="authMode === 'login' ? '登录密码' : '设置密码（至少 10 位）'"
             placeholder-class="ph"
           />
-          <image
-            class="auth-eye"
-            :src="eyeSrc"
-            mode="aspectFit"
-            @tap="togglePassword"
-          />
+          <view class="auth-eye-btn" @tap="togglePassword">
+            <image class="auth-eye" :src="eyeSrc" mode="aspectFit" />
+          </view>
         </view>
 
         <!-- 校验/网络错误就地提示，不打断用户输入 -->
@@ -355,11 +352,19 @@ const doWechatLogin = () => {
 .auth-input-password {
   padding-right: 88rpx;
 }
-.auth-eye {
+/* 容器承载点击区（64rpx ≈33px），图形本身保持 36rpx 不放大 */
+.auth-eye-btn {
   position: absolute;
-  right: 28rpx;
+  right: 14rpx;
   top: 50%;
-  margin-top: -18rpx;
+  margin-top: -32rpx;
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-eye {
   width: 36rpx;
   height: 36rpx;
 }
@@ -379,7 +384,7 @@ const doWechatLogin = () => {
   margin-top: 36rpx;
   height: 92rpx;
   border-radius: var(--radius-btn);
-  background: var(--primary);
+  background: var(--primary-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,6 +441,10 @@ const doWechatLogin = () => {
 .auth-link {
   font-size: 26rpx;
   color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  /* 点击区 ≥64rpx（≈33px） */
+  min-height: 64rpx;
 }
 .auth-note {
   display: block;

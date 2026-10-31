@@ -122,7 +122,7 @@ const copyInvite = () => {
 .info-para { display: block; font-size: 26rpx; color: var(--text-2); line-height: 1.9; }
 .invite-btn {
   margin-top: 36rpx;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 28rpx;
   text-align: center;

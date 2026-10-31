@@ -21,7 +21,7 @@
       <view class="name-row">
         <text class="nickname">{{ user.nickname }}</text>
         <view class="name-actions">
-          <view class="edit-btn" @tap="goEditProfile">
+          <view v-if="loggedIn" class="edit-btn" @tap="goEditProfile">
             <text>编辑资料</text>
           </view>
           <view class="gear-btn" @tap="goSettings">
@@ -72,8 +72,13 @@
         <text>管理后台 ›</text>
       </view>
 
-      <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一） -->
-      <view class="content-tabs">
+      <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一）；未登录时改为登录引导 -->
+      <view v-if="!loggedIn" class="login-guide">
+        <image class="login-guide-icon" src="/static/icons/common/note.svg" mode="aspectFit" />
+        <text class="login-guide-title">登录后查看你的内容</text>
+        <text class="login-guide-desc">你的帖子、评论、收藏与点赞会汇总在这里</text>
+      </view>
+      <view v-else class="content-tabs">
         <view
           v-for="(t, i) in CONTENT_TABS"
           :key="t.key"
@@ -87,7 +92,7 @@
       </view>
 
       <!-- 4. 内容区 -->
-      <view class="content-panel">
+      <view v-if="loggedIn" class="content-panel">
         <text class="content-title">{{ activeTitle }}</text>
 
         <!-- 帖子 / 收藏 / 点赞：紧凑内容卡（标题+摘要+日期+浏览+评论+缩略图） -->
@@ -156,6 +161,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
@@ -207,13 +213,7 @@ const loadedTabs = ref(new Set<string>())
 const loading = ref(false)
 
 const avatarLetter = computed(() => (user.value.nickname || '?').slice(0, 1))
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
-const avatarColor = computed(() => {
-  const s = user.value.nickname || ''
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+const avatarColor = computed(() => avatarColorOf(user.value.nickname))
 
 const activeTitle = computed(
   () =>
@@ -493,7 +493,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   align-items: center;
   justify-content: center;
 }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--on-avatar); }
 
 /* 昵称行 + 编辑资料 + 齿轮 */
 .name-row { display: flex; align-items: center; margin-top: 24rpx; }
@@ -507,7 +507,8 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   color: var(--text-1);
   background: var(--bg-card);
 }
-.gear-btn { padding: 8rpx; display: flex; align-items: center; justify-content: center; }
+/* padding 12rpx + 图标 40rpx = 64rpx（≈33px）最小点击区 */
+.gear-btn { padding: 12rpx; display: flex; align-items: center; justify-content: center; }
 .gear-icon { font-size: 40rpx; line-height: 1; }
 .gear-icon-img { width: 40rpx; height: 40rpx; }
 
@@ -518,10 +519,11 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 
 .dev-login-row { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .dev-capsule {
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 24rpx;
-  padding: 14rpx 28rpx;
+  /* 上下 20rpx + 行高 24rpx = 64rpx（≈33px）点击区 */
+  padding: 20rpx 28rpx;
   border-radius: 30rpx;
 }
 .dev-capsule.admin { background: var(--accent-violet); }
@@ -535,7 +537,7 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
   border-radius: 12rpx;
   padding: 14rpx 22rpx;
   font-size: 24rpx;
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 .slim-tip.admin { background: var(--accent-violet-soft); color: var(--accent-violet-strong); }
 
@@ -610,4 +612,15 @@ const goDetail = (id: number) => uni.navigateTo({ url: `/pages/post-detail/index
 .pc-thumb-ph-svg { width: 48rpx; height: 48rpx; opacity: 0.5; }
 
 .empty { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 80rpx 0; }
+
+/* 未登录：内容区改为登录引导，不展示误导性的空列表 */
+.login-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx 100rpx;
+}
+.login-guide-icon { width: 72rpx; height: 72rpx; opacity: 0.45; margin-bottom: 24rpx; }
+.login-guide-title { font-size: 30rpx; font-weight: 600; color: var(--text-1); }
+.login-guide-desc { font-size: 24rpx; color: var(--text-3); margin-top: 10rpx; text-align: center; }
 </style>

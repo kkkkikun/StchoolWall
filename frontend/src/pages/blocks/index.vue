@@ -50,5 +50,5 @@ onShow(() => load())
 .hint, .empty { display: block; color: var(--text-3); font-size: 26rpx; line-height: 1.7; padding: 20rpx 0; }
 .row { display: flex; align-items: center; gap: 24rpx; padding: 28rpx 0; border-bottom: 1rpx solid var(--border-light); }
 .name { flex: 1; color: var(--text-1); font-size: 30rpx; }
-button { color: var(--primary); background: var(--bg-card); }
+button { color: var(--primary-text); background: var(--bg-card); min-height: 64rpx; line-height: 64rpx; padding: 0 28rpx; }
 </style>

@@ -60,6 +60,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -126,12 +127,6 @@ const items = computed<Row[]>(() =>
 // 通知未带帖子标题时，用不了内容就显示编号（列表页不额外拉帖，保持轻量）
 const postSnippetOf = (n: NotificationItem) => (n.post_id ? `帖子 #${n.post_id}` : '已删除的帖子')
 
-const AVATAR_COLORS = ['#2f86f6', '#ff5c7a', '#ffb822', '#2ed573', '#d3adf7', '#ffd591']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 const timeAgo = (t: string) => {
   const ts = new Date(t).getTime()
@@ -192,13 +187,14 @@ const onMarkAllRead = async () => {
 <style scoped>
 .page-interactions { min-height: 100vh; background-color: var(--bg-page); display: flex; flex-direction: column; }
 
-.mark-read-btn { font-size: 26rpx; color: var(--primary); font-weight: 500; padding: 6rpx 16rpx; border-radius: 20rpx; background: var(--primary-soft); }
+.mark-read-btn { font-size: 26rpx; color: var(--primary-text); font-weight: 500; padding: 17rpx 18rpx; border-radius: 20rpx; background: var(--primary-soft); min-height: 64rpx; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
 
 /* 与首页吸顶 Tab 同规格：下划线式，弃用药丸 chips；未读数改为红色小角标 */
 .chip-row { display: flex; gap: 36rpx; padding: 16rpx 24rpx; background: var(--bg-card); }
-.chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-bottom: 12rpx; line-height: 1.4; }
+/* padding-top 13rpx + 行高 39rpx + padding-bottom 12rpx = 64rpx（≈33px）点击区 */
+.chip { position: relative; font-size: 28rpx; color: var(--text-2); padding-top: 13rpx; padding-bottom: 12rpx; line-height: 1.4; min-width: 64rpx; }
 .chip.on { color: var(--text-1); font-weight: bold; border-bottom: 6rpx solid var(--primary); }
-.chip-badge { margin-left: 8rpx; font-size: 20rpx; font-weight: normal; color: var(--primary-strong); }
+.chip-badge { margin-left: 8rpx; font-size: 22rpx; font-weight: normal; color: var(--primary-text); }
 
 .list-area { flex: 1; padding: 16rpx 24rpx 0; box-sizing: border-box; }
 
@@ -213,14 +209,14 @@ const onMarkAllRead = async () => {
 }
 .interaction-card.unread { background: var(--primary-soft); }
 
-.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--text-inverse); font-weight: bold; flex-shrink: 0; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--on-avatar); font-weight: bold; flex-shrink: 0; }
 .main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .line1 { display: flex; align-items: center; flex-wrap: wrap; }
 .name { font-size: 28rpx; font-weight: 600; color: var(--text-1); }
 .action { font-size: 24rpx; color: var(--text-2); margin-left: 10rpx; }
-.act-like { color: var(--danger); }
+.act-like { color: var(--danger-strong); }
 .act-favorite { color: var(--warning); }
-.act-comment { color: var(--info); }
+.act-comment { color: var(--primary-text); }
 .excerpt { display: block; font-size: 26rpx; color: var(--text-1); margin-top: 10rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line2 { display: flex; align-items: center; margin-top: 10rpx; }
 .post-ref { font-size: 22rpx; color: var(--text-3); max-width: 380rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

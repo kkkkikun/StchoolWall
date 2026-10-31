@@ -115,6 +115,6 @@ const goBack = () => uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/
 .skeleton-list { padding: 20rpx 24rpx; }
 .feed-list { padding: 20rpx 24rpx 40rpx; }
 .feed-foot { text-align: center; color: var(--text-3); font-size: 24rpx; padding: 24rpx 0; }
-.more { color: var(--primary-strong); }
+.more { color: var(--primary-text); }
 .empty { text-align: center; color: var(--text-3); font-size: 26rpx; padding: 140rpx 0; }
 </style>

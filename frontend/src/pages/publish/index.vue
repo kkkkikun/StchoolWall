@@ -69,7 +69,7 @@
         <image class="icon-layers" src="/static/icons/common/layers-primary.svg" mode="aspectFit" />
         <view class="selector-meta">
           <text class="selector-title">{{ section || '选择分类' }}</text>
-          <text class="selector-desc">选择合适的分类，能让更多同学看到哦~</text>
+          <text class="selector-desc">选择合适的分类，能让更多同学看到哦～</text>
         </view>
       </view>
       <image class="arrow-right" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
@@ -406,7 +406,7 @@ const onSubmit = async () => {
 
 .draft-text {
   font-size: 24rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 500;
 }
 
@@ -423,7 +423,7 @@ const onSubmit = async () => {
 }
 
 .draft-btn.restore {
-  background-color: var(--primary);
+  background-color: var(--primary-fill);
   color: var(--text-inverse);
   font-weight: bold;
 }
@@ -473,7 +473,7 @@ const onSubmit = async () => {
 }
 
 .type-pill.active .type-label {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: bold;
 }
 
@@ -505,7 +505,7 @@ const onSubmit = async () => {
   flex: 1;
   text-align: right;
   font-size: 32rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: bold;
 }
 
@@ -521,7 +521,7 @@ const onSubmit = async () => {
 }
 
 .hot-label {
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 24rpx;
   font-weight: bold;
   line-height: 1.2;
@@ -549,9 +549,10 @@ const onSubmit = async () => {
   display: inline-flex;
   align-items: center;
   background-color: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 24rpx;
-  padding: 10rpx 24rpx;
+  /* 上下 16rpx + 行高 ≈34rpx = 66rpx（≈34px）点击区 */
+  padding: 16rpx 24rpx;
   border-radius: 30rpx;
   margin-right: 16rpx;
 }
@@ -662,7 +663,7 @@ const onSubmit = async () => {
 }
 
 .upload-count {
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: var(--text-3);
   margin-top: 6rpx;
 }
@@ -731,7 +732,7 @@ const onSubmit = async () => {
 .publish-btn {
   width: 100%;
   height: 88rpx;
-  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  background: var(--primary-fill-gradient);
   color: var(--text-inverse);
   border-radius: var(--radius-btn);
   font-size: 32rpx;

@@ -20,13 +20,16 @@
             <view v-else class="avatar" :style="{ background: avatarColor }">
               <text class="avatar-letter">{{ avatarLetter }}</text>
             </view>
-            <text v-if="profile.is_verified" class="v-badge">已认证</text>
+            <view v-if="profile.is_verified" class="v-badge">
+              <image class="v-badge-icon" src="/static/icons/common/check-inverse.svg" mode="aspectFit" />
+            </view>
           </view>
         </view>
 
         <!-- 昵称 + 关注按钮 -->
         <view class="name-row">
           <text class="nickname">{{ profile.nickname }}</text>
+          <text v-if="profile.is_verified" class="v-text">已认证</text>
           <view
             v-if="!profile.is_self && loggedIn"
             class="follow-btn"
@@ -205,6 +208,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import type { PostBrief } from '@/types/api'
 import {
@@ -240,13 +244,6 @@ const loadedTabs = ref(new Set<string>(['posts']))
 const loading = ref(true)
 const loggedIn = tokenStorage.isLoggedIn()
 
-// 与"我的"页同一套柔和底色
-const AVATAR_COLORS = ['#f8c8b8', '#e8d5f5', '#d5e8f5', '#d5f0d5', '#fbe3b5']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 
 const avatarLetter = computed(() => (profile.value?.nickname || '?').slice(0, 1))
 const avatarColor = computed(() => colorOf(profile.value?.nickname || ''))
@@ -433,15 +430,17 @@ const goProfile = (id: string) => {
   justify-content: center;
 }
 .avatar-img { width: 176rpx; height: 176rpx; }
-.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 80rpx; font-weight: bold; color: var(--on-avatar); }
+/* 认证徽章：圆形对勾（原先塞「已认证」三字在 48rpx 圆里，被压成逐字竖排） */
 .v-badge {
   position: absolute;
   right: 4rpx;
   bottom: 4rpx;
-  width: 48rpx;
-  height: 48rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
-  background: var(--bg-card);
+  background: var(--primary-badge);
+  border: 3rpx solid var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -451,21 +450,31 @@ const goProfile = (id: string) => {
 
 /* 昵称行 + 关注按钮 */
 .name-row { display: flex; align-items: center; margin-top: 24rpx; }
+.v-badge-icon { width: 26rpx; height: 26rpx; }
 .nickname { font-size: 40rpx; font-weight: bold; color: var(--text-1); }
+.v-text {
+  margin-left: 14rpx;
+  font-size: 22rpx;
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+  white-space: nowrap;
+}
 .follow-btn {
   margin-left: auto;
-  background: var(--primary-strong);
+  background: var(--primary-badge);
   color: var(--text-inverse);
   font-size: 26rpx;
   font-weight: 600;
   padding: 14rpx 34rpx;
   border-radius: 36rpx;
 }
-.follow-btn.on { background: var(--primary-soft); color: var(--primary-strong); }
+.follow-btn.on { background: var(--primary-soft); color: var(--primary-text); }
 
 .bio { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .bio text { font-size: 24rpx; color: var(--text-3); line-height: 1.6; }
-.school-line { color: var(--primary-strong); }
+.school-line { color: var(--primary-text); }
 
 /* 统计行 */
 .stats-row {
@@ -483,16 +492,16 @@ const goProfile = (id: string) => {
 .follow-list { margin-top: 30rpx; }
 .fl-head { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 8rpx 20rpx; }
 .fl-title { font-size: 30rpx; font-weight: bold; color: var(--text-1); }
-.back-posts { font-size: 24rpx; color: var(--primary); display: inline-flex; align-items: center; }
+.back-posts { font-size: 24rpx; color: var(--primary-text); display: inline-flex; align-items: center; }
 .chev { width: 20rpx; height: 20rpx; margin-left: 2rpx; flex-shrink: 0; }
 .user-row { display: flex; align-items: center; padding: 20rpx 8rpx; border-bottom: 1rpx solid var(--border-light); }
 .user-row:last-child { border-bottom: none; }
-.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-inverse); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
+.u-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--on-avatar); font-size: 40rpx; font-weight: bold; margin-right: 20rpx; flex-shrink: 0; }
 .u-avatar-img { width: 88rpx; height: 88rpx; }
 .u-meta { flex: 1; display: flex; align-items: center; gap: 12rpx; min-width: 0; }
 .u-name { font-size: 28rpx; color: var(--text-1); }
-.u-v { font-size: 20rpx; color: var(--text-3); }
-.mini-follow { background: var(--primary-strong); color: var(--text-inverse); font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
+.u-v { font-size: 22rpx; color: var(--text-3); }
+.mini-follow { background: var(--primary-badge); color: var(--text-inverse); font-size: 22rpx; padding: 10rpx 26rpx; border-radius: 24rpx; }
 
 /* 内容区（同"我的"） */
 .content-tabs {

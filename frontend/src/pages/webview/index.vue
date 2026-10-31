@@ -115,6 +115,6 @@ const openExternal = () => {
 }
 .tool-btn.primary {
   border-color: var(--primary);
-  color: var(--primary-strong);
+  color: var(--primary-text);
 }
 </style>

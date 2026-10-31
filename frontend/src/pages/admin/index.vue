@@ -51,7 +51,7 @@ const copyUrl = () => {
   flex-direction: column;
   align-items: center;
 }
-.url { font-size: 30rpx; color: var(--primary); font-weight: 600; }
+.url { font-size: 30rpx; color: var(--primary-text); font-weight: 600; }
 .copy-tip { font-size: 22rpx; color: var(--text-3); margin-top: 8rpx; }
 .hint { font-size: 22rpx; color: var(--text-3); margin-top: 32rpx; text-align: center; }
 </style>

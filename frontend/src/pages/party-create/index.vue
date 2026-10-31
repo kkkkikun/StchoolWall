@@ -114,8 +114,8 @@ const onSubmit = async () => {
 .num { width: 120rpx; flex: none; }
 
 .type-toggle { display: flex; gap: 16rpx; }
-.type-opt { padding: 12rpx 32rpx; border-radius: 32rpx; background: var(--bg-card-2); font-size: 26rpx; color: var(--text-2); }
-.type-opt.on { background: var(--primary); color: var(--text-inverse); }
+.type-opt { padding: 16rpx 32rpx; border-radius: 32rpx; background: var(--bg-card-2); font-size: 26rpx; color: var(--text-2); }
+.type-opt.on { background: var(--primary-fill); color: var(--text-inverse); }
 
 .picker-row { flex: 1; display: flex; align-items: center; justify-content: space-between; }
 .picker-val { font-size: 28rpx; color: var(--text-1); }
@@ -123,6 +123,6 @@ const onSubmit = async () => {
 .arrow { width: 28rpx; height: 28rpx; flex-shrink: 0; }
 
 .submit-bar { margin-top: 48rpx; padding: 0 16rpx; }
-.submit-btn { width: 100%; height: 92rpx; background: var(--primary); color: var(--text-inverse); border-radius: var(--radius-btn); font-size: 32rpx; font-weight: bold; line-height: 92rpx; box-shadow: var(--shadow-primary-lg); }
+.submit-btn { width: 100%; height: 92rpx; background: var(--primary-fill); color: var(--text-inverse); border-radius: var(--radius-btn); font-size: 32rpx; font-weight: bold; line-height: 92rpx; box-shadow: var(--shadow-primary-lg); }
 .submit-btn.disabled { opacity: 0.5; }
 </style>

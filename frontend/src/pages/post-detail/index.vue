@@ -144,6 +144,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
 import { onReachBottom } from '@dcloudio/uni-app'
 import { useTheme } from '@/utils/theme'
 import type { PostDetail } from '@/types/api'
@@ -210,12 +211,6 @@ const timeText = computed(() => {
   return `${dt.getMonth() + 1}-${dt.getDate()}`
 })
 
-const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 const avatarLetter = computed(() => (post.value?.author.nickname || '?').slice(0, 1))
 const avatarColor = computed(() => colorOf(post.value?.author.nickname || ''))
 
@@ -522,7 +517,7 @@ const copyContact = () => {
 .avatar-letter {
   font-size: 40rpx;
   font-weight: bold;
-  color: var(--text-inverse);
+  color: var(--on-avatar);
 }
 
 .author-meta {
@@ -549,8 +544,8 @@ const copyContact = () => {
 
 .featured-chip {
   margin-left: 12rpx;
-  font-size: 18rpx;
-  color: var(--primary-strong);
+  font-size: 22rpx;
+  color: var(--primary-text);
   background: var(--primary-soft);
   border: 1rpx solid var(--primary);
   padding: 1rpx 10rpx;
@@ -592,7 +587,7 @@ const copyContact = () => {
 .follow-btn {
   font-size: 24rpx;
   color: var(--text-inverse);
-  background: var(--primary);
+  background: var(--primary-badge);
   padding: 10rpx 24rpx;
   border-radius: var(--radius-btn);
   margin-right: 16rpx;
@@ -657,7 +652,7 @@ const copyContact = () => {
 .price {
   font-size: 40rpx;
   font-weight: bold;
-  color: var(--primary);
+  color: var(--primary-text);
   display: block;
   margin-top: 16rpx;
 }
@@ -681,7 +676,7 @@ const copyContact = () => {
 
 .contact-value {
   font-size: 28rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-left: 8rpx;
   font-weight: 500;
   word-break: break-all;
@@ -725,7 +720,8 @@ const copyContact = () => {
   color: var(--text-1);
   font-size: 26rpx;
   font-weight: 500;
-  padding: 8rpx 16rpx;
+  /* 上下内边距撑到 64rpx（≈33px）最小点击区 */
+  padding: 15rpx 16rpx;
   border-radius: var(--radius-btn);
 }
 
@@ -734,7 +730,7 @@ const copyContact = () => {
 }
 
 .act.on {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .act.on-like {
@@ -792,7 +788,7 @@ const copyContact = () => {
 .c-letter {
   font-size: 34rpx;
   font-weight: bold;
-  color: var(--text-inverse);
+  color: var(--on-avatar);
 }
 
 .c-main {
@@ -827,8 +823,15 @@ const copyContact = () => {
 
 .c-reply-btn {
   font-size: 22rpx;
-  color: var(--primary);
-  padding: 4rpx 8rpx;
+  color: var(--primary-text);
+  /* inline-flex + 内边距：回复入口撑到 64rpx（≈33px）最小点击区 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64rpx;
+  min-height: 64rpx;
+  box-sizing: border-box;
+  padding: 15rpx 12rpx;
 }
 
 .c-text {
@@ -844,7 +847,7 @@ const copyContact = () => {
 .comment-load-more {
   text-align: center;
   padding: 28rpx 0;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 26rpx;
   font-weight: 500;
 }
@@ -890,7 +893,7 @@ const copyContact = () => {
 
 .reply-tip {
   font-size: 22rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 500;
 }
 
@@ -919,7 +922,7 @@ const copyContact = () => {
 
 .send-btn {
   margin-left: 16rpx;
-  background: var(--primary);
+  background: var(--primary-fill);
   color: var(--text-inverse);
   font-size: 28rpx;
   font-weight: 600;
@@ -931,6 +934,7 @@ const copyContact = () => {
 }
 
 .send-btn.disabled {
-  opacity: 0.4;
+  background: var(--bg-card-2);
+  color: var(--text-2);
 }
 </style>

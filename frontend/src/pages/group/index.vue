@@ -18,20 +18,24 @@
     </view>
 
     <!-- 3. 分类筛选（mode=all 时显示：图标 + 文字胶囊） -->
-    <scroll-view v-if="mode === 'all'" class="filter-scroll" scroll-x :show-scrollbar="false">
-      <view class="filter-row">
-        <view
-          v-for="c in categories"
-          :key="c.id"
-          class="tag-pill"
-          :class="{ active: activeFilter === c.id }"
-          @tap="onFilter(c)"
-        >
-          <image class="tag-icon" :src="c.icon" mode="aspectFit" />
-          <text class="tag-name">{{ c.name }}</text>
+    <view v-if="mode === 'all'" class="filter-wrap scroll-x-wrap">
+      <scroll-view class="filter-scroll" scroll-x :show-scrollbar="false" @scroll="onFilterScroll">
+        <view class="filter-row">
+          <view
+            v-for="c in categories"
+            :key="c.id"
+            class="tag-pill"
+            :class="{ active: activeFilter === c.id }"
+            @tap="onFilter(c)"
+          >
+            <image class="tag-icon" :src="c.icon" mode="aspectFit" />
+            <text class="tag-name">{{ c.name }}</text>
+          </view>
         </view>
-      </view>
-    </scroll-view>
+      </scroll-view>
+      <view class="scroll-x-fade left" :class="{ show: showFadeLeft }" />
+      <view class="scroll-x-fade right" :class="{ show: showFadeRight }" />
+    </view>
 
     <!-- 4. 组局列表 -->
     <view class="party-list">
@@ -48,11 +52,13 @@
         class="party-card"
         @tap="showDetail(p)"
       >
-        <view class="type-badge" :class="p.type === 'group' ? 'bg-red' : 'bg-orange'">
-          <text>{{ p.type === 'group' ? '组' : '拼' }}</text>
-        </view>
         <view class="card-main">
-          <text class="party-title">{{ p.title }}</text>
+          <view class="title-row">
+            <view class="type-tag" :class="p.type === 'group' ? 'tag-group' : 'tag-pool'">
+              <text>{{ p.type === 'group' ? '组局' : '拼单' }}</text>
+            </view>
+            <text class="party-title">{{ p.title }}</text>
+          </view>
           <view class="owner-info">
             <view class="owner-avatar" :style="{ background: colorOf(p.user.nickname) }">
               <text>{{ (p.user.nickname || '?').slice(0, 1) }}</text>
@@ -146,6 +152,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { avatarColor as colorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import TabBar from '@/components/tab-bar.vue'
@@ -153,6 +160,7 @@ import CustomNavBar from '@/components/custom-nav-bar.vue'
 import SkeletonCard from '@/components/skeleton-card.vue'
 import { listParties, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
+import { useScrollFade } from '@/utils/scroll-fade'
 
 const { themeClass } = useTheme()
 
@@ -175,13 +183,9 @@ const loading = ref(false)
 const mode = ref<'all' | 'mine'>('all')
 const activeFilter = ref<string | null>(null)
 const selectedParty = ref<PartyItem | null>(null)
+/* 分类筛选行横向滚动：两侧渐隐，滚到端点时对应侧隐藏 */
+const { showLeft: showFadeLeft, showRight: showFadeRight, onScroll: onFilterScroll } = useScrollFade('.filter-scroll')
 
-const COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de', '#ffccc7']
-const colorOf = (s: string) => {
-  let h = 0
-  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return COLORS[h % COLORS.length]
-}
 const timeShort = (t: string) => {
   const ts = new Date(t).getTime()
   if (!ts) return ''
@@ -289,7 +293,7 @@ const goCreate = () => {
 }
 
 .back-all {
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 26rpx;
   margin: 16rpx 0 8rpx;
   font-weight: 600;
@@ -313,10 +317,10 @@ const goCreate = () => {
   box-shadow: var(--shadow-primary-lg);
 }
 .card-blue {
-  background: var(--primary-gradient);
+  background: var(--primary-fill-gradient);
 }
 .card-orange {
-  background: var(--primary-gradient-rev);
+  background: var(--primary-fill-gradient-rev);
 }
 .card-title {
   font-size: 30rpx;
@@ -335,7 +339,8 @@ const goCreate = () => {
 }
 .filter-row {
   display: inline-flex;
-  padding: 4rpx 0;
+  /* 左右内边距放在滚动内容上：容器可视宽度 == 测量宽度，滚动位移换算才准 */
+  padding: 4rpx 72rpx 4rpx 24rpx;
 }
 .tag-pill {
   display: inline-flex;
@@ -343,7 +348,8 @@ const goCreate = () => {
   background-color: var(--bg-card);
   border: 1rpx solid var(--border-light);
   border-radius: 32rpx;
-  padding: 12rpx 24rpx;
+  /* 上下 16rpx + 行高 ≈34rpx = 66rpx（≈34px）点击区 */
+  padding: 16rpx 24rpx;
   margin-right: 16rpx;
   font-size: 24rpx;
   color: var(--text-2);
@@ -354,7 +360,7 @@ const goCreate = () => {
 }
 .tag-pill.active {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
   background-color: var(--primary-soft);
   font-weight: 600;
 }
@@ -389,24 +395,33 @@ const goCreate = () => {
   box-shadow: var(--shadow-card);
   border: 1rpx solid var(--border-light);
 }
-.type-badge {
-  width: 50rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-inverse);
-  font-size: 24rpx;
-  font-weight: bold;
+/* 卡片类型标识：原先是贯穿卡片全高的饱和蓝条，单字悬在中间，视觉过重；
+   改为标题行内的紧凑标签（X 风格的小色块标签） */
+.type-tag {
+  flex-shrink: 0;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6rpx 12rpx;
+  border-radius: 6rpx;
 }
+.tag-group { color: var(--primary-text); background: var(--primary-soft); }
+.tag-pool { color: var(--accent-warm-text); background: var(--accent-warm-soft); }
 .bg-red {
-  background: linear-gradient(180deg, var(--primary), var(--primary-strong));
+  background: var(--primary-fill-gradient);
 }
 .bg-orange {
-  background: linear-gradient(180deg, var(--accent-warm), var(--accent-warm-strong));
+  background: linear-gradient(180deg, var(--accent-warm-fill), var(--accent-warm-fill-strong));
 }
 .card-main {
   flex: 1;
   padding: 24rpx;
+}
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
 }
 .party-title {
   font-size: 30rpx;
@@ -435,7 +450,7 @@ const goCreate = () => {
   align-items: center;
   justify-content: center;
   font-size: 22rpx;
-  color: var(--text-inverse);
+  color: var(--on-avatar);
   font-weight: bold;
 }
 .owner-name {
@@ -483,17 +498,23 @@ const goCreate = () => {
   color: var(--text-3);
 }
 .current-num {
-  color: var(--primary-strong);
+  color: var(--primary-text);
   font-weight: bold;
   font-size: 26rpx;
 }
 .join-btn {
-  padding: 10rpx 30rpx;
+  padding: 18rpx 30rpx;
   border-radius: 28rpx;
-  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  background: var(--primary-fill-gradient);
   color: var(--text-inverse);
   font-size: 24rpx;
   font-weight: 600;
+  /* 最小点击区 64rpx（≈33px） */
+  min-height: 64rpx;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .join-btn.joined {
   background: var(--bg-card-2);

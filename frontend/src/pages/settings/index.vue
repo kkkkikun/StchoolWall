@@ -137,6 +137,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { avatarColor as avatarColorOf } from '@/utils/avatar'
 import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
@@ -156,14 +157,8 @@ const user = ref({
 const role = ref<'guest' | 'student' | 'admin'>((localInfo?.role as 'guest' | 'student' | 'admin') || 'guest')
 const cacheSize = ref('计算中…')
 
-const AVATAR_COLORS = ['#ffd591', '#adc6ff', '#b7eb8f', '#ffa39e', '#d3adf7', '#87e8de']
 const avatarLetter = computed(() => (user.value.nickname || '?').slice(0, 1))
-const avatarColor = computed(() => {
-  let h = 0
-  const s = user.value.nickname || ''
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-})
+const avatarColor = computed(() => avatarColorOf(user.value.nickname))
 
 const roleText = computed(() => {
   if (!loggedIn.value) return '游客模式 · 仅可浏览'
@@ -426,11 +421,11 @@ onUnmounted(() => {
   justify-content: center;
   box-shadow: 0 0 0 6rpx rgba(255, 255, 255, 0.35);
 }
-.avatar-letter { font-size: 52rpx; font-weight: bold; color: var(--text-inverse); }
+.avatar-letter { font-size: 52rpx; font-weight: bold; color: var(--on-avatar); }
 .account-meta { margin-left: 26rpx; flex: 1; }
 .name-row { display: flex; align-items: center; gap: 12rpx; }
 .nickname { color: var(--text-1); font-size: 36rpx; font-weight: 700; }
-.v-badge { font-size: 20rpx; color: var(--primary); font-weight: 600; }
+.v-badge { font-size: 22rpx; color: var(--primary-text); font-weight: 600; }
 .role-text { color: var(--text-2); font-size: 24rpx; margin-top: 8rpx; }
 
 .group-card {
@@ -458,7 +453,7 @@ onUnmounted(() => {
 .cell-title { font-size: 29rpx; color: var(--text-1); }
 .cell-value { font-size: 24rpx; color: var(--text-3); }
 .arrow { width: 26rpx; height: 26rpx; flex-shrink: 0; }
-.danger-cell .cell-title.danger-text { color: var(--primary); }
+.danger-cell .cell-title.danger-text { color: var(--primary-text); }
 
 .footer-text {
   display: block;

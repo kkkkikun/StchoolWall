@@ -152,6 +152,8 @@ const handleBack = () => {
   display: flex;
   align-items: center;
   min-height: 100%;
+  /* 返回入口点击区 ≥64rpx（≈33px） */
+  min-width: 64rpx;
   z-index: 2;
 }
 

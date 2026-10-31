@@ -136,6 +136,16 @@
 - **WHEN** 新加一个 `el-*` 组件后 `npm run build` 一直失败，dts 永远不更新
 - **THEN** 根因：`build` 脚本是 `vue-tsc --noEmit && vite build`，类型检查先跑、失败则构建不执行，而 dts 正是在构建时生成的 —— 死锁；解法：改成 `vite build && vue-tsc --noEmit`（先出 dts 再校验），并把生成的 dts 提交入库；预防：凡是「构建产物驱动类型声明」的链路，类型检查必须在产物生成之后
 
+#### Scenario: 自动导入的样式落进懒加载 chunk，首屏用到的服务型 API 没样式
+
+- **WHEN** 按需引入后 request.ts（主 chunk）里的 ElMessage 提示没有样式
+- **THEN** 根因：ElMessage / ElMessageBox 由 AutoImport 注入到**各视图 chunk**，样式跟着进了视图的 CSS chunk，而真正调用它的 request.ts 在主 chunk，首屏弹提示时样式还没加载；解法：服务型 API 的样式在 `main.ts` 显式引入，保证进主 chunk；预防：用 `admin-frontend/scripts/style-coverage-check.py` 核对「模板用到的组件样式齐全」+「服务型 API 样式在主 chunk」，并已做负向验证（抽掉样式即失败）
+
+#### Scenario: 单元测试直接加载 .ts 源码，绕过了 vite 插件的自动注入
+
+- **WHEN** 把 `import { ElMessage } from 'element-plus'` 删掉改用 AutoImport 后，管理台单测从 12/12 掉到 9/12
+- **THEN** 根因：单测用自建 Node ESM loader 直接加载 `src/utils/request.ts`，不经过 vite 插件，AutoImport 不会注入 import，`ElMessage` 在测试里是 undefined；解法：request.ts 保留显式导入（`element-plus/es`，与 `element-plus` 同一模块实例，测试的 monkey-patch 仍生效），样式则挪到 `main.ts` 引入（避免 .css 让 Node loader 报 ERR_UNKNOWN_FILE_EXTENSION）；预防：被单元测试直接加载的源码文件不能依赖构建期代码生成
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

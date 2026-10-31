@@ -15,7 +15,7 @@
         <text class="label">分类</text>
         <view class="picker-row">
           <text :class="form.category ? 'picker-val' : 'picker-ph'">{{ form.category || '选择分类' }}</text>
-          <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+          <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
         </view>
       </view>
 
@@ -52,6 +52,7 @@
 import { reactive, ref } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { createParty, type PartyType } from '@/api/party'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

@@ -9,7 +9,7 @@
         <text class="panel-title">热门用户榜</text>
         <view class="panel-more" @tap="onMoreRank">
           <text>更多</text>
-          <image class="chev" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+          <image class="chev" :src="ICONS['arrow-right']" mode="aspectFit" />
         </view>
       </view>
       <scroll-view scroll-x :show-scrollbar="false" class="rank-scroll">
@@ -19,7 +19,7 @@
           class="rank-user"
           @tap="goProfile(u.id)"
         >
-          <image v-if="i < 3" class="crown" src="/static/icons/state/crown-primary.svg" mode="aspectFit" />
+          <image v-if="i < 3" class="crown" :src="ICON_TONES['state-crown']['primary']" mode="aspectFit" />
           <image v-if="u.avatar_url" class="rank-avatar" :src="u.avatar_url" mode="aspectFill" />
           <view v-else class="rank-avatar" :style="{ background: colorOf(u.nickname) }">
             <text>{{ (u.nickname || '?').slice(0, 1) }}</text>
@@ -27,7 +27,7 @@
           <text class="rank-badge" :class="{ dim: i >= 3 }">TOP{{ i + 1 }}</text>
           <text class="rank-name">{{ u.nickname }}</text>
           <view class="rank-heat">
-            <image class="heat-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+            <image class="heat-icon" :src="ICON_TONES['hot']['primary']" mode="aspectFit" />
             <text>{{ fmtHeat(u.heat) }}</text>
           </view>
         </view>
@@ -40,7 +40,7 @@
         <text class="panel-title">互动提醒</text>
         <view class="panel-more" @tap="goInteractions">
           <text>更多</text>
-          <image class="chev" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+          <image class="chev" :src="ICONS['arrow-right']" mode="aspectFit" />
         </view>
       </view>
       <view class="rem-list">
@@ -57,7 +57,7 @@
             <text class="rem-name">{{ r.nickname }} {{ r.action }}</text>
             <text class="rem-time">{{ r.time }}</text>
           </view>
-          <image class="rem-arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+          <image class="rem-arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -67,12 +67,12 @@
       <view class="panel-head">
         <text class="panel-title">动态</text>
         <view v-if="messages.length" class="panel-more" @tap="onMarkAllRead">
-          <image class="more-check" src="/static/icons/common/check.svg" mode="aspectFit" />
+          <image class="more-check" :src="ICONS['check']" mode="aspectFit" />
           <text>全部已读</text>
         </view>
       </view>
       <view v-if="messages.length === 0" class="empty-state">
-        <image class="empty-emoji" src="/static/icons/state/inbox.svg" mode="aspectFit" />
+        <image class="empty-emoji" :src="ICONS['state-inbox']" mode="aspectFit" />
         <text class="empty-text">{{ loggedIn ? '暂无消息' : '登录后查看消息' }}</text>
       </view>
       <view
@@ -84,9 +84,9 @@
       >
         <view class="sender-avatar" :class="{ sys: m._system }" :style="{ background: m._system ? 'var(--primary-soft)' : colorOf(m.nickname) }">
           <image v-if="m._type === 'announcement'" class="sys-icon"
-                 src="/static/icons/common/notice-primary.svg" mode="aspectFit" />
+                 :src="ICON_TONES['notice']['primary']" mode="aspectFit" />
           <image v-else-if="m._type === 'moderation'" class="sys-icon"
-                 src="/static/icons/common/shield-primary.svg" mode="aspectFit" />
+                 :src="ICON_TONES['shield']['primary']" mode="aspectFit" />
           <text v-else>{{ (m.nickname || '?').slice(0, 1) }}</text>
         </view>
         <view class="msg-main">
@@ -119,6 +119,7 @@ import { unreadSummary, listNotifications, readAllNotifications, readNotificatio
 import type { NotificationItem, NotificationType } from '@/api/notification'
 import { getHotRanking, type HotUser } from '@/api/profile'
 import { tokenStorage } from '@/utils/storage'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 
@@ -160,10 +161,10 @@ const reminders = computed(() =>
 
 const iconOf = (type: string) =>
   ({
-    like: '/static/icons/common/heart-on-inverse.svg',
-    favorite: '/static/icons/common/star-on-inverse.svg',
-    comment: '/static/icons/common/comment-inverse.svg',
-  } as Record<string, string>)[type] || '/static/icons/common/comment-inverse.svg'
+    like: ICON_TONES['heart-on']['inverse'],
+    favorite: ICON_TONES['star-on']['inverse'],
+    comment: ICON_TONES['comment']['inverse'],
+  } as Record<string, string>)[type] || ICON_TONES['comment']['inverse']
 
 
 /** 热度格式化：≥1000 → 2.4k */

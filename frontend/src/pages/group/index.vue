@@ -9,11 +9,11 @@
     <view class="action-cards">
       <view class="action-card card-blue" @tap="setMode('mine')">
         <text class="card-title">我加入的局</text>
-        <image class="card-icon" src="/static/icons/common/group-inverse.svg" mode="aspectFit" />
+        <image class="card-icon" :src="ICON_TONES['group']['inverse']" mode="aspectFit" />
       </view>
       <view class="action-card card-orange" @tap="goCreate">
         <text class="card-title">发起攒局</text>
-        <image class="card-icon" src="/static/icons/common/plus-inverse.svg" mode="aspectFit" />
+        <image class="card-icon" :src="ICON_TONES['plus']['inverse']" mode="aspectFit" />
       </view>
     </view>
 
@@ -68,7 +68,7 @@
             <text class="post-date">{{ timeShort(p.created_at) }}</text>
             <text v-if="p.location" class="divider">·</text>
             <view v-if="p.location" class="post-date post-loc">
-              <image class="loc-dot" src="/static/icons/common/location.svg" mode="aspectFit" />
+              <image class="loc-dot" :src="ICONS['location']" mode="aspectFit" />
               <text>{{ p.location }}</text>
             </view>
           </view>
@@ -98,7 +98,7 @@
           <view class="type-pill" :class="selectedParty.type === 'group' ? 'bg-red' : 'bg-orange'">
             <text>{{ selectedParty.type === 'group' ? '组局' : '拼单' }} · {{ selectedParty.category }}</text>
           </view>
-          <image class="close-x" src="/static/icons/common/close.svg" mode="aspectFit" @tap="selectedParty = null" />
+          <image class="close-x" :src="ICONS['close']" mode="aspectFit" @tap="selectedParty = null" />
         </view>
 
         <text class="modal-title">{{ selectedParty.title }}</text>
@@ -114,7 +114,7 @@
 
         <view v-if="selectedParty.location" class="modal-loc-row">
           <view class="loc-icon">
-            <image class="loc-dot" src="/static/icons/common/location.svg" mode="aspectFit" />
+            <image class="loc-dot" :src="ICONS['location']" mode="aspectFit" />
             <text>地点：</text>
           </view>
           <text class="loc-text">{{ selectedParty.location }}</text>
@@ -161,21 +161,22 @@ import SkeletonCard from '@/components/skeleton-card.vue'
 import { listParties, myParties, joinParty, leaveParty, type PartyItem } from '@/api/party'
 import { tokenStorage } from '@/utils/storage'
 import { useScrollFade } from '@/utils/scroll-fade'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 
 // 分类筛选（第 1 项=有空位=only_vacant，其余=分类）
 const categories = [
-  { id: 'vacant', icon: '/static/icons/party/star.svg', name: '有空位' },
-  { id: '自习', icon: '/static/icons/party/book.svg', name: '自习' },
-  { id: '电影', icon: '/static/icons/party/film.svg', name: '电影' },
-  { id: '聚餐', icon: '/static/icons/party/dining.svg', name: '聚餐' },
-  { id: '拼车', icon: '/static/icons/party/car.svg', name: '拼车' },
-  { id: '拼单', icon: '/static/icons/party/shopping.svg', name: '拼单' },
-  { id: '运动', icon: '/static/icons/party/running.svg', name: '运动' },
-  { id: '游戏', icon: '/static/icons/party/game.svg', name: '游戏' },
-  { id: '旅行', icon: '/static/icons/party/palm.svg', name: '旅行' },
-  { id: '其他', icon: '/static/icons/party/gear.svg', name: '其他' },
+  { id: 'vacant', icon: ICONS['party-star'], name: '有空位' },
+  { id: '自习', icon: ICONS['party-book'], name: '自习' },
+  { id: '电影', icon: ICONS['party-film'], name: '电影' },
+  { id: '聚餐', icon: ICONS['party-dining'], name: '聚餐' },
+  { id: '拼车', icon: ICONS['party-car'], name: '拼车' },
+  { id: '拼单', icon: ICONS['party-shopping'], name: '拼单' },
+  { id: '运动', icon: ICONS['party-running'], name: '运动' },
+  { id: '游戏', icon: ICONS['party-game'], name: '游戏' },
+  { id: '旅行', icon: ICONS['party-palm'], name: '旅行' },
+  { id: '其他', icon: ICONS['party-gear'], name: '其他' },
 ] as const
 
 const parties = ref<PartyItem[]>([])

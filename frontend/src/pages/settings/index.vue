@@ -19,7 +19,7 @@
       <view class="group-title"><text>外观</text></view>
       <view class="cell">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/moon.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['moon']" mode="aspectFit" />
           <text class="cell-title">深色模式</text>
         </view>
         <switch :checked="mode === 'dark'" color="#c2455c" @change="onToggleTheme" />
@@ -31,52 +31,52 @@
       <view class="group-title"><text>通用</text></view>
       <view class="cell" @tap="onClearCache">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/broom.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['broom']" mode="aspectFit" />
           <text class="cell-title">清除缓存</text>
         </view>
         <text class="cell-value">{{ cacheSize }}</text>
       </view>
       <view class="cell" @tap="goInfo('community')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/common/shield.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['shield']" mode="aspectFit" />
           <text class="cell-title">社区规范</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="cell" @tap="goInfo('privacy')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/lock.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['lock']" mode="aspectFit" />
           <text class="cell-title">隐私政策</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="cell" @tap="goInfo('agreement')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['edit']" mode="aspectFit" />
           <text class="cell-title">用户协议</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="cell" @tap="goInfo('invite')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/gift.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['invite']" mode="aspectFit" />
           <text class="cell-title">邀请校友</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="cell" @tap="goInfo('about')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/info.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['about']" mode="aspectFit" />
           <text class="cell-title">关于我们</text>
         </view>
         <text class="cell-value">v1.0.0</text>
       </view>
       <view class="cell" @tap="goInfo('contact')">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/phone.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['contact']" mode="aspectFit" />
           <text class="cell-title">联系我们</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
     </view>
 
@@ -84,49 +84,49 @@
     <view class="group-card">
       <view class="group-title"><text>账号</text></view>
       <view v-if="loggedIn" class="cell" @tap="onRecoveryCodes">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" /><text class="cell-title">生成离线找回码</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['key']" mode="aspectFit" /><text class="cell-title">生成离线找回码</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="goBlocks">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/block.svg" mode="aspectFit" /><text class="cell-title">屏蔽的用户</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['block']" mode="aspectFit" /><text class="cell-title">屏蔽的用户</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="goAppeals">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/appeal.svg" mode="aspectFit" /><text class="cell-title">申诉与处理记录</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['appeal']" mode="aspectFit" /><text class="cell-title">申诉与处理记录</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="onSessions">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/device.svg" mode="aspectFit" /><text class="cell-title">登录设备与会话</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['device']" mode="aspectFit" /><text class="cell-title">登录设备与会话</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="onCreatePairing">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/link.svg" mode="aspectFit" /><text class="cell-title">生成跨端配对码</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['link']" mode="aspectFit" /><text class="cell-title">生成跨端配对码</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="onClaimPairing">
-        <view class="cell-left"><image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" /><text class="cell-title">输入原账号配对码</text></view><image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <view class="cell-left"><image class="cell-icon-svg" :src="ICONS['key']" mode="aspectFit" /><text class="cell-title">输入原账号配对码</text></view><image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell" @tap="onChangePassword">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['key']" mode="aspectFit" />
           <text class="cell-title">修改密码</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell danger-cell" @tap="onDeleteAccount">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/trash.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['trash']" mode="aspectFit" />
           <text class="cell-title danger-text">注销账号</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view v-if="loggedIn" class="cell danger-cell" @tap="onLogout">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/logout.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['logout']" mode="aspectFit" />
           <text class="cell-title danger-text">退出登录</text>
         </view>
       </view>
       <view v-else class="cell" @tap="goLogin">
         <view class="cell-left">
-          <image class="cell-icon-svg" src="/static/icons/settings/key.svg" mode="aspectFit" />
+          <image class="cell-icon-svg" :src="ICONS['key']" mode="aspectFit" />
           <text class="cell-title">去登录</text>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
     </view>
 
@@ -143,6 +143,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import { logout, getSessions, revokeSession, createPairing, claimPairing, generateRecoveryCodes } from '@/api/auth'
 import { get, post, put } from '@/utils/request'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass, mode, setThemeMode } = useTheme()
 

@@ -4,7 +4,7 @@
 
     <view v-if="loading" class="state-box"><text class="state-text">加载中…</text></view>
     <view v-else-if="!users.length" class="state-box">
-      <image class="state-emoji" src="/static/icons/common/group.svg" mode="aspectFit" />
+      <image class="state-emoji" :src="ICONS['group']" mode="aspectFit" />
       <text class="state-text">暂无热门用户</text>
     </view>
     <view v-else class="user-list">
@@ -17,11 +17,11 @@
         <view class="main">
           <text class="name">{{ u.nickname }}</text>
           <view class="heat">
-            <image class="heat-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+            <image class="heat-icon" :src="ICON_TONES['hot']['primary']" mode="aspectFit" />
             <text>{{ fmtHeat(u.heat) }}</text>
           </view>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -34,6 +34,7 @@ import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getHotRanking, type HotUser } from '@/api/profile'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

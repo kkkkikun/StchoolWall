@@ -71,6 +71,7 @@ import { parseHashtags } from '@/utils/text'
 import { POST_TYPE_MAP } from '@/types/api'
 import { likePost, unlikePost, favoritePost, unfavoritePost } from '@/api/interaction'
 import { tokenStorage } from '@/utils/storage'
+import { ICONS } from '@/utils/icons'
 
 interface Props {
   post: PostBrief
@@ -82,12 +83,12 @@ const props = defineProps<Props>()
  * 图标几何由 scripts/gen_icons.py 统一生成，勿手改 .svg 文件。
  */
 const FEED_ICONS = {
-  comment: '/static/icons/common/comment.svg',
-  heart: '/static/icons/common/heart.svg',
-  heartOn: '/static/icons/common/heart-on.svg',
-  view: '/static/icons/common/eye.svg',
-  bookmark: '/static/icons/common/bookmark.svg',
-  bookmarkOn: '/static/icons/common/bookmark-on.svg',
+  comment: ICONS['comment'],
+  heart: ICONS['heart'],
+  heartOn: ICONS['heart-on'],
+  view: ICONS['eye'],
+  bookmark: ICONS['bookmark'],
+  bookmarkOn: ICONS['bookmark-on'],
 }
 
 /** 计数格式化：≥1万 显示 x.x万（参考稿样式） */

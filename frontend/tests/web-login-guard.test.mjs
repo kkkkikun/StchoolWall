@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile, unlink } from 'node:fs/promises'
 import ts from 'typescript'
 import { parse, compileScript } from 'vue/compiler-sfc'
+import { compileTsModule } from './helpers/compile-ts.mjs'
 
 // =============================================================================
 // 账号登录/注册页防重复提交专项回归（真实生产源码 src/pages/auth/index.vue）
@@ -95,6 +96,9 @@ await writeFile(errorsCompiledPath, ts.transpileModule(errorsTs, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 
+// 转译真实的 utils/icons.ts（auth 页 banner 图标走注册表）
+const iconsSpecifier = await compileTsModule('../../src/utils/icons.ts', '.temp-wlg-icons.mjs')
+
 // 编译并转译真实 src/pages/auth/index.vue SFC
 const sfcContent = await readFile(new URL('../src/pages/auth/index.vue', import.meta.url), 'utf8')
 const sfc = parse(sfcContent)
@@ -110,6 +114,7 @@ sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/request['"]/g, 'from "./.temp-wl
 sfcCode = sfcCode.replace(/from\s+['"]@\/api\/auth['"]/g, 'from "./.temp-wlg-auth-adapter.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/storage['"]/g, 'from "./.temp-wlg-storage.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/errors['"]/g, 'from "./.temp-wlg-errors.mjs"')
+sfcCode = sfcCode.replaceAll('@/utils/icons', iconsSpecifier)
 
 const sfcJs = ts.transpileModule(sfcCode, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -126,6 +131,7 @@ try {
   await unlink(storagePath).catch(() => {})
   await unlink(authAdapterPath).catch(() => {})
   await unlink(errorsCompiledPath).catch(() => {})
+  await unlink(new URL('./.temp-wlg-icons.mjs', import.meta.url)).catch(() => {})
   await unlink(sfcCompiledPath).catch(() => {})
 }
 

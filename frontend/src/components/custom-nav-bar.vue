@@ -33,7 +33,7 @@
         <view class="nav-left" @tap="handleBack">
           <slot name="left">
             <view v-if="showBack" class="back-trigger">
-              <image class="back-arrow" src="/static/icons/common/back.svg" mode="aspectFit" />
+              <image class="back-arrow" :src="ICONS['back']" mode="aspectFit" />
               <text v-if="backText" class="back-label">{{ backText }}</text>
             </view>
           </slot>
@@ -66,6 +66,7 @@
 import { computed, getCurrentInstance } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { getNavBarMetrics, safeNavigateBack, acquireNavLock } from '@/utils/navbar'
+import { ICONS } from '@/utils/icons'
 
 const props = withDefaults(
   defineProps<{

@@ -6,7 +6,7 @@
         <view class="back" @tap="goBack"><text>‹</text></view>
       </template>
       <view class="search-bar">
-        <image class="icon" src="/static/icons/common/search.svg" mode="aspectFit" />
+        <image class="icon" :src="ICONS['search']" mode="aspectFit" />
         <input
           class="input"
           v-model="keyword"
@@ -17,7 +17,7 @@
           @input="onInput"
           @confirm="doSearch()"
         />
-        <image v-if="keyword" class="clear" src="/static/icons/common/close.svg" mode="aspectFit" @tap="clearSearch" />
+        <image v-if="keyword" class="clear" :src="ICONS['close']" mode="aspectFit" @tap="clearSearch" />
       </view>
       <template #right>
         <text class="search-btn" @tap="doSearch()">搜索</text>
@@ -67,7 +67,7 @@
     <view v-else class="result-area">
       <view v-if="loading" class="tip"><text>搜索中…</text></view>
       <view v-else-if="results.length === 0" class="tip">
-        <image class="empty-emoji" src="/static/icons/common/search.svg" mode="aspectFit" />
+        <image class="empty-emoji" :src="ICONS['search']" mode="aspectFit" />
         <text class="empty-text">没有找到“{{ lastQ }}”相关的帖子</text>
         <text class="empty-sub">换个关键词试试，或点击上方热门搜索</text>
       </view>
@@ -91,6 +91,7 @@ import CustomNavBar from '@/components/custom-nav-bar.vue'
 import FeedCard from '@/components/feed-card.vue'
 import type { PostBrief } from '@/types/api'
 import { searchPosts } from '@/api/posts'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

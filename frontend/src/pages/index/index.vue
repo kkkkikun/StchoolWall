@@ -44,7 +44,7 @@
     <view v-if="hotPosts.length" class="hot-posts-section" @tap="goHotList">
       <view class="hot-side-banner">
         <text class="hot-title">十大热帖</text>
-        <image class="hot-arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="hot-arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="hot-main">
         <view class="hot-list">
@@ -101,7 +101,7 @@
         >
           <view class="ad-scrim">
             <image v-if="ad.icon" class="ad-icon-img" :src="ad.icon" mode="aspectFit" />
-            <image v-else class="ad-icon-img" src="/static/icons/common/notice-inverse.svg" mode="aspectFit" />
+            <image v-else class="ad-icon-img" :src="ICON_TONES['notice']['inverse']" mode="aspectFit" />
             <view class="ad-text">
               <text class="ad-title">{{ ad.title }}</text>
               <text class="ad-desc">{{ ad.desc }}</text>
@@ -178,6 +178,7 @@ import { doCheckin, getCheckinStatus } from "@/api/checkin";
 import { tokenStorage } from "@/utils/storage";
 import { getNavBarMetrics } from "@/utils/navbar";
 import { useScrollFade } from "@/utils/scroll-fade";
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 
@@ -226,8 +227,8 @@ const loadBanners = async () => {
  * 注意：SVG 在 H5 没问题；微信小程序真机不渲染 SVG，上真机请换 PNG（路径后缀改 .png 即可）
  */
 const CHECKIN_ICONS = {
-  outline: '/static/icons/common/hot.svg',      // 未签到：火焰轮廓（线条稿）
-  burning: '/static/icons/common/hot-on.svg',   // 已签到：燃烧的火焰（填充稿）
+  outline: ICONS['hot'],      // 未签到：火焰轮廓（线条稿）
+  burning: ICONS['hot-on'],   // 已签到：燃烧的火焰（填充稿）
 };
 
 const checkedIn = ref(false);

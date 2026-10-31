@@ -21,7 +21,7 @@
               <text class="avatar-letter">{{ avatarLetter }}</text>
             </view>
             <view v-if="profile.is_verified" class="v-badge">
-              <image class="v-badge-icon" src="/static/icons/common/check-inverse.svg" mode="aspectFit" />
+              <image class="v-badge-icon" :src="ICON_TONES['check']['inverse']" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -68,7 +68,7 @@
             <text class="fl-title">{{ section === 'following' ? '关注的人' : '粉丝' }}（{{ list.length }}）</text>
             <view class="back-posts" @tap="section = 'posts'">
               <text>看帖子</text>
-              <image class="chev" src="/static/icons/common/arrow-right-primary.svg" mode="aspectFit" />
+              <image class="chev" :src="ICON_TONES['arrow-right']['primary']" mode="aspectFit" />
             </view>
           </view>
           <view v-if="list.length === 0" class="empty"><text>暂无{{ section === 'following' ? '关注' : '粉丝' }}</text></view>
@@ -123,11 +123,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" :src="ICONS['eye']" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" :src="ICONS['comment']" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -139,7 +139,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
+                <image class="pc-thumb-ph-svg" :src="ICONS['edit']" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -180,11 +180,11 @@
                 <view class="pc-meta">
                   <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" :src="ICONS['eye']" mode="aspectFit" />
                     <text>{{ fmtCount(p.view_count) }}</text>
                   </view>
                   <view class="pc-stat">
-                    <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
+                    <image class="pc-stat-svg" :src="ICONS['comment']" mode="aspectFit" />
                     <text>{{ fmtCount(p.comment_count) }}</text>
                   </view>
                 </view>
@@ -196,7 +196,7 @@
                 mode="aspectFill"
               />
               <view v-else class="pc-thumb pc-thumb-ph">
-                <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
+                <image class="pc-thumb-ph-svg" :src="ICONS['edit']" mode="aspectFit" />
               </view>
             </view>
           </template>
@@ -217,6 +217,7 @@ import {
 } from '@/api/profile'
 import { myComments, myLikes, myFavorites, type MyCommentItem } from '@/api/interaction'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 
@@ -231,10 +232,10 @@ const section = ref<'posts' | 'following' | 'followers'>('posts')
 // ===== 自己主页的内容四栏（与"我的"页同款）=====
 // 说明：产品上"转发"功能后端暂未实现，此位暂以「收藏」承担
 const CONTENT_TABS = [
-  { key: 'posts', icon: '/static/icons/common/note.svg' },
-  { key: 'comments', icon: '/static/icons/common/comment.svg' },
-  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
-  { key: 'likes', icon: '/static/icons/common/heart.svg' },
+  { key: 'posts', icon: ICONS['note'] },
+  { key: 'comments', icon: ICONS['comment'] },
+  { key: 'favorites', icon: ICONS['bookmark'] },
+  { key: 'likes', icon: ICONS['heart'] },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 const contentTab = ref<ContentTab>('posts')

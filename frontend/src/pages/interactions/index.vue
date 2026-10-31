@@ -26,7 +26,7 @@
     <!-- 3. 聚合列表：点击直达被互动的帖子 -->
     <scroll-view scroll-y class="list-area">
       <view v-if="items.length === 0" class="empty-state">
-        <image class="empty-emoji" src="/static/icons/state/mail-heart.svg" mode="aspectFit" />
+        <image class="empty-emoji" :src="ICONS['state-mail-heart']" mode="aspectFit" />
         <text class="empty-text">还没有互动消息</text>
       </view>
       <view
@@ -51,7 +51,7 @@
           </view>
         </view>
         <view v-if="!it.is_read" class="unread-dot" />
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
       <view class="list-foot" />
     </scroll-view>
@@ -72,6 +72,7 @@ import {
   type NotificationItem,
 } from '@/api/notification'
 import { tokenStorage } from '@/utils/storage'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

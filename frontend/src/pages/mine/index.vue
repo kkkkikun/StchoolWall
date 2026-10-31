@@ -25,7 +25,7 @@
             <text>编辑资料</text>
           </view>
           <view class="gear-btn" @tap="goSettings">
-            <image class="gear-icon-img" src="/static/icons/settings/gear.svg" mode="aspectFit" />
+            <image class="gear-icon-img" :src="ICONS['settings']" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -34,7 +34,7 @@
       <view class="bio">
         <text>{{ user.bio || '热爱生活，热爱分享～' }}</text>
         <view v-if="!user.bio" class="bio-tip">
-          <image class="bio-sparkle" src="/static/icons/state/sparkle.svg" mode="aspectFit" />
+          <image class="bio-sparkle" :src="ICONS['state-sparkle']" mode="aspectFit" />
           <text>在校园里发现美好，记录点滴日常</text>
         </view>
       </view>
@@ -74,7 +74,7 @@
 
       <!-- 3. 四栏内容 Tab（帖/评/藏/赞，下划线式与全 app 统一）；未登录时改为登录引导 -->
       <view v-if="!loggedIn" class="login-guide">
-        <image class="login-guide-icon" src="/static/icons/common/note.svg" mode="aspectFit" />
+        <image class="login-guide-icon" :src="ICONS['note']" mode="aspectFit" />
         <text class="login-guide-title">登录后查看你的内容</text>
         <text class="login-guide-desc">你的帖子、评论、收藏与点赞会汇总在这里</text>
       </view>
@@ -112,11 +112,11 @@
               <view class="pc-meta">
                 <text class="pc-date">{{ dateOf(p.created_at) }}</text>
                 <view class="pc-stat">
-                  <image class="pc-stat-svg" src="/static/icons/common/eye.svg" mode="aspectFit" />
+                  <image class="pc-stat-svg" :src="ICONS['eye']" mode="aspectFit" />
                   <text>{{ fmtCount(p.view_count) }}</text>
                 </view>
                 <view class="pc-stat">
-                  <image class="pc-stat-svg" src="/static/icons/common/comment.svg" mode="aspectFit" />
+                  <image class="pc-stat-svg" :src="ICONS['comment']" mode="aspectFit" />
                   <text>{{ fmtCount(p.comment_count) }}</text>
                 </view>
               </view>
@@ -128,7 +128,7 @@
               mode="aspectFill"
             />
             <view v-else class="pc-thumb pc-thumb-ph">
-              <image class="pc-thumb-ph-svg" src="/static/icons/settings/doc.svg" mode="aspectFit" />
+              <image class="pc-thumb-ph-svg" :src="ICONS['edit']" mode="aspectFit" />
             </view>
           </view>
         </template>
@@ -170,6 +170,7 @@ import { devLogin, storeLoginSession, wxLoginAndStore } from '@/api/auth'
 import { get } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import type { PostBrief } from '@/types/api'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 
@@ -183,10 +184,10 @@ const avatarUrl = ref('')
 const bannerUrl = ref('')
 
 const CONTENT_TABS = [
-  { key: 'posts', icon: '/static/icons/common/note.svg' },
-  { key: 'comments', icon: '/static/icons/common/comment.svg' },
-  { key: 'favorites', icon: '/static/icons/common/bookmark.svg' },
-  { key: 'likes', icon: '/static/icons/common/heart.svg' },
+  { key: 'posts', icon: ICONS['note'] },
+  { key: 'comments', icon: ICONS['comment'] },
+  { key: 'favorites', icon: ICONS['bookmark'] },
+  { key: 'likes', icon: ICONS['heart'] },
 ] as const
 type ContentTab = (typeof CONTENT_TABS)[number]['key']
 

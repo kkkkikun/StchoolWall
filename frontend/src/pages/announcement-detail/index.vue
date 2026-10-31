@@ -6,12 +6,12 @@
       <text class="state-text">加载中…</text>
     </view>
     <view v-else-if="!detail" class="state-box">
-      <image class="state-emoji" src="/static/icons/state/inbox.svg" mode="aspectFit" />
+      <image class="state-emoji" :src="ICONS['state-inbox']" mode="aspectFit" />
       <text class="state-text">公告不存在或已删除</text>
     </view>
     <view v-else class="detail-card">
       <view class="badge">
-        <image class="badge-icon" src="/static/icons/common/notice-primary.svg" mode="aspectFit" />
+        <image class="badge-icon" :src="ICON_TONES['notice']['primary']" mode="aspectFit" />
         <text>系统公告</text>
       </view>
       <text class="title">{{ detail.payload?.title || '系统公告' }}</text>
@@ -28,6 +28,7 @@ import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getNotificationDetail, readNotification, type NotificationItem } from '@/api/notification'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

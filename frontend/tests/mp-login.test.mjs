@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile, unlink } from 'node:fs/promises'
 import ts from 'typescript'
 import { parse, compileScript } from 'vue/compiler-sfc'
+import { compileTsModule } from './helpers/compile-ts.mjs'
 
 // =============================================================================
 // 测试脚手架：编译并受控加载真实生产源码 (src/api/auth.ts & src/pages/mine/index.vue)
@@ -113,6 +114,9 @@ await writeFile(avatarCompiledPath, ts.transpileModule(avatarTs, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 
+// 3.7 转译真实的 utils/icons.ts（mine 页图标走注册表）
+const iconsSpecifier = await compileTsModule('../../src/utils/icons.ts', '.temp-mp-icons.mjs')
+
 // 4. 编译并转译真实 src/pages/mine/index.vue SFC
 const sfcContent = await readFile(new URL('../src/pages/mine/index.vue', import.meta.url), 'utf8')
 const sfc = parse(sfcContent)
@@ -129,6 +133,7 @@ sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/request['"]/g, 'from "./.temp-mp
 sfcCode = sfcCode.replace(/from\s+['"]@\/api\/auth['"]/g, 'from "./.temp-mp-auth-adapter.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/storage['"]/g, 'from "./.temp-mp-storage.mjs"')
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/errors['"]/g, 'from "./.temp-mp-errors.mjs"')
+sfcCode = sfcCode.replaceAll('@/utils/icons', iconsSpecifier)
 sfcCode = sfcCode.replace(/from\s+['"]@\/utils\/avatar['"]/g, 'from "./.temp-mp-avatar.mjs"')
 
 const sfcJs = ts.transpileModule(sfcCode, {
@@ -152,6 +157,7 @@ try {
   await unlink(errorsCompiledPath).catch(() => {})
   await unlink(sfcCompiledPath).catch(() => {})
   await unlink(avatarCompiledPath).catch(() => {})
+  await unlink(new URL('./.temp-mp-icons.mjs', import.meta.url)).catch(() => {})
 }
 
 const { bridge, resetBridge } = bridgeModule

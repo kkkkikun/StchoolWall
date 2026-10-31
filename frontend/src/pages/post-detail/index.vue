@@ -62,19 +62,19 @@
       <view class="action-bar">
         <view class="act" :class="{ on: isLiked, 'on-like': isLiked }" @tap="onLike">
           <image class="act-icon"
-                 :src="isLiked ? '/static/icons/common/heart-on.svg' : '/static/icons/common/heart.svg'"
+                 :src="isLiked ? ICONS['heart-on'] : ICONS['heart']"
                  mode="aspectFit" /><text>赞 {{ likeCount }}</text>
         </view>
         <view class="act" :class="{ on: isFav, 'on-fav': isFav }" @tap="onFavorite">
           <image class="act-icon"
-                 :src="isFav ? '/static/icons/common/star-on.svg' : '/static/icons/common/star.svg'"
+                 :src="isFav ? ICONS['star-on'] : ICONS['star']"
                  mode="aspectFit" /><text>{{ isFav ? '已藏' : '收藏' }}</text>
         </view>
         <view class="act" @tap="focusComment">
-          <image class="act-icon" src="/static/icons/common/comment.svg" mode="aspectFit" /><text>评论</text>
+          <image class="act-icon" :src="ICONS['comment']" mode="aspectFit" /><text>评论</text>
         </view>
         <view class="act" @tap="onShare">
-          <image class="act-icon" src="/static/icons/common/share.svg" mode="aspectFit" /><text>转发</text>
+          <image class="act-icon" :src="ICONS['share']" mode="aspectFit" /><text>转发</text>
         </view>
       </view>
 
@@ -123,7 +123,7 @@
     <view v-if="post" class="comment-input-bar">
       <view v-if="replyTarget" class="reply-target-tag">
         <text class="reply-tip">回复 @{{ replyTarget.user.nickname }}</text>
-        <image class="reply-cancel" src="/static/icons/common/close.svg" mode="aspectFit" @tap="cancelReply" />
+        <image class="reply-cancel" :src="ICONS['close']" mode="aspectFit" @tap="cancelReply" />
       </view>
       <input
         ref="commentInput"
@@ -166,6 +166,7 @@ import {
 import { tokenStorage, userStorage } from '@/utils/storage'
 import { friendlyNetworkError } from '@/utils/errors'
 import { blockUser } from '@/api/blocks'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

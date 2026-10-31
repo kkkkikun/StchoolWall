@@ -4,7 +4,7 @@
     <view class="banner-prev" @tap="changeImage('banners')">
       <image v-if="form.banner_url" class="banner-img" :src="form.banner_url" mode="aspectFill" />
       <view v-else class="banner-ph">
-        <image class="ph-icon" src="/static/icons/common/camera.svg" mode="aspectFit" />
+        <image class="ph-icon" :src="ICONS['camera']" mode="aspectFit" />
         <text>点击设置主页横幅</text>
       </view>
     </view>
@@ -14,10 +14,10 @@
       <view class="avatar-ring" @tap="changeImage('avatars')">
         <image v-if="form.avatar_url" class="avatar-img" :src="form.avatar_url" mode="aspectFill" />
         <view v-else class="avatar-ph">
-          <image class="ph-icon" src="/static/icons/common/camera.svg" mode="aspectFit" />
+          <image class="ph-icon" :src="ICONS['camera']" mode="aspectFit" />
         </view>
         <view class="avatar-cam">
-          <image class="cam-icon" src="/static/icons/common/camera-inverse.svg" mode="aspectFit" />
+          <image class="cam-icon" :src="ICON_TONES['camera']['inverse']" mode="aspectFit" />
         </view>
       </view>
       <text class="avatar-tip">点击图片可更换</text>
@@ -73,6 +73,7 @@ import { useTheme } from '@/utils/theme'
 import { onShow } from '@dcloudio/uni-app'
 import { get, put, uploadMedia } from '@/utils/request'
 import { tokenStorage, userStorage } from '@/utils/storage'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

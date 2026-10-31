@@ -6,25 +6,25 @@
       <text class="state-text">加载中…</text>
     </view>
     <view v-else-if="!activity" class="state-box">
-      <image class="state-emoji" src="/static/icons/state/inbox.svg" mode="aspectFit" />
+      <image class="state-emoji" :src="ICONS['state-inbox']" mode="aspectFit" />
       <text class="state-text">活动不存在或已下架</text>
     </view>
     <view v-else class="content">
       <image v-if="activity.image_url" class="cover" :src="activity.image_url" mode="aspectFill" />
       <view class="card">
         <view class="tag">
-          <image class="tag-icon" src="/static/icons/common/pin-primary.svg" mode="aspectFit" />
+          <image class="tag-icon" :src="ICON_TONES['pin']['primary']" mode="aspectFit" />
           <text>校园活动</text>
         </view>
         <text class="title">{{ activity.title }}</text>
         <text v-if="activity.summary" class="summary">{{ activity.summary }}</text>
 
         <view v-if="activity.location" class="meta-row">
-          <image class="meta-icon" src="/static/icons/common/location.svg" mode="aspectFit" />
+          <image class="meta-icon" :src="ICONS['location']" mode="aspectFit" />
           <text class="meta-text">{{ activity.location }}</text>
         </view>
         <view v-if="activity.start_at || activity.end_at" class="meta-row">
-          <image class="meta-icon" src="/static/icons/common/clock.svg" mode="aspectFit" />
+          <image class="meta-icon" :src="ICONS['clock']" mode="aspectFit" />
           <text class="meta-text">{{ timeText }}</text>
         </view>
 
@@ -41,6 +41,7 @@ import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
 import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getActivity, type ActivityDetail } from '@/api/activity'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

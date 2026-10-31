@@ -1,7 +1,7 @@
 <template>
   <view class="page-webview" :class="themeClass">
     <view v-if="!url" class="invalid">
-      <image class="invalid-emoji" src="/static/icons/settings/link.svg" mode="aspectFit" />
+      <image class="invalid-emoji" :src="ICONS['link']" mode="aspectFit" />
       <text class="invalid-text">链接无效</text>
     </view>
 
@@ -32,6 +32,7 @@
 import { ref } from 'vue'
 import { useTheme } from '@/utils/theme'
 import { onLoad } from '@dcloudio/uni-app'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

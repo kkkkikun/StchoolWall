@@ -1,7 +1,7 @@
 <template>
   <view class="page-admin-deprecated" :class="themeClass">
     <view class="card">
-      <image class="icon" src="/static/icons/state/desktop.svg" mode="aspectFit" />
+      <image class="icon" :src="ICONS['state-desktop']" mode="aspectFit" />
       <text class="title">管理后台已升级</text>
       <text class="desc">精细化管理已迁移到独立的 Web 管理后台，请在电脑浏览器中访问：</text>
       <view class="url-box" @tap="copyUrl">
@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { useTheme } from '@/utils/theme'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 // 旧的内嵌管理页已下线（2026-08-31），运营管理统一走独立 Web 管理后台。

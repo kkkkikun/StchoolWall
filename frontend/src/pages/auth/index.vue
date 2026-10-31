@@ -6,7 +6,7 @@
       <!-- 1. 品牌区 -->
       <view class="brand">
         <view class="brand-mark">
-          <image class="brand-logo" src="/static/icons/banner/grad.svg" mode="aspectFit" />
+          <image class="brand-logo" :src="ICONS['banner-grad']" mode="aspectFit" />
         </view>
         <text class="brand-name">鄂应墙</text>
         <text class="brand-slogan">校园信息聚合平台</text>
@@ -106,6 +106,7 @@ import type { LoginResponse } from '@/api/auth'
 import { beginWechatOAuth, clientType } from '@/utils/platform-auth'
 import { tokenStorage } from '@/utils/storage'
 import { friendlyNetworkError } from '@/utils/errors'
+import { ICONS } from '@/utils/icons'
 
 const { themeClass, mode: themeMode } = useTheme()
 

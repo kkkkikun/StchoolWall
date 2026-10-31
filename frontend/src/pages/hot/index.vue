@@ -4,14 +4,14 @@
 
     <!-- 2. 规则说明条 -->
     <view class="intro-bar">
-      <image class="intro-icon" src="/static/icons/common/hot-primary.svg" mode="aspectFit" />
+      <image class="intro-icon" :src="ICON_TONES['hot']['primary']" mode="aspectFit" />
       <text class="intro-text">近 7 天 ·（赞×3 + 评论×2 + 浏览）加权排序</text>
     </view>
 
     <!-- 3. 完整榜单 -->
     <view v-if="loading" class="state"><text>加载中…</text></view>
     <view v-else-if="!items.length" class="state">
-      <image class="state-emoji" src="/static/icons/state/ice.svg" mode="aspectFit" />
+      <image class="state-emoji" :src="ICONS['state-ice']" mode="aspectFit" />
       <text>本周还没有热帖，发一帖点燃它吧</text>
     </view>
     <view v-else class="rank-card">
@@ -30,16 +30,16 @@
           </view>
           <view class="line2">
             <view class="meta">
-              <image class="meta-icon" src="/static/icons/common/heart.svg" mode="aspectFit" />
+              <image class="meta-icon" :src="ICONS['heart']" mode="aspectFit" />
               <text>{{ it.likes }}</text>
               <text class="meta-sep">·</text>
-              <image class="meta-icon" src="/static/icons/common/comment.svg" mode="aspectFit" />
+              <image class="meta-icon" :src="ICONS['comment']" mode="aspectFit" />
               <text>{{ it.comments }}</text>
             </view>
             <text class="views">{{ it.reads }}</text>
           </view>
         </view>
-        <image class="arrow" src="/static/icons/common/arrow-right.svg" mode="aspectFit" />
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -52,6 +52,7 @@ import { onShow } from '@dcloudio/uni-app'
 import CustomNavBar from '@/components/custom-nav-bar.vue'
 import { getHotPosts } from '@/api/posts'
 import type { PostBrief } from '@/types/api'
+import { ICONS, ICON_TONES } from '@/utils/icons'
 
 const { themeClass } = useTheme()
 

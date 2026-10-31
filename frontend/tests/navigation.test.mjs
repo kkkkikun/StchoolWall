@@ -5,6 +5,7 @@ import ts from 'typescript'
 import { parse, compileScript } from 'vue/compiler-sfc'
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
+import { compileTsModule } from './helpers/compile-ts.mjs'
 
 // 模拟 uni 全局环境
 function createMockUni() {
@@ -59,12 +60,16 @@ const {
 const tempMockThemePath = new URL('./.mock-theme.mjs', import.meta.url)
 await writeFile(tempMockThemePath, 'export function useTheme() { return { themeClass: "theme-light" }; }')
 
+// 图标注册表走真实源码（nav-bar 的返回箭头来自注册表）
+const iconsSpecifier = await compileTsModule('../../src/utils/icons.ts', '.temp-nav-icons.mjs')
+
 const sfcContent = await readFile(new URL('../src/components/custom-nav-bar.vue', import.meta.url), 'utf8')
 const sfc = parse(sfcContent)
 const script = compileScript(sfc.descriptor, { id: 'custom-nav-bar' })
 const componentCode = script.content
   .replaceAll('@/utils/theme', './.mock-theme.mjs')
   .replaceAll('@/utils/navbar', './.temp-navbar.mjs')
+  .replaceAll('@/utils/icons', iconsSpecifier)
 
 const componentJs = ts.transpileModule(componentCode, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -79,6 +84,7 @@ const CustomNavBar = (await import(tempComponentPath.href)).default
 await unlink(tempMockThemePath)
 await unlink(tempNavbarPath)
 await unlink(tempComponentPath)
+await unlink(new URL('./.temp-nav-icons.mjs', import.meta.url))
 
 /**
  * 辅助函数：在真实 Vue 渲染上下文中挂载 CustomNavBar 并获取其 setup 暴露的 bindings

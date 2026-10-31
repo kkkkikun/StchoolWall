@@ -23,15 +23,14 @@ SchoolWall 管理后台导航 SVG 图标专项验收脚本（独立脚本，不�
 使用模拟管理员数据与本地 HTTP 服务，不访问真实后台，不读取任何凭据。
 """
 
-import http.server
 import json
 import os
-import socket
 import sys
-import threading
 import time
 import traceback
 from playwright.sync_api import sync_playwright
+
+from walkthrough_server import create_server, route_url  # 同目录共享模块
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'admin-frontend', 'dist')
@@ -66,35 +65,7 @@ MENU_COUNT = len(EXPECTED_MENUS)
 assert MENU_COUNT == 17
 
 # ---------------------------------------------------------------- 静态服务器
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-
-    def do_GET(self):
-        clean_path = self.path.split('?')[0].split('#')[0].lstrip('/')
-        full_path = os.path.join(DIST_DIR, clean_path)
-        if not (clean_path and os.path.exists(full_path) and not os.path.isdir(full_path)):
-            self.path = '/index.html'
-        return super().do_GET()
-
-    def copyfile(self, source, outputfile):
-        try:
-            super().copyfile(source, outputfile)
-        except (ConnectionResetError, BrokenPipeError):
-            pass
-
-    def log_message(self, format, *args):
-        pass
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SPAHandler)
-server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-server_thread.start()
-base_url = f"http://127.0.0.1:{port}"
+httpd, base_url = create_server(DIST_DIR)
 print(f"Admin static server listening on {base_url}")
 
 # ---------------------------------------------------------------- Mock API
@@ -239,7 +210,7 @@ try:
         print(f"\n--- 场景 1: 1280x800 桌面亮色 ---")
         try:
             ctx, page = new_admin_context(browser, 1280, 800, 'light')
-            page.goto(f"{base_url}/dashboard")
+            page.goto(route_url(base_url, '/dashboard'))
             page.wait_for_selector('.desktop-aside', timeout=8000)
             page.wait_for_selector('.desktop-aside .el-menu-item .menu-icon svg', timeout=5000)
             time.sleep(0.3)
@@ -286,7 +257,7 @@ try:
         print(f"\n--- 场景 2: 1280x800 桌面暗色 ---")
         try:
             ctx, page = new_admin_context(browser, 1280, 800, 'dark')
-            page.goto(f"{base_url}/dashboard")
+            page.goto(route_url(base_url, '/dashboard'))
             page.wait_for_selector('.desktop-aside', timeout=8000)
             page.wait_for_selector('.desktop-aside .el-menu-item .menu-icon svg', timeout=5000)
             time.sleep(0.3)
@@ -323,7 +294,7 @@ try:
         print(f"\n--- 场景 3: 390x844 手机亮色（含点击交互） ---")
         try:
             ctx, page = new_admin_context(browser, 390, 844, 'light')
-            page.goto(f"{base_url}/dashboard")
+            page.goto(route_url(base_url, '/dashboard'))
             page.wait_for_selector('.layout', timeout=8000)
             time.sleep(0.3)
 
@@ -401,7 +372,7 @@ try:
         print(f"\n--- 场景 4: 390x844 手机暗色 ---")
         try:
             ctx, page = new_admin_context(browser, 390, 844, 'dark')
-            page.goto(f"{base_url}/dashboard")
+            page.goto(route_url(base_url, '/dashboard'))
             page.wait_for_selector('.layout', timeout=8000)
             time.sleep(0.3)
 

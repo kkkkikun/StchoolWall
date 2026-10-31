@@ -13,16 +13,15 @@ SchoolWall 管理后台「全视图」Playwright 走查
 任一断言失败 -> 该场景 FAIL，退出码非零。全部走 Mock API，不连真实后端。
 """
 
-import http.server
 import json
 import os
-import socket
 import sys
-import threading
 import time
 import traceback
 
 from playwright.sync_api import sync_playwright
+
+from walkthrough_server import create_server, route_url  # 同目录共享模块
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'admin-frontend', 'dist')
@@ -34,36 +33,7 @@ if not os.path.isdir(DIST_DIR):
     sys.exit(1)
 
 # ---------------------------------------------------------------- 静态服务（SPA 回退）
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-
-class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-
-    def do_GET(self):
-        clean = self.path.split('?')[0].split('#')[0].lstrip('/')
-        full = os.path.join(DIST_DIR, clean)
-        if not (clean and os.path.exists(full) and not os.path.isdir(full)):
-            self.path = '/index.html'
-        return super().do_GET()
-
-    def copyfile(self, source, outputfile):
-        try:
-            super().copyfile(source, outputfile)
-        except (ConnectionResetError, BrokenPipeError):
-            pass
-
-    def log_message(self, fmt, *args):
-        pass
-
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SPAHandler)
-threading.Thread(target=httpd.serve_forever, daemon=True).start()
-base_url = f'http://127.0.0.1:{port}'
+httpd, base_url = create_server(DIST_DIR)
 print(f'Admin static server listening on {base_url}')
 
 # ---------------------------------------------------------------- Mock 夹具
@@ -382,7 +352,7 @@ def canvas_ink(page):
 def visit(page, name, route, mode):
     label = f'{name}[{mode}]'
     try:
-        page.goto(f'{base_url}{route}', wait_until='domcontentloaded')
+        page.goto(route_url(base_url, route), wait_until='domcontentloaded')
         page.wait_for_timeout(1300)
         m = measure(page)
         check(m['docScroll'] <= m['docClient'] + 1,

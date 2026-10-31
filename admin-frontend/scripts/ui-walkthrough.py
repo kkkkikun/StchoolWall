@@ -9,15 +9,14 @@ SchoolWall 管理后台 (admin-frontend) 自动化端到端渲染与无障碍走
 产物输出至 ci-artifacts/admin-ui/
 """
 
-import http.server
 import json
 import os
 import re
-import socket
 import sys
-import threading
 import time
 from playwright.sync_api import sync_playwright
+
+from walkthrough_server import create_server, route_url  # 同目录共享模块
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'admin-frontend', 'dist')
@@ -29,36 +28,7 @@ if not os.path.isdir(DIST_DIR):
     sys.exit(1)
 
 # 获取动态可用端口
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-
-    def do_GET(self):
-        clean_path = self.path.split('?')[0].split('#')[0].lstrip('/')
-        full_path = os.path.join(DIST_DIR, clean_path)
-        # 如果不是真实存在的静态资产文件，回退到 SPA index.html
-        if not (clean_path and os.path.exists(full_path) and not os.path.isdir(full_path)):
-            self.path = '/index.html'
-        return super().do_GET()
-
-    def copyfile(self, source, outputfile):
-        try:
-            super().copyfile(source, outputfile)
-        except (ConnectionResetError, BrokenPipeError):
-            pass
-
-    def log_message(self, format, *args):
-        pass
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SPAHandler)
-server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-server_thread.start()
-base_url = f"http://127.0.0.1:{port}"
+httpd, base_url = create_server(DIST_DIR)
 print(f"Admin static server listening on {base_url}")
 
 def parse_css_rgb(color_str):
@@ -212,7 +182,7 @@ with sync_playwright() as p:
     page = ctx_390_light.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/login")
+    page.goto(route_url(base_url, '/login'))
     page.wait_for_selector('.login-card', timeout=5000)
 
     # 1.1 断言无横向溢出
@@ -277,7 +247,7 @@ with sync_playwright() as p:
     page = ctx_390_dark.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/login")
+    page.goto(route_url(base_url, '/login'))
     page.wait_for_selector('.login-card', timeout=5000)
 
     # 切换暗色模式并刷新以验证持久化加载
@@ -326,7 +296,7 @@ with sync_playwright() as p:
     page = ctx_768.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/login")
+    page.goto(route_url(base_url, '/login'))
     page.wait_for_selector('.login-card', timeout=5000)
     assert_no_horizontal_overflow(page, "768x1024 登录页")
 
@@ -352,7 +322,7 @@ with sync_playwright() as p:
     page = ctx_1280.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/login")
+    page.goto(route_url(base_url, '/login'))
     page.wait_for_selector('.login-card', timeout=5000)
     assert_no_horizontal_overflow(page, "1280x800 登录页")
 
@@ -381,7 +351,7 @@ with sync_playwright() as p:
     page = ctx_admin_1280.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/dashboard")
+    page.goto(route_url(base_url, '/dashboard'))
     page.wait_for_selector('.layout', timeout=8000)
     page.wait_for_selector('.chart canvas', timeout=5000)
     page.wait_for_selector('.desktop-aside', timeout=5000)
@@ -435,7 +405,7 @@ with sync_playwright() as p:
     page = ctx_admin_768.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/dashboard")
+    page.goto(route_url(base_url, '/dashboard'))
     page.wait_for_selector('.layout', timeout=8000)
     page.wait_for_selector('.chart canvas', timeout=5000)
     assert_no_horizontal_overflow(page, "768x1024 平板看板页")
@@ -465,7 +435,7 @@ with sync_playwright() as p:
     page = ctx_admin_390.new_page()
     page.route('**/api/v1/**', handle_admin_api)
 
-    page.goto(f"{base_url}/dashboard")
+    page.goto(route_url(base_url, '/dashboard'))
     page.wait_for_selector('.layout', timeout=8000)
     page.wait_for_selector('.chart canvas', timeout=5000)
 

@@ -23,16 +23,15 @@ SchoolWall 管理后台 学生证人工认证页（StudentVerificationsView.vue�
 任一断言失败 -> 场景 FAIL，退出码非零。
 """
 
-import http.server
 import json
 import os
-import socket
 import sys
-import threading
 import time
 import traceback
 import urllib.parse
 from playwright.sync_api import sync_playwright
+
+from walkthrough_server import create_server, route_url  # 同目录共享模块
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST_DIR = os.path.join(ROOT_DIR, 'admin-frontend', 'dist')
@@ -60,31 +59,7 @@ window.__blobLog = { created: [], revoked: [] };
 '''
 
 # ---------------------------------------------------------------- 静态服务
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 0))
-port = sock.getsockname()[1]
-sock.close()
-
-class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
-    def do_GET(self):
-        clean = self.path.split('?')[0].split('#')[0].lstrip('/')
-        full = os.path.join(DIST_DIR, clean)
-        if not (clean and os.path.exists(full) and not os.path.isdir(full)):
-            self.path = '/index.html'
-        return super().do_GET()
-    def copyfile(self, source, outputfile):
-        try:
-            super().copyfile(source, outputfile)
-        except (ConnectionResetError, BrokenPipeError):
-            pass
-    def log_message(self, format, *args):
-        pass
-
-httpd = http.server.ThreadingHTTPServer(('127.0.0.1', port), SPAHandler)
-threading.Thread(target=httpd.serve_forever, daemon=True).start()
-base_url = f'http://127.0.0.1:{port}'
+httpd, base_url = create_server(DIST_DIR)
 print(f'Admin static server listening on {base_url}')
 
 # ---------------------------------------------------------------- Mock 状态（全合成数据）
@@ -261,7 +236,7 @@ try:
         # ================= V1 初始加载 =================
         print('\n--- V1 初始加载 ---')
         try:
-            page.goto(f'{base_url}/student-verifications')
+            page.goto(route_url(base_url, '/student-verifications'))
             page.wait_for_selector('.el-table__row', timeout=8000)
             page.wait_for_timeout(600)
             check(page.locator('.el-table__row').count() == 20, '待审核首页应渲染 20 行')
@@ -397,7 +372,7 @@ try:
             # 401：全局拦截器清会话并跳登录（登录页会清理会话 Cookie，需全新上下文验证，
             # 避免污染后续场景——这是既定安全行为，非 evidenceBlob 映射路径）
             ctx401, page401 = new_admin_context(browser, 1280, 800)
-            page401.goto(f'{base_url}/student-verifications')
+            page401.goto(route_url(base_url, '/student-verifications'))
             page401.wait_for_selector('.el-table__row', timeout=8000)
             flags['evidence_mode'] = 'e401'
             page401.locator('.el-table__row').first.locator('button:has-text("查看证件 / 审核")').click()
@@ -594,7 +569,7 @@ try:
             print(f'\n--- V12 响应式 {label} ---')
             try:
                 ctx2, page2 = new_admin_context(browser, w, h)
-                page2.goto(f'{base_url}/student-verifications')
+                page2.goto(route_url(base_url, '/student-verifications'))
                 page2.wait_for_selector('.el-table__row', timeout=8000)
                 page2.wait_for_timeout(600)
                 m = doc_overflow(page2)

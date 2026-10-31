@@ -111,6 +111,16 @@
 - **WHEN** 断言「输入框底色应取自 `--bg-card-2`」，实际取到的是 `--text-1` 的颜色
 - **THEN** 根因：`assert_token_color()` 比的是 `color`，而底色是 `backgroundColor`，断言对象错了；解法：另加 `assert_token_background()` 比 `backgroundColor`，底色令牌与文字色令牌分开断言；预防：写断言前先确认要校验的是哪个 CSS 属性
 
+#### Scenario: CI 制品带 base 前缀，走查按根路径访问直接白屏
+
+- **WHEN** 管理台走查 34 个场景全部失败，控制台报 `Failed to load module script ... MIME type of "text/html"`
+- **THEN** 根因：CI 用 `vite build --base=/admin/` 出制品（nginx 也是 `location /admin/`），产物里资源地址是 `/admin/assets/xxx.js`；走查脚本的静态服务把 `dist/` 挂在根路径，`/admin/assets/...` 落到 SPA 回退返回 `index.html`，浏览器按 `text/html` 拒绝执行模块脚本；解法：走查共享静态服务按 `ADMIN_BASE_PREFIX` 剥离前缀，路由地址同步加前缀；预防：CI 里的浏览器级走查必须针对**与制品完全相同的 base 构建**跑，脚本要显式支持部署前缀
+
+#### Scenario: 同一段代码抄了 11 份，改一处要改 11 个文件
+
+- **WHEN** 11 个管理台走查脚本各带一份完全相同的 `SPAHandler`
+- **THEN** 根因：脚本按页面复制粘贴生成，没有共享模块；解法：抽出 `admin-frontend/scripts/walkthrough_server.py` 提供 `create_server()` / `route_url()`，其余脚本只 import；预防：同一段逻辑出现第三次就要抽公共模块，别等抄到第十一份
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

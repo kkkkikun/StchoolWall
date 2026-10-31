@@ -17,9 +17,11 @@
 | 主前端 | Node22独立运行时：类型检查、H5、微信小程序、Android代码构建通过；单元测试**55 passed**。未产出签名APK。 |
 | 管理台 | 类型检查及生产构建通过；单元测试**12 passed**；有大chunk提示，仍需真实运行及加载性能检查。 |
 | 依赖 | Python安装与pip check/pip-audit通过；**主前端官方npm audit 0 high / 0 critical**，管理台官方npm audit **0 vulnerabilities**。主前端残余17 moderate + 1 low 全部继承自 `@intlify/core-base` 一条构建期advisory，实测 H5 与微信小程序产物中不含该包。处置明细见[客户端验收记录](../client-release-validation.md)。 |
-| 学生端全页面浏览器走查 | **53/53 通过**（`frontend/scripts/all-pages-walkthrough.py`）：`pages.json` 注册的全部26个页面 × 亮/暗双模式。逐页断言路由可达、根节点非空、文档级横向溢出、可见文字裁切、WCAG AA文字对比度、控制台错误与未处理异常；**0控制台错误**。 |
-| 管理台全视图浏览器走查 | **34/34 通过**（`admin-frontend/scripts/all-views-walkthrough.py`）：全部17个业务路由 × 1280桌面 / 390窄屏，追加布局存在性与文字对比度断言。 |
-| 既有专项走查回归 | 学生端6套（首页/发布/图片上传/详情/登录守卫/桌面平板）与管理台10套（看板/导航/帖子/举报/用户/评论/学生证/申诉/人工审核队列/布局）全部总体PASS。 |
+| 学生端全页面浏览器走查 | **57/57 通过**（`frontend/scripts/all-pages-walkthrough.py`）：`pages.json` 注册的全部 25 个页面 × 亮/暗双模式。逐页断言路由可达、根节点非空、文档级横向溢出、可见文字裁切、WCAG AA文字对比度、控制台错误与未处理异常；**0控制台错误**。 |
+| 管理台全视图浏览器走查 | **34/34 通过**（`admin-frontend/scripts/all-views-walkthrough.py`）：全部17个业务路由 × 1280桌面 / 390窄屏，追加布局存在性与文字对比度断言。走查针对 **与制品完全一致的 `--base=/admin/` 构建**执行。 |
+| 既有专项走查回归 | 学生端6套（首页/发布/图片上传/详情/登录守卫/桌面平板）与管理台11套（看板/导航/帖子/举报/用户/评论/学生证/申诉/人工审核队列/布局/管理台自身）全部总体PASS。 |
+| CI 覆盖补全（2026-10-31） | 此前 CI 只跑 `npm run test:auth`（1 个脚本 / 10 项），6 个前端测试脚本 / 55 项、管理台 12 项、19 套浏览器走查、OpenSpec 校验**全部未进 CI**，刚补齐的回归测试没有自动守护。现已接入：① 前端与管理台**全量**单测；② `npx @fission-ai/openspec@1.4.1 validate --specs`（包名是 `@fission-ai/openspec`，`openspec` 在 npm 上是 0.0.0 占位包）；③ 18 套浏览器走查（7 学生端 + 11 管理台）；④ 客观缺陷扫描 `ui-contrast-audit.py`（起 `scripts/preview.py` 供数）。两份 workflow 经 actionlint 1.7.7 通过。**CI 运行需拉取 Playwright chromium（约 1~2 分钟），本机已实测各步骤命令通过。** |
+| 管理台走查与部署前缀对齐（2026-10-31） | CI 用 `vite build --base=/admin/` 出制品、nginx 也是 `location /admin/`，而管理台走查的静态服务把 `dist/` 挂在根路径 → 资源 404 落到 SPA 回退返回 `index.html`，浏览器按 `text/html` 拒绝执行模块脚本，**34 个场景全挂**。已修：抽出共享模块 `admin-frontend/scripts/walkthrough_server.py`（同时消除 11 份重复的 `SPAHandler`），按 `ADMIN_BASE_PREFIX` 剥离前缀、路由地址同步加前缀；实测 `--base=/admin/` 产物下 11 套走查全部 PASS。 |
 | 前后端缺陷修复 | ① 夜间模式 `.theme-dark` 只覆写背景令牌、未覆写字色，`verify`/`appeals` 继承亮色近黑字在纯黑底上不可见；② 输入占位符使用 uni 默认 `#808080`（3.95:1）与 `--text-4`（2.64:1）；③ 管理台沿用 Element Plus 默认语义色，标签文字对比度仅2.0~3.1:1。三处均已修复，并由新增对比度断言长期守护。 |
 | 图片顺序缺陷 | 发布页并发上传时 `media_ids` 的签发顺序 ≠ 用户选择顺序；后端 `bind_media` 用 `WHERE id IN (...)` 取数、`entity_media` 按 `created_at, id` 排序，用户排好的图片顺序在入库与发布环节丢失。已加 `media_assets.position` 列（迁移 `b7e2c4a91d30`）、`bind_media` 按传入顺序重排并落 position、`entity_media` 按 position 排序，并补后端回归测试与发布页 `data-media-id` 契约断言。**后端用例与迁移需 PostgreSQL 环境执行，本次未在本机运行。** |
 | 发布配置 | 两份GitHub workflow通过actionlint1.7.7；生产、备份、监控Compose静态配置校验通过；镜像manifest模板远端只读校验通过。未在本机Docker构建/扫描/启动；Gitleaks与Trivy均未在本地执行，CI保留硬门禁。 |

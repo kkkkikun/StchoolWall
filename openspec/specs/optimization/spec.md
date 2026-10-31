@@ -49,11 +49,12 @@
 
 > 记录于 2026-10-31。数据来自当时的实测（管理台首屏 gzip 411KB、主前端三端产物、管理台/主前端 npm audit 结果）。
 
-- **[优先级: 高]** 管理台 Element Plus 全量引入，首屏 JS 362KB gzip
+- **[优先级: 高] [已完成 2026-10-31]** 管理台 Element Plus 全量引入，首屏 JS 362KB gzip
 
   - 当前影响：`admin-frontend/src/main.ts` 用 `app.use(ElementPlus)` + 全量 CSS。产物主 chunk 1.1MB raw、首屏合计 411KB gzip（JS 362K + CSS 49K），但全项目只用到 41 种 `el-*` 组件。管理台是运营方每天要开的后台，弱网下首屏明显偏慢。
-  - 建议方案：改用 `unplugin-vue-components` + `ElementPlusResolver` 按需引入，CSS 同步按需；保留 `zh-cn` locale 与暗色 CSS 变量。注意 `app.use(ElementPlus, { locale })` 的 locale 注入在按需模式下要改成 `provide` 或逐个组件传 locale。
-  - 验证方式：构建后比对 `dist/assets/index-*.js` 与 `index-*.css` 的 gzip 体积；跑 `admin-frontend/scripts/all-views-walkthrough.py`（34/34）确认 41 种组件仍全部挂载。
+  - 已完成：改用 `unplugin-vue-components` + `unplugin-auto-import` 的 `ElementPlusResolver` 按需引入，CSS 同步按需。locale 由 `app.use(ElementPlus, {locale})` 改为 `provideGlobalConfig({ locale: zhCn }, app)`（不注册全部组件的前提下仍提供中文 locale，已实测 MessageBox 按钮为「取消/确定」）。**实测首屏 411KB → 98KB gzip（-76%）、1458KB → 268KB raw（-82%）；主 chunk 1099KB → 255KB raw；CSS 359KB → 19KB。**
+  - 踩坑（务必留意）：① Element Plus 按需注入的组件样式会在 `main.ts` 的样式 import **之后**进入产物，同特异性下后加载者胜，Element Plus 默认蓝（#409eff）会反过来盖掉玫瑰红，导致全视图走查 34/34 全挂（按钮变默认蓝、文字对比度掉到 2.0~3.1:1）。解法：`theme.css` 的选择器提到 `html:root`（0,1,1 > `:root` 0,1,0）与 `html.dark:root`（0,2,1 > `html.dark` 0,1,1），与注入顺序解耦。② `el-table` 的 slot 行类型固定为 `DefaultRow`，组件一旦被 `components.d.ts` 声明出真实类型，原先被 `any` 掩盖的 42 处类型不匹配全部暴露；已在模板里用 `row as X` 标注，并把 el-tag 的状态映射表标注为 `TagProps['type']`。③ `unplugin-*` 生成的 dts 必须**提交入库**，否则 CI 里先跑的类型检查拿不到声明；且 `build` 脚本改为 `vite build && vue-tsc --noEmit`（先出 dts 再校验），避免「类型报错 → 构建不执行 → dts 不更新」的死锁。
+  - 验证方式：构建后比对 `dist/assets/index-*.js` 与 `index-*.css` 的 gzip 体积；跑 `admin-frontend/scripts/all-views-walkthrough.py`（34/34）确认 41 种组件仍全部挂载且主题色未被覆盖。
 
 - **[优先级: 高]** 管理台 echarts 整包懒加载块 372KB gzip
 

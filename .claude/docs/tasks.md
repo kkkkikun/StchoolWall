@@ -17,7 +17,8 @@
 - 2026-10-31 进展（主线平台化，feature/main-quality-port）：把主题分支的**非 UI 实现质量**移植回 main —— 后端生产化与 2 个迁移、依赖高危清零、浏览器级走查体系与 2 个永久审计脚本、本地预览服务、统一图标体系（emoji 清零）、语义化令牌、白天/夜晚双模式、管理台补齐三视图；配色沿用 main 玫瑰红品牌。客观扫描 25 页 × 亮/暗全部缺陷归零且品牌例外归零；走查 57/57、16/16、6/6、10/10、11/11、33/33、管理台 34/34 + 8/8 全 PASS；前端单测 55/55（补齐漏带的 5 个测试文件）+ 管理台 12/12（补齐漏带的 1 个）；三端构建通过
 - 2026-10-31 已合并入 main（合并点 d7fe503，`--no-ff`）；分支 feature/main-quality-port 保留未删除
 - 2026-10-31 改进批次一（CI 守护 + 文档校准）：CI 接入前端+管理台全量单测、openspec 校验、18 套浏览器走查、客观缺陷扫描（actionlint 1.7.7 通过）；修掉管理台走查与 `--base=/admin/` 部署前缀不匹配（曾致 34 场景全挂），抽出共享模块 `admin-frontend/scripts/walkthrough_server.py`；文档三处审计数字与实测对齐；optimization 规范补齐 6 条优化点
-- 剩余批次二待办：管理台 Element Plus 按需引入（首屏 411KB gzip）、echarts 按需注册（372KB gzip）、前端性能基线入库+门禁、图标注册表唯一来源（91 处手写路径 / 103 个零引用 SVG）—— 详见 `openspec/specs/optimization/spec.md`
+- 2026-10-31 改进批次二（管理台体积）：Element Plus 按需引入，首屏 411KB → 98KB gzip（-76%）、raw 1458KB → 268KB（-82%）；locale 改 provideGlobalConfig 保住中文；修掉「默认蓝反盖玫瑰红」与 42 处被 any 掩盖的类型不匹配
+- 剩余批次三待办：echarts 按需注册（懒加载块 372KB gzip）、前端性能基线入库+门禁、图标注册表唯一来源（91 处手写路径 / 103 个零引用 SVG）、前端 7 套走查脚本的静态服务去重 —— 详见 `openspec/specs/optimization/spec.md`
 - 原有未提交UI改动保留；未部署、未代替运营方签署政策或提交平台审核
 
 ## 已完成（已归档）

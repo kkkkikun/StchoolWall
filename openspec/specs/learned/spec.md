@@ -121,6 +121,21 @@
 - **WHEN** 11 个管理台走查脚本各带一份完全相同的 `SPAHandler`
 - **THEN** 根因：脚本按页面复制粘贴生成，没有共享模块；解法：抽出 `admin-frontend/scripts/walkthrough_server.py` 提供 `create_server()` / `route_url()`，其余脚本只 import；预防：同一段逻辑出现第三次就要抽公共模块，别等抄到第十一份
 
+#### Scenario: 组件库按需引入后，默认主题色反过来盖掉品牌色
+
+- **WHEN** 把 Element Plus 改成按需引入后，全视图走查 34 个场景全挂，界面变回默认蓝，按钮文字对比度从 AA 掉到 2.78:1
+- **THEN** 根因：Element Plus 把主题变量定义在 `:root` / `html.dark` 上；全量引入时 `element-plus/dist/index.css` 在 `theme.css` 之前引入所以我们赢，按需引入时组件样式**随组件模块注入**、落在 `theme.css` 之后，同特异性下后加载者胜，默认蓝反盖玫瑰红；解法：把品牌覆写的选择器提到 `html:root`（0,1,1 > `:root` 0,1,0）与 `html.dark:root`（0,2,1 > `html.dark` 0,1,1），与注入顺序解耦；预防：任何「覆写第三方组件库 CSS 变量」的规则都要比对方的特异性更高，别依赖 import 顺序
+
+#### Scenario: 组件被声明出真实类型后，原先被 any 掩盖的类型错全冒出来
+
+- **WHEN** 按需引入后 vue-tsc 报出 42 处「DefaultRow 不能赋给 AdminUser」之类的错误
+- **THEN** 根因：此前组件靠 `app.use()` 全局注册，模板里没有类型信息，slot 参数退化成 `any`，类型错被完全掩盖；按需引入会生成 `components.d.ts` 声明真实签名，旧的类型错一次性全部暴露；解法：模板里用 Vue 3.3+ 支持的 `row as X` 标注（`el-table` 不是泛型组件，slot 行类型固定为 `DefaultRow`），el-tag 的状态映射表标注为 `TagProps['type']`；预防：靠全局注册吃到的「类型通过」是假象，组件一旦按需引入就得把真实类型补齐
+
+#### Scenario: 生成式 dts 与类型检查互相卡死
+
+- **WHEN** 新加一个 `el-*` 组件后 `npm run build` 一直失败，dts 永远不更新
+- **THEN** 根因：`build` 脚本是 `vue-tsc --noEmit && vite build`，类型检查先跑、失败则构建不执行，而 dts 正是在构建时生成的 —— 死锁；解法：改成 `vite build && vue-tsc --noEmit`（先出 dts 再校验），并把生成的 dts 提交入库；预防：凡是「构建产物驱动类型声明」的链路，类型检查必须在产物生成之后
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

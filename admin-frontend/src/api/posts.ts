@@ -6,6 +6,7 @@ export interface AdminPost {
   post_type: string
   category: string | null
   content: string
+  images?: string[]
   images_count: number
   price: number | null
   status: number
@@ -53,6 +54,16 @@ export function batchPostStatus(postIds: number[], status: number) {
   return request.post<any, { succeeded: number[]; failed: { id: number; reason: string }[] }>(
     '/admin/posts/batch-status', { post_ids: postIds, status },
   )
+}
+
+export function exportPosts(status?: number, q?: string): Promise<Blob> {
+  const params: Record<string, unknown> = {}
+  if (status !== undefined && status !== null) params.status = status
+  if (q) params.q = q
+  return request.get<never, Blob>('/admin/export/posts', {
+    params,
+    responseType: 'blob',
+  })
 }
 
 export function exportPostsUrl(status?: number, q?: string) {

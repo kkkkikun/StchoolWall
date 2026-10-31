@@ -1,0 +1,146 @@
+/* ===== 鄂应墙管理后台 · 主题：玫瑰红品牌 · 白天/夜晚双模式 =====
+   主品牌沿用 main 分支的红色/粉色系（#ef8a97 家族），但主色值下压到
+   #c2455c：白字压在 #ef8a97 上只有 2.27:1，做不了 Element Plus 的实心按钮底。
+   换色入口：本文件（颜色）+ src/theme.ts（图表色）+ App.vue/main.ts（主题类）。
+
+   与学生端一致：文字色、语义色、占位符均按 WCAG AA 校准。
+   —— 本文件是颜色与可访问性的唯一来源，视图里不写死色值。 */
+
+/* ================= 亮色（默认） ================= */
+:root {
+  /* —— 玫瑰红主色阶：白字压 primary 4.88:1、压 dark-2 6.91:1，达 AA —— */
+  --el-color-primary: #c2455c;
+  --el-color-primary-light-3: #d47d8d;
+  --el-color-primary-light-5: #e0a2ae;
+  --el-color-primary-light-7: #edc7ce;
+  --el-color-primary-light-8: #f3dade;
+  --el-color-primary-light-9: rgba(194, 69, 92, 0.10);
+  --el-color-primary-dark-2: #9b374a;
+
+  /* —— Element Plus 语义色：默认 success/warning/danger/info 在白底上只有
+     2.0~3.1:1，标签与按钮文字看不清；这里保持色相、压深一档，正文/标签达 AA —— */
+  --el-color-success: #007a4d;
+  --el-color-warning: #a85b00;
+  --el-color-danger: #c93a3a;
+  --el-color-error: #c93a3a;
+  --el-color-info: #536471;
+  --el-text-color-secondary: #555555;
+  /* 占位符：Element Plus 默认 #a8abb2 在白底上只有 2.30:1，改为 #626d7a（白卡 5.27:1） */
+  --el-text-color-placeholder: #626d7a;
+
+  /* —— 布局层令牌（沿用 main 原有观感：浅灰页底 + 白卡） —— */
+  --app-bg: #f5f7fa;
+  --app-aside-bg: #ffffff;
+  --app-aside-text: #555555;
+  --app-aside-active: #222222;
+  --app-aside-active-bg: rgba(34, 34, 34, 0.06);
+  --app-header-bg: #ffffff;
+  --app-header-border: 1px solid #e5e6eb;
+  --app-brand-grad: linear-gradient(135deg, #ef8a97, #e26d7d);
+  --app-title-color: #222222;
+  --app-muted: #555555;
+  --app-card-radius: 4px;
+  --app-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ================= 夜间（玫瑰暗色） ================= */
+html.dark {
+  /* 文字/链接用浅玫瑰：深底上 5.67:1；按钮填充另压深保证白字达 AA */
+  --el-color-primary: #e07087;
+  --el-color-primary-light-3: #d45f74;
+  --el-color-primary-light-5: #b54a5d;
+  --el-color-primary-light-7: #8c3a49;
+  --el-color-primary-light-8: #6d2d39;
+  --el-color-primary-light-9: rgba(224, 112, 135, 0.14);
+  --el-color-primary-dark-2: #d45f74;
+
+  /* —— 布局层令牌 —— */
+  --app-bg: #121012;
+  --app-aside-bg: #121012;
+  --app-aside-text: #a9a0a4;
+  --app-aside-active: #ece7e9;
+  --app-aside-active-bg: #1c191c;
+  --app-header-bg: rgba(18, 16, 18, 0.88);
+  --app-header-border: 1px solid #3a3437;
+  --app-brand-grad: linear-gradient(135deg, #c2455c, #9b374a);
+  --app-title-color: #ece7e9;
+  --app-muted: #a9a0a4;
+  --app-card-radius: 4px;
+  --app-card-shadow: none;
+
+  /* —— Element Plus 暗色表面校准（中性偏暖玫瑰） —— */
+  --el-bg-color: #1c191c;
+  --el-bg-color-overlay: #242124;
+  --el-bg-color-page: #121012;
+  --el-text-color-primary: #ece7e9;
+  --el-text-color-regular: #ece7e9;
+  --el-text-color-secondary: #a9a0a4;
+  --el-text-color-placeholder: #9b9296;  /* 深输入底 5.27:1 */
+  --el-text-color-disabled: #5c5559;
+  --el-border-color: #4a4447;
+  --el-border-color-light: #3a3437;
+  --el-border-color-lighter: #322d30;
+  --el-border-color-extra-light: #322d30;
+  --el-fill-color: #242124;
+  --el-fill-color-light: #1c191c;
+  --el-fill-color-lighter: #121012;
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.03);
+  --el-fill-color-blank: #1c191c;
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+}
+
+/* 暗色下实心主按钮：填充压深，白字 5.74:1（浅玫瑰填充只有 3.07:1） */
+html.dark .el-button--primary {
+  --el-button-bg-color: #b03e53;
+  --el-button-hover-bg-color: #c2455c;
+  --el-button-active-bg-color: #9b374a;
+  --el-button-border-color: #b03e53;
+  --el-button-hover-border-color: #c2455c;
+  --el-button-active-border-color: #9b374a;
+  --el-button-text-color: #ffffff;
+  --el-button-hover-text-color: #ffffff;
+}
+
+html, body, #app { height: 100%; }
+body {
+  background: var(--app-bg);
+  font-family: -apple-system, "Segoe UI", Roboto, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+}
+
+/* —— 表格：浅底分区，文字用主题文字色 —— */
+.el-table {
+  --el-table-header-bg-color: #fafbfc;
+  --el-table-header-text-color: #555555;
+  --el-table-tr-bg-color: #ffffff;
+  --el-table-row-hover-bg-color: #f5f7fa;
+  --el-table-border-color: #e5e6eb;
+}
+html.dark .el-table {
+  --el-table-header-bg-color: #1c191c;
+  --el-table-header-text-color: #a9a0a4;
+  --el-table-tr-bg-color: #1c191c;
+  --el-table-row-hover-bg-color: #242124;
+  --el-table-border-color: #3a3437;
+}
+.el-table th.el-table__cell { font-weight: 600; }
+
+/* —— 输入框占位文字高对比度保证（WCAG AA ≥ 4.5:1） —— */
+::placeholder,
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: var(--el-text-color-placeholder) !important;
+  opacity: 1;
+}
+
+/* —— 键盘聚焦可访问性 —— */
+:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--el-color-primary) !important;
+}
+.el-button:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}

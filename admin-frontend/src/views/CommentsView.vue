@@ -102,7 +102,7 @@ onMounted(() => load())
 </script>
 
 <style scoped>
-.deleted { color: #c0c4cc; text-decoration: line-through; }
-.muted { color: #909399; font-size: 12px; }
+.deleted { color: var(--el-text-color-placeholder); text-decoration: line-through; }
+.muted { color: var(--el-text-color-secondary); font-size: 12px; }
 .pager { margin-top: 16px; justify-content: flex-end; }
 </style>

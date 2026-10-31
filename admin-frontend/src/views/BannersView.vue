@@ -12,7 +12,7 @@
         <template #default="{ row }">
           <el-image v-if="row.image_url" :src="row.image_url" fit="cover"
                     class="banner-thumb" :preview-src-list="[row.image_url]" preview-teleported />
-          <div v-else class="banner-thumb banner-grad">🎨</div>
+          <div v-else class="banner-thumb banner-grad"><el-icon :size="24"><PictureFilled /></el-icon></div>
         </template>
       </el-table-column>
       <el-table-column label="标题" min-width="160">
@@ -110,6 +110,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { PictureFilled } from '@element-plus/icons-vue'
 import { getBanners, createBanner, updateBanner, deleteBanner, uploadImage, type AdminBanner } from '@/api/banners'
 import { getActivities, type AdminActivity } from '@/api/activities'
 
@@ -226,12 +227,12 @@ onMounted(() => load())
 .banner-thumb { width: 120px; height: 60px; border-radius: 6px; }
 .banner-grad {
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #ff5e62, #ff9966); font-size: 22px;
+  background: var(--app-brand-grad); color: #fff;
 }
 .tag-chip { margin-left: 8px; }
-.link-text { color: #409eff; font-size: 12px; }
-.muted { color: #909399; font-size: 12px; }
-.hint { font-size: 12px; color: #c0c4cc; margin-left: 8px; }
+.link-text { color: var(--el-color-primary); font-size: 12px; }
+.muted { color: var(--el-text-color-secondary); font-size: 12px; }
+.hint { font-size: 12px; color: var(--el-text-color-placeholder); margin-left: 8px; }
 .upload-row { display: flex; gap: 12px; align-items: center; width: 100%; }
 .url-input { flex: 1; }
 </style>

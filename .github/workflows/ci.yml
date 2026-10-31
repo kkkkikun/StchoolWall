@@ -89,7 +89,7 @@ jobs:
           npm ci
           npm run generate:api
           npm run type-check
-          npm run test:auth
+          npm test
           npm run build:h5
           npm run build:mp-weixin
           npm run build:android
@@ -97,8 +97,44 @@ jobs:
           cd ../admin-frontend
           npm ci
           npm run type-check
+          npm test
           npm run build -- --base=/admin/
           npm audit --registry=https://registry.npmjs.org --audit-level=high
+      - name: OpenSpec specification validation
+        run: npx --yes @fission-ai/openspec@1.4.1 validate --specs
+      - name: Browser-level UI regression
+        env:
+          # 管理台按 --base=/admin/ 出制品（nginx location /admin/），走查须同前缀访问
+          ADMIN_BASE_PREFIX: /admin
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+          cd frontend
+          for s in all-pages-walkthrough ui-walkthrough ui-walkthrough-desktop \
+                   publish-walkthrough publish-upload-walkthrough \
+                   web-login-guard-walkthrough post-detail-walkthrough; do
+            echo "::group::frontend/scripts/$s.py"
+            python3 "scripts/$s.py"
+            echo "::endgroup::"
+          done
+          cd ../admin-frontend
+          for s in all-views-walkthrough ui-walkthrough nav-svg-walkthrough \
+                   dashboard-walkthrough users-view-walkthrough posts-view-walkthrough \
+                   comments-view-walkthrough reports-view-walkthrough \
+                   appeals-view-walkthrough moderation-jobs-view-walkthrough \
+                   student-verifications-walkthrough; do
+            echo "::group::admin-frontend/scripts/$s.py"
+            python3 "scripts/$s.py"
+            echo "::endgroup::"
+          done
+      - name: Objective UI defect audit
+        run: |
+          python3 scripts/preview.py web --port 8080 > /tmp/preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID" 2>/dev/null || true' EXIT
+          curl -sf --noproxy '*' --retry 30 --retry-delay 1 --retry-connrefused \
+               --retry-max-time 60 http://127.0.0.1:8080/ >/dev/null
+          python3 frontend/scripts/ui-contrast-audit.py
       - name: Package verified web and contract artifacts
         run: |
           ARTIFACT_DIR="$RUNNER_TEMP/verified-release"

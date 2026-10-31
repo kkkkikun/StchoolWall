@@ -3,6 +3,10 @@ import { createPinia } from 'pinia'
 import { provideGlobalConfig } from 'element-plus'
 // 暗色模式 CSS 变量（仅 3KB，必须保留）；组件样式由 unplugin-vue-components 按需注入
 import 'element-plus/theme-chalk/dark/css-vars.css'
+// 服务型 API（ElMessage / ElMessageBox）的样式：它们由 AutoImport 注入到各视图 chunk，
+// 但 request.ts 在主 chunk 里就要用 ElMessage，样式必须进主 chunk，否则首屏报错提示无样式
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
 import './styles/theme.css'
 import { initTheme } from './stores/theme'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'

@@ -102,6 +102,8 @@ jobs:
           npm audit --registry=https://registry.npmjs.org --audit-level=high
       - name: OpenSpec specification validation
         run: npx --yes @fission-ai/openspec@1.4.1 validate --specs
+      - name: Admin Element Plus style coverage check
+        run: python3 admin-frontend/scripts/style-coverage-check.py
       - name: Browser-level UI regression
         env:
           # 管理台按 --base=/admin/ 出制品（nginx location /admin/），走查须同前缀访问

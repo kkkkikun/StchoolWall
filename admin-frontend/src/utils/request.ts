@@ -1,6 +1,8 @@
 /** axios 封装：Bearer token 注入 / 401 跳登录 / 统一错误提示。 */
 import axios from 'axios'
-// ElMessage 由 unplugin-auto-import 按需注入（含样式），此处不显式 import
+// ElMessage 显式导入（不走 AutoImport）：本文件会被单元测试用 Node loader 直接加载，
+// 绕过了 vite 插件的自动注入。样式在 main.ts 里统一引入，避免把 .css 带进 Node 加载器。
+import { ElMessage } from 'element-plus/es'
 
 const TOKEN_KEY = 'sw_admin_token'
 let accessToken = ''

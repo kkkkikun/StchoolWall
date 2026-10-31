@@ -242,5 +242,21 @@ html.theme-dark { background: #121012; }
   align-items: center;
   justify-content: center;
 }
+
+/* 关掉 uni-app H5 框架的导航阴影图预加载：
+   框架用 body:after 挂一个隐藏伪元素，3 秒后从 dcloud 公网 CDN
+   （cdn.dcloud.net.cn/img/shadow-*.png）拉图。后果有三：
+   ① 每次打开页面都多一次外网请求，首屏被第三方 CDN 拖住；
+   ② CDN 不可达时浏览器控制台报 ERR_CONNECTION_CLOSED，
+      会被客观缺陷扫描当成真实缺陷，走查随机挂掉；
+   ③ 用户的 IP 与访问时间被泄漏给第三方。
+   本项目导航一律自定义，用不到框架自带的阴影图，直接让伪元素不生成。
+   选择器比框架的 body:after 多一层 html（0,0,3 > 0,0,2），
+   不依赖样式加载顺序。 */
+/* #ifdef H5 */
+html body::after {
+  content: none;
+  animation: none;
+}
 /* #endif */
 </style>

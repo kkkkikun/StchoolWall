@@ -1,0 +1,16 @@
+{
+  "updated_at": "2026-10-31",
+  "tolerance": 0.1,
+  "note": "体积为 gzip -9 后的字节数；运行时指标只记录不拦截（受 runner 负载影响）",
+  "bundle": {
+    "first_screen_js_gzip": 105329,
+    "first_screen_css_gzip": 8616,
+    "first_screen_total_gzip": 113945,
+    "total_js_gzip": 173998,
+    "total_css_gzip": 31197,
+    "total_raw_bytes": 604293,
+    "largest_js_gzip": 105329,
+    "js_count": 50,
+    "css_count": 33
+  }
+}

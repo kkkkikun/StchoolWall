@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # 私有库上 gitleaks-action 在 PR 模式下要列出 PR 的提交才能确定扫描区间，
+  # 缺这一项会 403（Resource not accessible by integration），门禁直接跑不起来。
+  pull-requests: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

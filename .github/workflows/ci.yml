@@ -90,6 +90,9 @@ jobs:
         run: |
           cd frontend
           npm ci
+          # 契约漂移守卫必须跑在 generate:api 之前：它比对的是「入库的生成类型」与契约，
+          # 顺序反了就会拿刚生成的文件跟自己比，等于没检查。
+          node scripts/api-contract-check.mjs
           npm run generate:api
           npm run type-check
           npm test

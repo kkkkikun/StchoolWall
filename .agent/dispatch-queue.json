@@ -1,14 +1,19 @@
 {
   "current": {
-    "id": "backlog-002",
-    "title": "前端/管理台 API 契约漂移守卫",
-    "brief": "落实 .claude/docs/tasks.md 待办「前端页面与后端 API 的契约校验（可考虑 OpenAPI 自动生成类型）」里仍然缺的那一半：类型生成已在 CI 跑（npm run generate:api），但入库的 frontend/src/types/generated-api.ts 是否与后端契约一致、以及前端/管理台调用的 /api/v1/** 路径是否真实存在于后端契约，目前没有任何自动判定。\n\n目标：在 frontend/scripts/ 新增一个契约漂移守卫脚本（与既有 icon-consistency-check.py、perf-budget-check.py 同族），做两件事：① 用 release/openapi.json 重新生成类型并与入库的 frontend/src/types/generated-api.ts 比对，不一致即指出差异；② 断言 frontend/src/api/*.ts 与 admin-frontend/src/api/*.ts 中出现的 /api/v1/** 路径字面量都存在于后端 OpenAPI 契约里。任一不满足即非零退出，并接入 CI（与既有静态守卫同一批步骤）。\n\n边界：不新增产品功能、不改后端接口、不手工编辑生成文件内容（生成文件仍只由 npm run generate:api 产出）、不引入新的运行时依赖。\n\n验证：① 正常跑 exit 0；② 负向验证 —— 手改生成文件一字节、或写一个不存在的 API 路径，均须 exit 1 并指出具体项；③ 恢复后重新 exit 0；④ CI 的前端 type-check 与三端构建不受影响。"
+    "id": "backlog-003",
+    "title": "校准在案文档里过时的待办勾选与依赖版本表",
+    "brief": "把仓库文档里明显与实际状态不符的在案记录校准掉，全部以仓库现状为准，不新增功能。\n\n目标（逐条核对后再改，只改确实过时的）：\n1. `.claude/docs/tasks.md` 待办区的三条：①「提交本次 OpenSpec 初始化产物（openspec/、.claude/docs/、CLAUDE.md）」——核对 openspec/ 与 CLAUDE.md 是否已入库，已入库则勾选并注明依据；②「前端补测试（当前测试集中在后端，前端无测试体系）」——核对前端单测现状（frontend/tests/ 目录与 package.json 的 test 脚本），确已建立则勾选并注明现状数字；③「CodeGraph 索引」——确认本机是否可用、索引是否属于入库产物，若属本机开发辅助则注明「不入库」并勾选，若仍可用则保留待办并写清前置条件。\n2. `openspec/specs/references/spec.md` 的后端依赖表：当前表里的 fastapi/starlette/python-jose/uvicorn 等版本与 `backend/requirements.txt` 已明显不一致（该规范自身要求「新增或升级依赖时必须同步更新本文件」）。以 `backend/requirements.txt` 为准逐行校准，并把 Pillow 行补齐。\n\n边界：只改文档与勾选状态，不改任何业务代码、依赖版本或接口；被勾选的每一条都要写明核对依据（文件路径或实测数字）。\n\n验证：① 逐条核对后 `.claude/docs/tasks.md` 不再有与实际状态矛盾的待办；② references 后端依赖表与 `backend/requirements.txt` 逐行一致（可用一次性脚本比对，不入库）；③ `npx @fission-ai/openspec@1.4.1 validate --specs` 通过；④ Production CI 全绿。"
   },
   "history": [
     {
       "id": "backlog-001",
       "title": "推进仓库在案待办缺口",
       "result": "管理台 vue-tsc ^2.2.0 → ~3.1.8，清掉 vue-tsc → @vue/language-core → minimatch 的 3 条 moderate，管理台官方 npm audit 归零（0 vulnerabilities）；主前端 20 moderate 等上游未动。文档同步更新（optimization spec / client-release-validation / release-gates / verification / SNAPSHOT / tasks / learned spec）。"
+    },
+    {
+      "id": "backlog-002",
+      "title": "前端/管理台 API 契约漂移守卫",
+      "result": "新增 frontend/scripts/api-contract-check.mjs（生成类型与契约一致 + 前端/管理台 138 处路径字面量必须在契约中），接入 CI（跑在 npm run generate:api 之前）；刷新了落后于后端的契约快照（124 → 125 条路径）与生成类型；两条负向验证均 exit 1。"
     }
   ]
 }

@@ -42,18 +42,18 @@
 
 ### 基础设施 / 工具链
 
-- [ ] **CodeGraph 索引**：运行 `codegraph init -i` → `codegraph status` 确认 healthy，加速后续代码探索与 `/opsx:explore`（源码项目推荐）
-- [ ] 提交本次 OpenSpec 初始化产物（`openspec/`、`.claude/docs/`、`CLAUDE.md`）—— 注意：禁止把 Claude 列为 git 共同创作者
+- [x] **CodeGraph 索引**（2026-11-01：本机 codegraph 1.1.0 可用，`codegraph init -i` 建索引后 `codegraph status` 显示 healthy —— 已索引 364 个文件、6,555 节点、16,716 边。索引是本地产物（`.codegraph/`，约 15MB），**不入库**（已加进 .gitignore），换个工作树需重跑一次该命令）
+- [x] 提交本次 OpenSpec 初始化产物（`openspec/`、`.claude/docs/`、`CLAUDE.md`）—— 注意：禁止把 Claude 列为 git 共同创作者（2026-11-01 核对：三处均已入库，`git ls-files` 可见；提交历史里也没有把 Claude 列为共同创作者）
 
 ### 工程质量
 
-- [ ] 前端补测试（当前测试集中在后端 `backend/tests/`，前端无测试体系）
+- [x] 前端补测试（2026-11-01 核对：前端已有测试体系 —— `frontend/tests/` 6 个脚本 55 项全绿，`admin-frontend/tests/` 1 个脚本 12 项全绿，两者均已接入 CI）
 - [x] CI：后端 `pytest` + 前端 `type-check` 自动化（2026-09-11：deploy/ci/ 全 Docker 化管线，本地全量绿 425 passed；服务器安装执行待用户 → openspec/changes/server-ci/ T8）
 - [x] 前端页面与后端 API 的契约校验（2026-11-01：类型由 openapi-typescript 从后端契约生成，并新增 `frontend/scripts/api-contract-check.mjs` 守卫——生成类型与契约必须一致、学生端与管理台 API 模块里的 138 处路径字面量必须都在后端契约中；已接入 CI，两条负向验证均 exit 1）
 
 ### 业务（按 SchoolWall.md MVP 蓝图）
 
-- [ ] ~~评论区~~ / ~~举报流程闭环~~（均已实现，见 SNAPSHOT 社交互动层）
+- [x] ~~评论区~~ / ~~举报流程闭环~~（均已实现，见 SNAPSHOT 社交互动层；2026-11-01 核对：`openspec/specs/backend-social/spec.md` 9 条需求在册，后端互动接口与前端页面齐备）
 - [x] 内容审核结果回写与帖子可见性联动验证（2026-09-03：本地规则层 + moderation_records 落库，E2E 验证三态分流）
 
 ---

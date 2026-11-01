@@ -8,6 +8,8 @@ build/
 .eggs/
 venv/
 .venv/
+# 无人值守执行器在 worktree 里建的是 venv 符号链接，不是目录，"venv/" 匹配不到
+/venv
 env/
 
 # Environment

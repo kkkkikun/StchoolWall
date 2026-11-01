@@ -68,11 +68,11 @@ jobs:
             echo "$OPEN agent pull request(s) are open"
             exit 0
           fi
-          SINCE=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          SINCE=$(date -u -d '90 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
           RECENT=$(gh api "repos/$REPO/commits?sha=main&since=$SINCE&per_page=5" --jq 'length')
           if [ "$RECENT" -gt 0 ]; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"
-            echo "main moved within the last 30 minutes, the agent is probably still working"
+            echo "main moved within the last 90 minutes, the agent is probably still working"
             exit 0
           fi
           echo "dispatch=true" >>"$GITHUB_OUTPUT"

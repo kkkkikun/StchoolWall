@@ -1,0 +1,91 @@
+# Dispatches the next task of the unattended agent queue to @LL-ki.
+#
+# The agent cannot dispatch itself: the Source skips every item authored by the agent's own
+# account, so a follow-up task has to come from another account. This workflow acts as that
+# dispatcher. It reads .agent/dispatch-queue.json from main, and opens one issue that mentions
+# the agent when the queue holds a task and the agent looks idle.
+#
+# It stays silent while the agent is busy: an open pull request from an agent branch, a
+# dispatch issue that is already open, or a commit that landed on main in the last 30 minutes
+# all mean the agent is still working on the previous task.
+name: Agent dispatch
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: agent-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the queue
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Decide whether to dispatch
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          QUEUE=.agent/dispatch-queue.json
+          if [ ! -f "$QUEUE" ]; then
+            echo "dispatch=false" >>"$GITHUB_OUTPUT"
+            echo "no queue file"
+            exit 0
+          fi
+          ID=$(jq -r '.current.id // empty' "$QUEUE")
+          TITLE=$(jq -r '.current.title // empty' "$QUEUE")
+          BRIEF=$(jq -r '.current.brief // empty' "$QUEUE")
+          if [ -z "$ID" ] || [ -z "$BRIEF" ]; then
+            echo "dispatch=false" >>"$GITHUB_OUTPUT"
+            echo "the queue holds no current task"
+            exit 0
+          fi
+          echo "id=$ID" >>"$GITHUB_OUTPUT"
+          echo "title=$TITLE" >>"$GITHUB_OUTPUT"
+          echo "brief=$BRIEF" >>"$GITHUB_OUTPUT"
+          MARKER="<!-- agent-dispatch:$ID -->"
+          if gh api "repos/$REPO/issues?state=open&per_page=100" --jq '.[] | .body // empty' | grep -qF "$MARKER"; then
+            echo "dispatch=false" >>"$GITHUB_OUTPUT"
+            echo "task $ID is already dispatched and still open"
+            exit 0
+          fi
+          OPEN=$(gh pr list --repo "$REPO" --state open --limit 50 --json headRefName --jq '[.[] | select(.headRefName | startswith("agent/"))] | length')
+          if [ "$OPEN" -gt 0 ]; then
+            echo "dispatch=false" >>"$GITHUB_OUTPUT"
+            echo "$OPEN agent pull request(s) are open"
+            exit 0
+          fi
+          SINCE=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh api "repos/$REPO/commits?sha=main&since=$SINCE&per_page=5" --jq 'length')
+          if [ "$RECENT" -gt 0 ]; then
+            echo "dispatch=false" >>"$GITHUB_OUTPUT"
+            echo "main moved within the last 30 minutes, the agent is probably still working"
+            exit 0
+          fi
+          echo "dispatch=true" >>"$GITHUB_OUTPUT"
+
+      - name: Open the dispatch issue
+        if: steps.decide.outputs.dispatch == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ID: ${{ steps.decide.outputs.id }}
+          TITLE: ${{ steps.decide.outputs.title }}
+          BRIEF: ${{ steps.decide.outputs.brief }}
+        run: |
+          set -euo pipefail
+          BODY=$(printf '@LL-ki %s\n\n<!-- agent-dispatch:%s -->\n' "$BRIEF" "$ID")
+          gh issue create --repo "$REPO" --title "[agent-dispatch] $TITLE" --body "$BODY"

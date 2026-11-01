@@ -84,7 +84,8 @@ async function main() {
   if (committed !== expected) {
     problems.push(
       `生成类型与契约不一致：${path.relative(ROOT, GENERATED_TYPES_PATH)}。` +
-        '请在 frontend/ 下执行 `npm run generate:api` 并提交生成结果。',
+        '请先重新导出契约（backend/ 下 `python ../scripts/check_api_contract.py --output ../release/openapi.json`），' +
+        '再在 frontend/ 下执行 `npm run generate:api`，两者一起提交。',
     )
   }
 

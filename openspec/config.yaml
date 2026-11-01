@@ -5,7 +5,7 @@ context: |
   架构：前后端分离，全异步。
 
   Tech stack:
-    - 后端：Python 3.10 + FastAPI 0.115 + Uvicorn（异步）
+    - 后端：Python 3.11 + FastAPI 0.115 + Uvicorn（异步）
     - ORM/DB：SQLAlchemy 2.0 async + asyncpg + Alembic 迁移；PostgreSQL 15
     - 缓存/队列：Redis 7（hiredis）—— Token 校验、限流、异步审核任务
     - 认证：python-jose JWT；微信 wx.login 换 openid；正方教务系统爬虫（rsa + beautifulsoup4 + httpx）做学籍实名

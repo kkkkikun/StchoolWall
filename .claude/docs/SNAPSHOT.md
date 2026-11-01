@@ -28,7 +28,7 @@ SchoolWall（鄂应墙）—— 单校校园社区，Web→微信小程序→And
 | 层 | 技术 | 版本 |
 |----|------|------|
 | 后端框架 | FastAPI + Uvicorn（全异步） | 0.115.6 / 0.34.0 |
-| 语言 | Python | 3.10（实测 3.10.12） |
+| 语言 | Python | 3.11（实测 3.11.15） |
 | ORM / DB | SQLAlchemy 2.0 async + asyncpg + Alembic | 2.0.36 / 0.30.0 / 1.14.0 |
 | 数据库 | PostgreSQL | 15-alpine |
 | 缓存/队列 | Redis（hiredis） | 7-alpine / 5.2.1 |

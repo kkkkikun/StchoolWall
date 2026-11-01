@@ -6,8 +6,11 @@
 # the agent when the queue holds a task and the agent looks idle.
 #
 # It stays silent while the agent is busy: an open pull request from an agent branch, a
-# dispatch issue that is already open, or a commit that landed on main in the last 30 minutes
+# dispatch issue that is already open, or a commit that landed on main in the last 90 minutes
 # all mean the agent is still working on the previous task.
+#
+# Each step reads the queue file itself: a multi-line brief must not travel through
+# GITHUB_OUTPUT, which only accepts one line per value.
 name: Agent dispatch
 
 on:
@@ -28,9 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the queue
-        uses: actions/checkout@v4
-        with:
-          ref: main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Decide whether to dispatch
         id: decide
@@ -46,16 +47,12 @@ jobs:
             exit 0
           fi
           ID=$(jq -r '.current.id // empty' "$QUEUE")
-          TITLE=$(jq -r '.current.title // empty' "$QUEUE")
           BRIEF=$(jq -r '.current.brief // empty' "$QUEUE")
           if [ -z "$ID" ] || [ -z "$BRIEF" ]; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"
             echo "the queue holds no current task"
             exit 0
           fi
-          echo "id=$ID" >>"$GITHUB_OUTPUT"
-          echo "title=$TITLE" >>"$GITHUB_OUTPUT"
-          echo "brief=$BRIEF" >>"$GITHUB_OUTPUT"
           MARKER="<!-- agent-dispatch:$ID -->"
           if gh api "repos/$REPO/issues?state=open&per_page=100" --jq '.[] | .body // empty' | grep -qF "$MARKER"; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"
@@ -82,10 +79,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          ID: ${{ steps.decide.outputs.id }}
-          TITLE: ${{ steps.decide.outputs.title }}
-          BRIEF: ${{ steps.decide.outputs.brief }}
         run: |
           set -euo pipefail
+          QUEUE=.agent/dispatch-queue.json
+          ID=$(jq -r '.current.id' "$QUEUE")
+          TITLE=$(jq -r '.current.title' "$QUEUE")
+          BRIEF=$(jq -r '.current.brief' "$QUEUE")
           BODY=$(printf '@LL-ki %s\n\n<!-- agent-dispatch:%s -->\n' "$BRIEF" "$ID")
           gh issue create --repo "$REPO" --title "[agent-dispatch] $TITLE" --body "$BODY"

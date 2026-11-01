@@ -31,10 +31,11 @@ Python 后端关键依赖 MUST 可追溯版本与用途。
 | beautifulsoup4 | 4.12.3 | 正方登录 HTML 解析 |
 | boto3 | 1.36.2 | Cloudflare R2 / S3 兼容存储 |
 | python-multipart | 0.0.20 | 文件上传解析 |
+| Pillow | 13.0.0 | 用户上传图片解码、去 EXIF 与证件材料处理（13.0.0 起要求 Python ≥ 3.11） |
 | pytest | 8.3.4 | 测试框架 |
 | pytest-asyncio | 0.24.0 | 异步测试支持 |
 
-- **运行时**：Python 3.10（开发机实测 3.10.12）
+- **运行时**：Python 3.11（开发机实测 3.11.15）
 
 ### Requirement: 前端依赖记录
 

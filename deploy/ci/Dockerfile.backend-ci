@@ -2,7 +2,7 @@
 # 依赖层（requirements.txt）单独 COPY 以命中构建缓存——代码改动不重装依赖。
 # 构建上下文必须是 backend/ 目录：
 #   docker build -f deploy/ci/Dockerfile.backend-ci backend
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 

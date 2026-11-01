@@ -6,7 +6,7 @@
 
 ## 本地开发
 
-需要Python3.10、Node22.12+、PostgreSQL15和Redis7。版本以锁文件和backend/requirements.txt为准。
+需要Python3.11、Node22.12+、PostgreSQL15和Redis7。版本以锁文件和backend/requirements.txt为准。
 
 ```sh
 cp .env.example backend/.env

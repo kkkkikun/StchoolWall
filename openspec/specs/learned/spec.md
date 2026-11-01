@@ -157,6 +157,11 @@
 - **WHEN** 把 91 处 `<image src="/static/icons/...">` 改成 `:src="ICONS['x']"` 后，前端单测从 55 项掉到 52 项，报 `Cannot find package '@/utils/icons'`
 - **THEN** 根因：单测用 Node 直接加载 SFC 源码、不经过 vite，`@/xxx` 别名不会被解析，Node 把 `@/utils/icons` 当成 scoped package `@/utils` 的子路径；解法：抽出共享 helper `tests/helpers/compile-ts.mjs`，把真实 TS 模块转译成临时 `.mjs` 再把别名替换成它的相对路径（**加载真实注册表而不是各写一份 mock**，免得 mock 与生成器漂移）；注意 `node --test` 会并行跑多个测试文件，临时文件名必须各不相同，否则互相覆盖
 
+#### Scenario: 依赖没有可用修复版时，先看修复版的 requires_python
+
+- **WHEN** `pip-audit --strict` 报某个包有 N 条 advisory 且修复版本统一指向同一个新版，但把该版本写进 `requirements.txt` 后装不上
+- **THEN** 根因常是**修复版抬高了 Python 下限**：2026-11-01 的 pillow 39 条 advisory 全部指向 13.0.0，而 13.0.0 的 `requires_python` 是 `>=3.11`、12.3.0 已是最后一个支持 3.10 的版本 —— 在 Python 3.10 上根本不存在修复版，此时唯一的合规动作是升级运行时（CI + Docker 基础镜像 + 版本记录一起改），而不是加忽略项或风险豁免（`docs/production/release-gates.md` 的 G1 明确禁止豁免严重/高危）。解法顺序：① 先查 PyPI JSON 的 `requires_python` 与各版本发布列表，确认是否真的无解；② 用 `uv venv --python 3.11` + `uv pip install` 在目标版本上装一遍并跑 `pip-audit -r requirements.txt --strict` 验证门禁真的能绿；③ 顺带实测用到该库的代码路径（本项目是 `normalize_image` / `sanitize_proof_image`）行为不变；④ 注意 CI 门禁红了会连带卡住仓库里所有 PR，包括与该依赖无关的改动
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

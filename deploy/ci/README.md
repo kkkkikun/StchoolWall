@@ -84,7 +84,7 @@ cd ~/schoolwall/ci-artifacts && python3 -m http.server 8899 --bind 127.0.0.1
 
 | 症状 | 处理 |
 |------|------|
-| backend_image 卡在拉 python 镜像 | 服务器连 docker.io 慢/被断：重跑一次；或 `docker pull python:3.10-slim` 手动预热 |
+| backend_image 卡在拉 python 镜像 | 服务器连 docker.io 慢/被断：重跑一次；或 `docker pull python:3.11-slim` 手动预热 |
 | run-ci 报 git 权限错 | service 用户的 git 凭证失效（PAT 过期/密钥被删）——重新按 §2 配 |
 | 磁盘涨 | `docker system prune -f`（悬空层）+ 删旧 `ci-artifacts/` 保留最近若干份 |
 | timer 没跑 | `systemctl status schoolwall-ci.timer`、`journalctl -u schoolwall-ci.service -n 50` |
@@ -94,7 +94,7 @@ cd ~/schoolwall/ci-artifacts && python3 -m http.server 8899 --bind 127.0.0.1
 本地 Docker Hub 直连可能被断（`connection reset`）。一次性预热基础镜像即可：
 
 ```bash
-docker pull docker.m.daocloud.io/library/python:3.10-slim && docker tag docker.m.daocloud.io/library/python:3.10-slim python:3.10-slim
+docker pull docker.m.daocloud.io/library/python:3.11-slim && docker tag docker.m.daocloud.io/library/python:3.11-slim python:3.11-slim
 docker pull docker.m.daocloud.io/library/node:20-alpine    && docker tag docker.m.daocloud.io/library/node:20-alpine node:20-alpine
 ```
 

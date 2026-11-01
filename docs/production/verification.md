@@ -16,7 +16,7 @@
 | API契约 | 最终后端OpenAPI校验通过，**124 paths**；快照release/openapi.json，前端由openapi-typescript生成类型，认证/学生证请求实际引用。 |
 | 主前端 | Node22独立运行时：类型检查、H5、微信小程序、Android代码构建通过；单元测试**55 passed**。未产出签名APK。 |
 | 管理台 | 类型检查及生产构建通过；单元测试**12 passed**；有大chunk提示，仍需真实运行及加载性能检查。 |
-| 依赖 | Python安装与pip check/pip-audit通过；**主前端官方npm audit 0 high / 0 critical**，管理台官方npm audit **0 vulnerabilities**。主前端残余17 moderate + 1 low 全部继承自 `@intlify/core-base` 一条构建期advisory，实测 H5 与微信小程序产物中不含该包。处置明细见[客户端验收记录](../client-release-validation.md)。 |
+| 依赖 | Python安装与pip check/pip-audit通过（2026-11-01：pillow 12.3.0 命中 39 条新 advisory，Pillow 13.0.0 要求 Python ≥ 3.11，随 `openspec/changes/backend-python-311/` 升级运行时一并解除）；**主前端官方npm audit 0 high / 0 critical**，管理台官方npm audit **0 vulnerabilities**。主前端残余17 moderate + 1 low 全部继承自 `@intlify/core-base` 一条构建期advisory，实测 H5 与微信小程序产物中不含该包。处置明细见[客户端验收记录](../client-release-validation.md)。 |
 | 学生端全页面浏览器走查 | **57/57 通过**（`frontend/scripts/all-pages-walkthrough.py`）：`pages.json` 注册的全部 25 个页面 × 亮/暗双模式。逐页断言路由可达、根节点非空、文档级横向溢出、可见文字裁切、WCAG AA文字对比度、控制台错误与未处理异常；**0控制台错误**。 |
 | 管理台全视图浏览器走查 | **34/34 通过**（`admin-frontend/scripts/all-views-walkthrough.py`）：全部17个业务路由 × 1280桌面 / 390窄屏，追加布局存在性与文字对比度断言。走查针对 **与制品完全一致的 `--base=/admin/` 构建**执行。 |
 | 既有专项走查回归 | 学生端6套（首页/发布/图片上传/详情/登录守卫/桌面平板）与管理台11套（看板/导航/帖子/举报/用户/评论/学生证/申诉/人工审核队列/布局/管理台自身）全部总体PASS。 |
@@ -38,7 +38,7 @@
 
 ## 已知发布阻断
 
-主前端官方npm audit：**0 high / 0 critical**（17 moderate + 1 low 告警包，继承自 `@intlify/core-base` 一条构建期advisory，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。
+主前端官方npm audit：**0 high / 0 critical**（17 moderate + 1 low 告警包，继承自 `@intlify/core-base` 一条构建期advisory，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。
 
 新增迁移 `b7e2c4a91d30`（media_assets 加 position）已校验 revision 图为单头、链长21、无悬挂引用；**未在真实库执行 upgrade/downgrade**，新增的媒体顺序后端用例也未执行（当前环境无 Docker / PostgreSQL / Redis）。
 

@@ -77,11 +77,14 @@
   - 连带改动：3 个单元测试（`navigation` / `mp-login` / `web-login-guard`）用 Node loader 直读 SFC 源码、绕过 vite，`@/utils/icons` 别名无法解析导致 55 项里挂 3 项。已抽出共享 helper `frontend/tests/helpers/compile-ts.mjs`，让测试加载**真实**注册表源码（而非各自 mock），三处测试均恢复通过。
   - 验证方式：守卫 exit 0（207 个 SVG ↔ 208 个语义名一一对应、源码无手写路径）；负向验证两条 —— 临时把某个页面改回手写路径 → exit 1；临时删掉一个 SVG → exit 1；恢复后 exit 0。全页面走查 57/57、对比度审计 0 缺陷，三端构建产物里图标各 207 个。
 
-- **[优先级: 低]** 残余 moderate 依赖告警（构建期，不进产物）
+- **[优先级: 低] [部分完成 2026-11-01]** 残余 moderate 依赖告警（构建期，不进产物）
 
   - 当前影响：主前端 20 moderate（`@intlify/core-base` 两条 advisory），管理台 3 moderate（`vue-tsc` → `@vue/language-core` → `minimatch` globparts 放大 ReDoS，GHSA-g3hv-75wg-m249）。均为 devDependency 传递链，实测客户端产物中不含相关代码，**0 high / 0 critical**。
   - 建议方案：主前端等 uni-cli-shared 的 `@intlify` 锁定版本推进（9.x 线内无同时避开两条 advisory 的版本，跨大版本会破坏其对 `@intlify/runtime@9.1.9` 的精确锁定）；管理台等 `@vue/language-core` 跟进 `minimatch >= 11.0.1`。**不要用 `overrides` 强行覆盖**，会破坏类型工具链。
   - 验证方式：每次升级后重跑 `npm audit --registry=https://registry.npmjs.org --audit-level=high`，并实测产物不含告警包字样。
+  - 已完成（管理台侧，2026-11-01）：上游条件已兑现 —— `@vue/language-core` 从 3.0.2 起改用 `picomatch`，不再依赖 `minimatch`。管理台 `vue-tsc` 由 `^2.2.0` 升到 `~3.1.8`（连带 `@vue/language-core` 3.1.8、`@volar/*` 2.4.26），**管理台官方 npm audit 归零（0 vulnerabilities）**，`minimatch` 从依赖树中彻底消失。
+  - 踩坑（务必留意）：`vue-tsc` **3.2/3.3 线对本仓库模板会误报**，升级前必须实测：① `3.3.14` 在 `BannersView.vue` 报 `Property 'value' does not exist` —— 触发条件是**属性值里含 `//`**（如 `placeholder="https://…"`，动态 `:placeholder="'https://abc'"` 同样触发），其后同模板内的其它 `v-model` 会被一起报错；Vue 编译器生成的代码本身正确（`modelValue` + `onUpdate:modelValue`），是工具侧回归。② `3.2.9` 起在 `PostsView.vue` 报 `:initial-index="idx"` 的 `string \| number` 类型错。实测 `3.0.5` / `3.0.11` / `3.1.8` 三版对本仓库均 0 错，故锁 `~3.1.8`，不升到 3.3.x。
+  - 仍待上游（主前端侧，20 moderate 未变）：17 条来自 `@dcloudio/uni-cli-shared` → `@intlify/core-base` 的两条 advisory（按上文 9.x 线内无解的结论维持现状），另 3 条来自 `openapi-typescript` → `@redocly/openapi-core`（1.x 精确锁定 `minimatch@5.1.9`，2.x 才改用 `picomatch`，而 `openapi-typescript@7.13.0` 只接受 `^1.34.6`）。两者均按「不用 overrides 强行覆盖破坏工具链」的既定处置等上游，不伪造清零。
 
 - **[优先级: 低] [已完成 2026-10-31]** 前端 7 套走查脚本仍各带一份静态服务代码
 

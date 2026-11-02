@@ -1,8 +1,14 @@
 {
   "current": {
-    "id": "backlog-001",
-    "title": "推进仓库在案待办缺口",
-    "brief": "持续推进仓库自己记录在案的待办缺口，直到没有能安全完成的项为止。\n\n目标与边界已经确定，不需要再问：\n- 事实来源是仓库自身文档。优先级顺序取自 openspec/specs/optimization/spec.md（高→中→低）、openspec/changes/*/tasks.md 中未勾选项、docs/production/release-gates.md 与 docs/production/implementation-status.md 中标为待验证的门禁、.claude/docs/tasks.md 的待办。\n- 一次只做一个条目，一个条目一个 PR；做完一个再选下一个，不要在一个 PR 里混合多个条目。\n- 不新增产品功能、不重新设计视觉方向、不改架构决策：CLAUDE.md、openspec/specs/rules/spec.md 与各域 spec 就是规范本身，偏离它们就是错的。\n- 需要真实基础设施、真机、平台审核或人拍板才能完成的门禁，不要伪造证据，也不要自行勾选；把它记录为待人工验证并继续下一条。\n\n先读 CLAUDE.md → .claude/docs/SNAPSHOT.md → .claude/docs/tasks.md → openspec/specs/rules/spec.md，再读上述清单，然后从最高优先级的可完成项开始。\n\n交付：每个条目一个 PR，说明改了什么、怎么验证的、还需要 CI 确认什么；按本部署的合并策略自己合并；完成后把 .agent/dispatch-queue.json 的 current 推进到下一条具体项并随该 PR 提交。"
+    "id": "backlog-002",
+    "title": "前端/管理台 API 契约漂移守卫",
+    "brief": "落实 .claude/docs/tasks.md 待办「前端页面与后端 API 的契约校验（可考虑 OpenAPI 自动生成类型）」里仍然缺的那一半：类型生成已在 CI 跑（npm run generate:api），但入库的 frontend/src/types/generated-api.ts 是否与后端契约一致、以及前端/管理台调用的 /api/v1/** 路径是否真实存在于后端契约，目前没有任何自动判定。\n\n目标：在 frontend/scripts/ 新增一个契约漂移守卫脚本（与既有 icon-consistency-check.py、perf-budget-check.py 同族），做两件事：① 用 release/openapi.json 重新生成类型并与入库的 frontend/src/types/generated-api.ts 比对，不一致即指出差异；② 断言 frontend/src/api/*.ts 与 admin-frontend/src/api/*.ts 中出现的 /api/v1/** 路径字面量都存在于后端 OpenAPI 契约里。任一不满足即非零退出，并接入 CI（与既有静态守卫同一批步骤）。\n\n边界：不新增产品功能、不改后端接口、不手工编辑生成文件内容（生成文件仍只由 npm run generate:api 产出）、不引入新的运行时依赖。\n\n验证：① 正常跑 exit 0；② 负向验证 —— 手改生成文件一字节、或写一个不存在的 API 路径，均须 exit 1 并指出具体项；③ 恢复后重新 exit 0；④ CI 的前端 type-check 与三端构建不受影响。"
   },
-  "history": []
+  "history": [
+    {
+      "id": "backlog-001",
+      "title": "推进仓库在案待办缺口",
+      "result": "管理台 vue-tsc ^2.2.0 → ~3.1.8，清掉 vue-tsc → @vue/language-core → minimatch 的 3 条 moderate，管理台官方 npm audit 归零（0 vulnerabilities）；主前端 20 moderate 等上游未动。文档同步更新（optimization spec / client-release-validation / release-gates / verification / SNAPSHOT / tasks / learned spec）。"
+    }
+  ]
 }

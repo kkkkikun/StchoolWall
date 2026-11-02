@@ -162,6 +162,11 @@
 - **WHEN** `pip-audit --strict` 报某个包有 N 条 advisory 且修复版本统一指向同一个新版，但把该版本写进 `requirements.txt` 后装不上
 - **THEN** 根因常是**修复版抬高了 Python 下限**：2026-11-01 的 pillow 39 条 advisory 全部指向 13.0.0，而 13.0.0 的 `requires_python` 是 `>=3.11`、12.3.0 已是最后一个支持 3.10 的版本 —— 在 Python 3.10 上根本不存在修复版，此时唯一的合规动作是升级运行时（CI + Docker 基础镜像 + 版本记录一起改），而不是加忽略项或风险豁免（`docs/production/release-gates.md` 的 G1 明确禁止豁免严重/高危）。解法顺序：① 先查 PyPI JSON 的 `requires_python` 与各版本发布列表，确认是否真的无解；② 用 `uv venv --python 3.11` + `uv pip install` 在目标版本上装一遍并跑 `pip-audit -r requirements.txt --strict` 验证门禁真的能绿；③ 顺带实测用到该库的代码路径（本项目是 `normalize_image` / `sanitize_proof_image`）行为不变；④ 注意 CI 门禁红了会连带卡住仓库里所有 PR，包括与该依赖无关的改动
 
+#### Scenario: vue-tsc 3.2/3.3 对本仓库模板误报，3.1.8 才是干净版本
+
+- **WHEN** 为清掉 `vue-tsc` → `@vue/language-core` → `minimatch` 的 moderate 告警而升级类型工具，`vue-tsc@3.3.14` 报 `Property 'value' does not exist on type '{...}'`（`BannersView.vue`），`3.2.9` 报 `:initial-index="idx"` 的 `string | number` 类型错
+- **THEN** 根因是**工具侧回归，不是模板写错**：Vue 编译器对 `<el-input v-model="form.link_url" placeholder="https://…" />` 生成的代码是正确的（`modelValue` + `onUpdate:modelValue`），但 3.3.x 在**属性值里出现 `//`** 时会错判 `v-model` 目标（动态 `:placeholder="'https://abc'"` 同样触发，随后同模板内的其它 `v-model` 会被连坐报错）；实测 3.0.5 / 3.0.11 / 3.1.8 三版对本仓库均 0 错。解法：锁定 `~3.1.8`（`@vue/language-core` 自 3.0.2 起改用 `picomatch`，`minimatch` 依赖链消失，管理台 npm audit 归零），不跨到 3.2+；预防：**升级类型工具必须先跑一遍 `vue-tsc --noEmit` 比对**，不要只看版本号新旧 —— 顺带记一条：`@vue/language-core` 的 minimatch 条件一旦由上游兑现，就该升级并用 `~` 锁在实测干净的那一版，别用 `overrides` 强行覆盖
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

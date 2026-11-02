@@ -1,15 +1,15 @@
 # 前端依赖与客户端发布验收记录
 
-核验日期：2026-10-30。所有 npm 元数据与 audit 均使用官方 `https://registry.npmjs.org`；不执行 `audit --force`，不忽略高危。
+核验日期：2026-10-30（管理台依赖项 2026-11-01 复验）。所有 npm 元数据与 audit 均使用官方 `https://registry.npmjs.org`；不执行 `audit --force`，不忽略高危。
 
 ## 当前结果
 
 | 项目 | 结果 |
 | --- | --- |
-| 主前端全量 npm audit | **0 high / 0 critical**，20 moderate 告警包 |
+| 主前端全量 npm audit | **0 high / 0 critical**，20 moderate 告警包（17 条 `@intlify/core-base` 链 + 3 条 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链） |
 | 主前端 npm audit --omit=dev | **0 high / 0 critical**，16 moderate 告警包 |
-| 管理后台 npm audit | **0 high / 0 critical**，3 moderate 告警包（`vue-tsc` → `@vue/language-core` → `minimatch` ReDoS，GHSA-g3hv-75wg-m249） |
-| 剩余 advisory 实际来源 | 主前端来自 `@intlify/core-base`（DOM XSS 与参数转义）两条；管理台来自 `minimatch` 的 globparts 放大 ReDoS。**均为 devDependency 传递依赖，不进入任何客户端产物** |
+| 管理后台 npm audit | **0 vulnerabilities**（2026-11-01 起，`vue-tsc` 3.1.8 → `@vue/language-core` 3.1.8 已不再依赖 `minimatch`） |
+| 剩余 advisory 实际来源 | 主前端来自 `@intlify/core-base`（DOM XSS 与参数转义）两条与 `minimatch` 的 globparts 放大 ReDoS。**均为 devDependency 传递依赖，不进入任何客户端产物** |
 | 主前端 vue-tsc / 生成 API 类型 | 通过 |
 | Web / 微信小程序 / Android 代码构建 | Node 22 下全部通过 |
 | 前端单元测试 | 55 passed（会话/导航/小程序登录/帖子映射/Web 登录守卫/错误文案） |
@@ -33,7 +33,9 @@
 
 残余的 20 moderate 告警全部来自 `@intlify/core-base` 的两条 advisory（GHSA-x8qp-wqqm-57ph DOM XSS 与 GHSA-8rc2-428q-7ww3 参数转义），该包只作为 `@dcloudio/uni-cli-shared`（devDependency）的传递依赖存在。已实测 `dist/build/h5` 与 `dist/build/mp-weixin` 产物中不含 `vue-i18n`、`intlify` 或 `escapeParameterHtml` 任何字样，即不进入客户端。9.x 线内不存在同时避开两条 advisory 的版本（>=9.14.5 引入新的 high），跨大版本覆盖到 11.x 会破坏 uni-cli-shared 对 `@intlify/runtime@9.1.9` 的精确锁定，因此维持现状并在此记录，不伪造清零。
 
-管理后台另有 3 moderate：`vue-tsc` → `@vue/language-core` → `minimatch` 的 globparts 放大 ReDoS（GHSA-g3hv-75wg-m249）。`vue-tsc` 是 devDependency，只在类型检查阶段运行，不进入浏览器产物；`minimatch` 需要 `<11.0.1` 之外的版本，而 `@vue/language-core` 尚未跟进，记录现状并等待上游，不以 `overrides` 强行覆盖破坏类型工具链。
+管理后台的 3 moderate 已于 2026-11-01 清零：`vue-tsc` → `@vue/language-core` → `minimatch` 的 globparts 放大 ReDoS（GHSA-g3hv-75wg-m249）。上游条件已兑现 —— `@vue/language-core` 自 3.0.2 起改用 `picomatch`，不再依赖 `minimatch`。管理台 `vue-tsc` 由 `^2.2.0` 升到 `~3.1.8`（连带 `@vue/language-core` 3.1.8、`@volar/language-core` 与 `@volar/typescript` 2.4.26），`minimatch` 连同 `brace-expansion`/`balanced-match`/`de-indent`/`he` 一并从依赖树移除，官方 npm audit 归零（0 vulnerabilities）。**未使用 `overrides` 强行覆盖**。
+
+版本选择不是随手取的：`vue-tsc` 3.2/3.3 线对本仓库模板会误报（3.3.14 在属性值含 `//` 时报 `Property 'value' does not exist`，3.2.9 起报 `:initial-index` 的索引类型错），而 3.0.5 / 3.0.11 / 3.1.8 三版对本仓库均 0 错，故锁 `~3.1.8`（含 3.1.x 补丁，不跨到 3.2+）。管理台类型检查、生产构建、12 项单测与全视图走查 34/34 均在 `~3.1.8` 下复验通过，产物体积与基线一致（首屏 93.3KB gzip、echarts 块 174.9KB gzip、全量 JS 483.0KB gzip）。
 
 解除门禁仍只能依据可复核结果：真实密钥与镜像扫描（Trivy/Gitleaks）、独立越权与隐私数据流复核、目标环境 CI 回归。禁止伪造版本、隐藏 audit，或把“只在构建时使用”视为自动批准。
 

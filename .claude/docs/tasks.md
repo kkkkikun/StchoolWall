@@ -21,6 +21,7 @@
 - 2026-10-31 改进批次三（性能收口 + 图标单一来源 + 第三方外呼清零）：① echarts 按需注册，懒加载块 1135.53KB → 526.99KB raw、382.15KB → 180.06KB gzip（-53%）；② 性能基线入库 + CI 门禁（学生端 `perf-baseline.json`、管理台 `bundle-baseline.json`，硬门禁只卡确定性体积）；③ 91 处手写图标路径收口到注册表（22 个文件），新增 `icon-consistency-check.py` 静态守卫；④ 前端 7 套走查脚本静态服务去重（新增 `h5_walkthrough_server.py`，backlog 5 → 128）；⑤ **发现并修掉 uni-app 框架的 dcloud CDN 外呼**（每次开页面多一次外网请求，CDN 不可达时走查随机 FAIL），新增 `external-request-check.py` 断言无第三方外呼。CI 步骤 17 → 21
 - 2026-11-01 进展（CI 依赖门禁）：pillow 12.3.0 命中 39 条新 advisory，Pillow 13.0.0 要求 Python ≥ 3.11 且 12.3.0 是最后支持 3.10 的版本，按 G1 不得豁免严重/高危，故把后端运行时升到 3.11（CI + 两个 Dockerfile + 版本记录同步），本地已验 pip-audit 通过、app 可导入、图片与证件材料处理行为一致；后端全量与迁移链待 CI 判定
 - 剩余待办：真实环境验证缺口（后端 pytest @PG15+Redis7、迁移 upgrade/downgrade、k6 压测、Trivy 镜像扫描、Gitleaks 全量密钥扫描、独立安全复核）—— 需外部环境/人工，见 `openspec/specs/optimization/spec.md` 与 `docs/production/release-gates.md`
+- 2026-11-01 进展（管理台依赖告警清零）：`vue-tsc` `^2.2.0` → `~3.1.8`，`minimatch` 依赖链消失，管理台官方 npm audit **归零（0 vulnerabilities）**，未用 overrides 强行覆盖；3.2/3.3 线对本仓库模板误报（属性值含 `//`、`:initial-index` 索引类型），故锁 3.1.x。复验：type-check 0 错、单测 12/12、build:admin 通过、样式/体积守卫通过、全视图走查 34/34 PASS。主前端 20 moderate 仍等上游
 - 原有未提交UI改动保留；未部署、未代替运营方签署政策或提交平台审核
 
 ## 已完成（已归档）

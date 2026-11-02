@@ -28,7 +28,7 @@
 | G4 客户端 | 三端真实服务联调、浏览器跨标签refresh、微信隐私授权/真机分享、Android原生签名包/Keystore/拒绝及撤回隐私测试。 |
 | G5 试运营 | 50→200→全校放量，审核积压、投诉、费用和故障处置验证，公布可实际响应的支持/申诉渠道。 |
 
-主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate（2026-11-02 用官方 registry 重跑实测：全量 20 个告警包、生产口径 16 个）全部来自构建期依赖链 —— 17 个来自 `@intlify/core-base`，3 个来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch`，均为 devDependency 传递依赖，不进入客户端产物。原始报告见 `release/frontend-audit.json` 与 `release/frontend-audit-production.json`。镜像扫描与密钥扫描已于 2026-11-02 在 Production CI 实跑：密钥扫描（Gitleaks）通过，镜像扫描（Trivy）**失败** —— 基础镜像 `python:3.11-slim`（Debian 13.7）自带 46 条无修复版本 HIGH，另有镜像内 `setuptools` 内置依赖 2 条 HIGH，扫描失败即中止推送，未豁免高危；独立安全复核仍未执行，G1门禁未解除。具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
+主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate（2026-11-02 用官方 registry 重跑实测：全量 20 个告警包、生产口径 16 个）全部来自构建期依赖链 —— 17 个来自 `@intlify/core-base`，3 个来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch`，均为 devDependency 传递依赖，不进入客户端产物。原始报告见 `release/frontend-audit.json` 与 `release/frontend-audit-production.json`。镜像扫描与密钥扫描已于 2026-11-02 在 Production CI 实跑：密钥扫描（Gitleaks）通过，镜像扫描（Trivy）**失败** —— 基础镜像 `python:3.11-slim`（Debian 13.7）自带 46 条无修复版本 HIGH，另有镜像内 `setuptools` 内置依赖 2 条 HIGH，扫描失败即中止推送，未豁免高危；其中 `setuptools`/`wheel` 两条已由 2026-11-02 的 `backend/Dockerfile` 改动清理（安装层内移除运行期不需要的构建工具，`_vendor` 内置副本随之消失），「python-pkg 层 0 HIGH」待合并后 main 分支 image 作业复跑取证；OS 层 46 条需等 Debian 上游安全更新或走 `openspec/changes/` 提案换镜像族（人工决策）。独立安全复核仍未执行，G1门禁未解除。具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
 
 生产发布脚本默认拒绝缺失证据或对应版本未获批准的发布；不得为了跑通脚本填写虚构证据。尚未部署或提交任何平台审核。
 

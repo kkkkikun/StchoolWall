@@ -14,6 +14,8 @@ x-app: &app
     - static_uploads:/data/static
     - private_media:/data/private-media
     - private_verifications:/data/private-verifications
+    # 反馈截图是测试现场，必须跨容器重建留存
+    - private_feedback:/data/private-feedback
   init: true
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
@@ -78,6 +80,7 @@ services:
 volumes:
   private_media:
   private_verifications:
+  private_feedback:
   pgdata:
   redisdata:
   static_uploads:

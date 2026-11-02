@@ -37,6 +37,59 @@
 
 外部微信、腾讯审核与COS使用模拟边界或SDK形状验证；没有把第三方服务的实际调用、资质或真机行为记为通过。自动化检查不替代人工安全复核。
 
+## Production CI 实测证据（2026-11-02）
+
+本节是 **GitHub Actions「Production CI」（`.github/workflows/ci.yml`）的真实运行结果**，不是本地复跑。本机不运行 PostgreSQL/Redis，CI 是后端与镜像的唯一权威；下列命令、环境与结果逐条取自 CI 日志，可按运行链接核对。
+
+### 环境与来源
+
+| 项 | 值 |
+|---|---|
+| 工作流 | Production CI（`.github/workflows/ci.yml`），`verify` + `image` 两个作业 |
+| 运行 | `41369377491`（push 到 main，提交 `917dd7b5f0966ab140fc1b47dfc2b531c98e997f`，2026-11-02 00:51 UTC 起）→ <https://github.com/kkkkikun/StchoolWall/actions/runs/41369377491> |
+| 运行器 | `ubuntu-latest`（GitHub 托管） |
+| Python | **3.11.17**（`actions/setup-python@v5`，`python-version: "3.11"`） |
+| 服务容器 | `postgres:15-alpine`（库 `ey_wall_test`）、`redis:7-alpine`（库 14/15）；`pg_isready`/`redis-cli ping` 健康检查通过 |
+| 环境变量 | `ENVIRONMENT=test`，`DATABASE_URL`/`TEST_DATABASE_URL` 指向 `127.0.0.1:5432/ey_wall_test`，`REDIS_URL`/`TEST_REDIS_URL` 指向 `redis://127.0.0.1:6379/14`、`/15` |
+| 结论 | `verify` **成功**（全部步骤通过）；`image` **失败**（Trivy 扫描步骤退出码 1） |
+
+### verify 作业：后端全量门禁（全部通过）
+
+| 命令 | 结果 |
+|---|---|
+| `python -m pip install -r backend/requirements.txt pip-audit` | 成功 |
+| `cd backend && python -m pytest -q` | **535 passed, 3 skipped in 210.88s**（真实 PostgreSQL 15 + Redis 7） |
+| `python -m unittest discover -s scripts/tests -v` | 运维脚本回归 **20 项全 ok** |
+| `python scripts/check_migrations.py`（`MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE`，隔离库 `ey_wall_migration`） | 空库 upgrade → `b7e2c4a91d30` → downgrade → `529bf8becb3f` → 再 upgrade → `alembic check` 输出 `No new upgrade operations detected`；末行 **`Migration cutover, rollback/re-upgrade and metadata consistency: PASS`**，并记录 `legacy UUID/password identities preserved; old verification/PII invalidated; newest footprint retained` |
+| `POSTGRES_TEST_CONTAINER=<pg service id> python scripts/check_restore.py` | `Synthetic logical restore matched rows, identities and schema version: {'users': 4, 'login_identities': 3, 'posts': 1, 'footprints': 1, 'jobs': 0, 'student_verifications': 0}`；末行 `Logical restore smoke PASS; this is not off-host PITR/RPO/RTO evidence` |
+| `cd backend && python ../scripts/check_api_contract.py --output ../release/openapi.json` | **`contract validated: 125 paths`**，契约导出到 `release/openapi.json` 并随制品上传 |
+| `pip-audit -r backend/requirements.txt --strict` | **`No known vulnerabilities found`**（Pillow 13.0.0 的 39 条 advisory 随 Python 3.11 升级一并解除，未豁免任何条目） |
+| Gitleaks 密钥扫描（`gitleaks/gitleaks-action`） | 通过 |
+| 前端/管理台 type-check、单测、三端构建、`npm audit --audit-level=high` | 通过 |
+| `npx @fission-ai/openspec@1.4.1 validate --specs` | `Totals: 7 passed, 0 failed (7 items)` |
+| 图标一致性、管理台样式覆盖、前后端体积预算、18 套浏览器走查（7 学生端 + 11 管理台）、客观 UI 缺陷审计 | 通过 |
+
+据此，`openspec/changes/backend-python-311/tasks.md` 第 8 行「Production CI：PostgreSQL 15 + Redis 7 上的后端全量 pytest、迁移 upgrade/downgrade、API 契约导出与 pip-audit 硬门禁全部通过」**证据已取得，予以勾选**。注意这不等于异机 PITR/RPO/RTO 演练，也不等于独立人工安全复核。
+
+### image 作业：构建与导入冒烟通过，Trivy 扫描失败
+
+| 步骤 | 结果 |
+|---|---|
+| `Use the exact tested Python dependency constraints` | 通过（CI 注入 `python -m pip freeze` 的约束并校验 sha256） |
+| `Build once`（`backend/Dockerfile`，基础镜像 `python:3.11-slim`） | **通过**，产出 `schoolwall-ci:917dd7b5f0966ab140fc1b47dfc2b531c98e997f`（镜像 digest `sha256:aa19d49a…`，Debian 13.7） |
+| `Smoke exact built image before push` | **通过**：`docker run --rm --network=none --entrypoint python …` 输出 `built image imports and exports contract` |
+| `Scan exact production image before push`（Trivy，`severity=CRITICAL,HIGH`、`exit-code=1`、`ignore-unfixed=false`） | **失败（exit code 1）**：OS 层 **46 条 HIGH / 0 CRITICAL**，python-pkg 层 **2 条 HIGH / 0 CRITICAL** |
+| `Push verified image and resolve immutable digest` | **未执行**（扫描失败即中止）——带高危的镜像没有被推送 |
+
+Trivy 明细（均为 HIGH，无 CRITICAL）：
+
+- **OS 层 46 条**：`util-linux` 家族（`bsdutils`、`libblkid1`、`liblastlog2-2`、`libmount1`、`libsmartcols1`、`libuuid1`、`login`、`mount`、`util-linux`）的 `CVE-2026-76642`、`CVE-2026-78408`、`CVE-2026-78409`、`CVE-2026-78410`；`libacl1` 的 `CVE-2026-54369`；`libncursesw6`/`libtinfo6`/`ncurses-base` 的 `CVE-2025-69720`；`libsqlite3-0` 的 `CVE-2026-119373`、`CVE-2026-119586`；`libsystemd0`/`libudev1` 的 `CVE-2026-16742`；`perl-base` 的 `CVE-2026-9538`。**这 46 条的 Fixed Version 列为空**（状态为 `affected` / `fix_deferred`），即 Debian 13 当前没有可用修复版本。
+- **python-pkg 层 2 条**：来自基础镜像自带的 `setuptools 79.0.1` 内置副本 —— `setuptools/_vendor/jaraco.context 5.3.0`（`CVE-2026-23949`，修复版本 6.1.0）与 `setuptools/_vendor/wheel 0.45.1`（`CVE-2026-24049`，修复版本 0.46.2）。站点层的 `wheel 0.46.3`、`Pillow 13.0.0` 及其余应用依赖均为 0 条。
+
+**根因**：`backend/Dockerfile` 直接以 `python:3.11-slim`（Debian 13.7）为底，既没有做 OS 安全更新，也没有清理镜像内自带的构建工具 `setuptools`（其内置的 `jaraco.context`/`wheel` 副本带两条可修复的 HIGH）。Trivy 门禁按仓库既定规则 `severity=CRITICAL,HIGH` + `ignore-unfixed=false`，因此 Debian 侧尚无修复版本的 46 条 HIGH 同样判失败 —— **未做豁免**：没有加 `.trivyignore`、没有把 `ignore-unfixed` 改成 true、没有下调 severity 门禁。
+
+**处置**：`openspec/changes/backend-python-311/tasks.md` 第 9 行「image 作业（仅 main 分支）：`python:3.11-slim` 基础镜像构建、导入冒烟与 Trivy 扫描通过」**保持未勾选**。清除该门禁需要下列之一，且都属于运维/产品决策，不在本次证据记录的授权范围内：① 等 Debian 发布对应安全更新后重建镜像（可自主重跑验证）；② 改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族（属基础镜像族级变更，须走 `openspec/changes/` 提案）。其中镜像内 `setuptools` 自带的两条 HIGH 属仓库自控范围，可在 `backend/Dockerfile` 内单独清理。
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

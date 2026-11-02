@@ -6,6 +6,6 @@
 - [x] 版本记录同步：`README.md`、`openspec/config.yaml`、`openspec/specs/references/spec.md`、`.claude/docs/SNAPSHOT.md`、`deploy/ci/README.md`
 - [x] 本地验证（Python 3.11.15 + Pillow 13.0.0）：`pip-audit -r backend/requirements.txt --strict` 通过；`app.main` 导入成功并导出 125 条路径；`normalize_image` / `sanitize_proof_image` 去 EXIF、拒绝非法图片与尺寸限制行为一致
 - [x] Production CI：PostgreSQL 15 + Redis 7 上的后端全量 pytest、迁移 upgrade/downgrade、API 契约导出与 pip-audit 硬门禁全部通过（2026-11-02 实测：Production CI 运行 41369377491 的 verify 作业全绿 —— pytest 535 passed / 3 skipped、迁移链 upgrade→downgrade→再 upgrade 与 alembic check PASS、逻辑恢复 PASS、契约导出 125 paths、pip-audit --strict 无已知漏洞；命令、环境与原始日志见 `docs/production/verification.md`）
-- [ ] image 作业（仅 main 分支）：`python:3.11-slim` 基础镜像构建、导入冒烟与 Trivy 扫描通过（2026-11-02 实测：构建与导入冒烟通过，Trivy 扫描**失败** —— 基础镜像 Debian 13.7 的 46 条 HIGH 无修复版本，另有 setuptools 内置依赖 2 条 HIGH；未豁免，细节见 `docs/production/verification.md`）
+- [ ] image 作业（仅 main 分支）：`python:3.11-slim` 基础镜像构建、导入冒烟与 Trivy 扫描通过（2026-11-02 实测：构建与导入冒烟通过，Trivy 扫描**失败** —— 基础镜像 Debian 13.7 的 46 条 HIGH 无修复版本，另有 setuptools 内置依赖 2 条 HIGH；未豁免，细节见 `docs/production/verification.md`。其中 setuptools/wheel 两条已于 2026-11-02 由 `backend/Dockerfile` 清理（依赖安装层内移除构建期工具，`setuptools/_vendor` 内置副本随之消失），「python-pkg 层 0 HIGH」待合并后 main 分支 image 作业复跑取证；OS 层 46 条需等 Debian 上游安全更新或走 `openspec/changes/` 提案与人工决策，故本行保持未勾选）
 
 验收证据写入 `docs/production/verification.md`；未取得的外部证据保持未勾选。

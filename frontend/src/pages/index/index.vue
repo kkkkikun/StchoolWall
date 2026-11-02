@@ -159,6 +159,12 @@
       </view>
     </view>
 
+    <!-- 悬浮反馈入口（右下角，避开底栏与安全区） -->
+    <view class="feedback-fab" @tap="goFeedback">
+      <image class="feedback-fab-icon" :src="ICON_TONES['feedback']['inverse']" mode="aspectFit" />
+      <text class="feedback-fab-text">反馈</text>
+    </view>
+
     <TabBar :current="0" />
   </view>
 </template>
@@ -394,6 +400,13 @@ const onAd = (ad: BannerItem) => {
 
 const goPost = (id: number) => {
   uni.navigateTo({ url: `/pages/post-detail/index?id=${id}` });
+};
+
+// 内部测试反馈入口：把「从哪个页面点的」和当时的网址带过去，方便定位问题现场
+const goFeedback = () => {
+  const pageUrl = typeof window !== "undefined" ? window.location.href : "";
+  const query = pageUrl ? `&page_url=${encodeURIComponent(pageUrl)}` : "";
+  uni.navigateTo({ url: `/pages/feedback/index?from=pages/index/index${query}` });
 };
 
 const switchTab = (idx: number) => {
@@ -841,5 +854,30 @@ const switchTab = (idx: number) => {
   padding: 32rpx 0;
   color: var(--text-3);
   font-size: 24rpx;
+}
+
+/* 悬浮反馈按钮：≥44px 便于手指点击，位置避开底栏与安全区 */
+.feedback-fab {
+  position: fixed;
+  right: 24rpx;
+  bottom: calc(96rpx + env(safe-area-inset-bottom) + 24rpx);
+  z-index: 900;
+  width: 112rpx;
+  padding: 16rpx 0;
+  border-radius: 24rpx;
+  background: var(--primary-fill);
+  box-shadow: var(--shadow-primary-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.feedback-fab-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+.feedback-fab-text {
+  font-size: 24rpx;
+  color: var(--text-inverse);
+  margin-top: 6rpx;
 }
 </style>

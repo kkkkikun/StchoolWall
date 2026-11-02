@@ -165,6 +165,12 @@
 			"style": {
 				"navigationBarTitleText": "屏蔽的用户"
 			}
+		},
+		{
+			"path": "pages/feedback/index",
+			"style": {
+				"navigationBarTitleText": "意见反馈"
+			}
 		}
 	],
 	"globalStyle": {

@@ -15,6 +15,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 
 import type { ApiEnvelope } from '@/api/types'
+import { recordApiFailure } from '@/utils/diagnostics'
 
 // import.meta.env 是 Vite 注入的，模块在 Node 下被测试加载时不存在，取值要容错
 const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
@@ -177,6 +178,7 @@ http.interceptors.response.use(
       }
     }
     const message = errorMessage(axiosError.response?.data, '网络请求失败')
+    recordApiFailure(config?.method ?? 'GET', config?.url ?? '', status, message)
     throw new ApiError(message, status, 0)
   },
 )

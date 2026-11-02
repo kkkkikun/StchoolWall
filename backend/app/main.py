@@ -112,7 +112,7 @@ if settings.ENVIRONMENT != "production":
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 from app.routers import activity, admin, admin_auth, auth, banner, interaction, notification, party, posts, tags, upload, user
-from app.routers import student_verifications, moderation_jobs, appeals, block, runtime_controls
+from app.routers import student_verifications, moderation_jobs, appeals, block, runtime_controls, feedback
 
 for module, prefix, tag in [
     (auth, "/auth", "Auth"), (user, "/user", "User"), (posts, "/posts", "Posts"),
@@ -132,6 +132,8 @@ app.include_router(block.router, prefix="/api/v1", tags=["Blocks"])
 app.include_router(moderation_jobs.router, prefix="/api/v1/admin/moderation-jobs", tags=["Admin"])
 app.include_router(appeals.router, prefix="/api/v1/appeals", tags=["Appeals"])
 app.include_router(appeals.admin_router, prefix="/api/v1/admin/appeals", tags=["Admin"])
+app.include_router(feedback.router, prefix="/api/v1/feedback", tags=["Feedback"])
+app.include_router(feedback.admin_router, prefix="/api/v1/admin/feedback", tags=["Admin"])
 
 
 @app.get("/health/live")

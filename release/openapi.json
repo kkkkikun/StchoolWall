@@ -7383,6 +7383,407 @@
         }
       }
     },
+    "/api/v1/feedback": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Submit",
+        "operationId": "submit_api_v1_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/feedback/{feedback_id}/screenshot": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Upload Screenshot",
+        "operationId": "upload_screenshot_api_v1_feedback__feedback_id__screenshot_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_screenshot_api_v1_feedback__feedback_id__screenshot_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feedback/mine": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Mine",
+        "operationId": "mine_api_v1_feedback_mine_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/feedback/stats": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Stats",
+        "operationId": "stats_api_v1_admin_feedback_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/feedback": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_admin_feedback_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(|open|handling|resolved|closed)$",
+              "default": "",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(|bug|ui|feature|other)$",
+              "default": "",
+              "title": "Category"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Keyword"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/feedback/{feedback_id}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Detail",
+        "operationId": "detail_api_v1_admin_feedback__feedback_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update",
+        "operationId": "update_api_v1_admin_feedback__feedback_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_update_api_v1_admin_feedback__feedback_id__put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/feedback/{feedback_id}/screenshot/{index}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Screenshot",
+        "operationId": "screenshot_api_v1_admin_feedback__feedback_id__screenshot__index__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health/live": {
       "get": {
         "summary": "Live",
@@ -8160,6 +8561,47 @@
         ],
         "title": "Body_submit_api_v1_student_verifications_post"
       },
+      "Body_update_api_v1_admin_feedback__feedback_id__put": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": ""
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "Body_update_api_v1_admin_feedback__feedback_id__put"
+      },
+      "Body_upload_screenshot_api_v1_feedback__feedback_id__screenshot_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "upload_token": {
+            "type": "string",
+            "title": "Upload Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_screenshot_api_v1_feedback__feedback_id__screenshot_post"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "old_password": {
@@ -8250,6 +8692,94 @@
         "type": "object",
         "title": "DeleteAccountRequest",
         "description": "注销账号：网页账号需要密码确认；微信登录账号无密码可留空。"
+      },
+      "FeedbackCreate": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "pattern": "^(bug|ui|feature|other)$",
+            "title": "Category"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "severity": {
+            "type": "string",
+            "pattern": "^(low|medium|high)$",
+            "title": "Severity",
+            "default": "medium"
+          },
+          "page_url": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Page Url",
+            "default": ""
+          },
+          "route": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Route",
+            "default": ""
+          },
+          "viewport": {
+            "type": "string",
+            "maxLength": 60,
+            "title": "Viewport",
+            "default": ""
+          },
+          "theme": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Theme",
+            "default": ""
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "App Version",
+            "default": ""
+          },
+          "reporter_name": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Reporter Name",
+            "default": ""
+          },
+          "test_code": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Test Code",
+            "default": ""
+          },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "title",
+          "content"
+        ],
+        "title": "FeedbackCreate"
       },
       "HTTPValidationError": {
         "properties": {

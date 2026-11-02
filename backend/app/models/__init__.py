@@ -20,3 +20,4 @@ from app.models.media import MediaAsset
 from app.models.job import Job
 from app.models.appeal import Appeal
 from app.models.block import UserBlock
+from app.models.feedback import Feedback

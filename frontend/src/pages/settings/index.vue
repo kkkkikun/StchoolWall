@@ -64,6 +64,13 @@
         </view>
         <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
       </view>
+      <view class="cell" @tap="goFeedback">
+        <view class="cell-left">
+          <image class="cell-icon-svg" :src="ICONS['feedback']" mode="aspectFit" />
+          <text class="cell-title">意见反馈</text>
+        </view>
+        <image class="arrow" :src="ICONS['arrow-right']" mode="aspectFit" />
+      </view>
       <view class="cell" @tap="goInfo('about')">
         <view class="cell-left">
           <image class="cell-icon-svg" :src="ICONS['about']" mode="aspectFit" />
@@ -241,6 +248,12 @@ const promptText = (title: string, placeholder: string): Promise<string | null> 
 
 const goBlocks = () => uni.navigateTo({ url: '/pages/blocks/index' })
 const goAppeals = () => uni.navigateTo({ url: '/pages/appeals/index' })
+// 内部测试反馈入口：把来源页面带给反馈页，方便定位问题现场
+const goFeedback = () => {
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const query = pageUrl ? `&page_url=${encodeURIComponent(pageUrl)}` : ''
+  uni.navigateTo({ url: `/pages/feedback/index?from=pages/settings/index${query}` })
+}
 const onRecoveryCodes = () => {
   uni.showModal({ title: '生成离线找回码', content: '请先确认近期已登录。生成后旧码失效，新码仅显示一次；请抄写到安全的离线位置，勿发送给任何人。',
     success: async (result) => {

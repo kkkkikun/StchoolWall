@@ -1,6 +1,7 @@
 import { tokenStorage, userStorage, syncWebSession, type SessionData } from './storage'
 import { clientType } from './platform-auth'
 import { withWebRefreshLock } from './web-session-sync'
+import { recordApiFailure } from './diagnostics'
 
 let DEFAULT_BASE = 'http://127.0.0.1:8000/api/v1'
 // #ifdef H5
@@ -31,6 +32,23 @@ export function authHeaders(): Record<string, string> {
   if (csrf) headers['X-CSRF-Token'] = csrf
   return headers
 }
+/** 把响应转成成功结果或抛错；失败时留一条诊断现场（内部测试反馈要用）。 */
+function handleResponse<T>(options: RequestOptions, res: { statusCode: number; data: unknown }): ApiResponse<T> {
+  const body = res.data as ApiResponse<T>
+  const method = options.method || 'GET'
+  if (res.statusCode >= 400) {
+    const message = errorMessage(body)
+    recordApiFailure(method, options.url, res.statusCode, message)
+    throw new HttpError(message, res.statusCode)
+  }
+  if (body.code !== 0) {
+    const message = errorMessage(body)
+    recordApiFailure(method, options.url, res.statusCode, message)
+    throw new Error(message)
+  }
+  return body
+}
+
 function send<T>(options: RequestOptions): Promise<ApiResponse<T>> {
   let data = options.data
   if ((!options.method || options.method === 'GET') && data) {
@@ -44,12 +62,14 @@ function send<T>(options: RequestOptions): Promise<ApiResponse<T>> {
       header: { 'Content-Type': 'application/json', ...authHeaders(), ...options.header },
       withCredentials: clientType() === 'web',
       success: (res) => {
-        const body = res.data as ApiResponse<T>
-        if (res.statusCode >= 400) return reject(new HttpError(errorMessage(body), res.statusCode))
-        if (body.code !== 0) return reject(new Error(errorMessage(body)))
-        resolve(body)
+        try { resolve(handleResponse<T>(options, res)) }
+        catch (error) { reject(error) }
       },
-      fail: (err) => reject(new Error(err.errMsg || '网络请求失败')),
+      fail: (err) => {
+        const message = err.errMsg || '网络请求失败'
+        recordApiFailure(options.method || 'GET', options.url, 0, message)
+        reject(new Error(message))
+      },
     })
   })
 }
@@ -182,9 +202,16 @@ export async function uploadMultipart<T>(
       header: authHeaders(),
       success: (res) => {
         try { resolve({ status: res.statusCode, data: JSON.parse(res.data) }) }
-        catch { reject(new Error('上传响应解析失败')) }
+        catch {
+          recordApiFailure('POST', path, res.statusCode, '上传响应解析失败')
+          reject(new Error('上传响应解析失败'))
+        }
       },
-      fail: (err) => reject(new Error(err.errMsg || '上传失败')),
+      fail: (err) => {
+        const message = err.errMsg || '上传失败'
+        recordApiFailure('POST', path, 0, message)
+        reject(new Error(message))
+      },
     })
   })
   if (result.status === 401 && retry) {
@@ -204,7 +231,9 @@ export async function uploadMultipart<T>(
     }
   }
   if (result.status >= 400 || result.data.code !== 0) {
-    throw new Error(errorMessage(result.data))
+    const message = errorMessage(result.data)
+    recordApiFailure('POST', path, result.status, message)
+    throw new Error(message)
   }
   return result.data.data as T
 }

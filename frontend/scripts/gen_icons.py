@@ -122,6 +122,8 @@ ICONS = {
                 '<path d="M12 22a3.5 3.5 0 0 0 3.5-3.5c0-1.5-1-2.5-2-3.5-.6 1-1.5 1.5-2.5 1.5"/>', False),
         'notice': ('<path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>', False),
         'help': ('<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>', False),
+        # 意见反馈：铅笔书写（与 comment 气泡、message 信封区分开，读作「写反馈」）
+        'feedback': ('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>', False),
         'stats': ('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>', False),
         'verify': ('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>', False),
         'signin': ('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', False),
@@ -206,14 +208,14 @@ TONED = {
                     'arrow-right', 'arrow-down', 'arrow-up', 'back', 'up', 'external',
                     'plus', 'check', 'mic', 'emoji', 'layers', 'list', 'ufo',
                     'heart', 'comment', 'bookmark', 'eye', 'note', 'shield',
-                    'campus', 'cart', 'ball', 'more', 'close'],
+                    'campus', 'cart', 'ball', 'more', 'close', 'feedback'],
         # 暗色模式用提亮后的品牌色（与 --primary-text 同值，深底 6.17:1）
         'primary-dark': ['home', 'group', 'publish', 'message', 'mine'],
         'inverse': ['heart-on', 'bookmark-on', 'star-on', 'hot-on',
                     'group', 'plus', 'notice', 'shield', 'comment', 'eye', 'close',
                     'heart', 'bookmark', 'check', 'location', 'clock', 'star', 'more',
                     'campus', 'cart', 'ball', 'note', 'publish', 'send', 'share',
-                    'up', 'camera', 'arrow-right', 'arrow-up', 'eye-open', 'eye-off'],
+                    'up', 'camera', 'arrow-right', 'arrow-up', 'eye-open', 'eye-off', 'feedback'],
         'danger': [],
     },
     'state': {

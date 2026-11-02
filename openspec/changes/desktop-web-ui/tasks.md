@@ -38,6 +38,10 @@
 - [ ] 浏览器级 UI 回归：补 `desktop-frontend/scripts/*-walkthrough.py`（Playwright），
       覆盖信息流、详情、登录、发帖四类关键路径
 - [ ] 深色模式与对比度走查：走查断言基于令牌而非色值，正文对比度 ≥4.5:1
-- [ ] 发布路径：`deploy/nginx.schoolwall.conf` 增加 `location /pc/`（alias 指向
+- [x] 发布路径：`deploy/nginx.schoolwall.conf` 增加 `location /pc/`（alias 指向
       `/opt/schoolwall/current/web/pc/`），并同步到部署侧的服务器配置脚本
-- [ ] 线上验收：`/pc/` 可访问，接口走同源 `/api`，登录后能发帖与评论
+- [x] 线上验收（2026-11-02）：主仓合并 cb9511d 后由手工发布上线，revision `cb9511d1cfb7`。
+      `/pc/` 首页、SPA 路由回退（`/pc/login`、`/pc/tags`）、静态资源、同源 `/api` 反代、
+      登录换令牌全部 200；本地 Chromium 冒烟实测渲染出 3 张信息流卡片、零 console 错误。
+      贴士：后端「发帖频率风控」为 10 分钟内最多 3 帖，超限转人工复核；
+      staging 演示内容是直接置 `posts.status=1` 通过的。

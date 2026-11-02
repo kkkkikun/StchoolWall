@@ -125,9 +125,7 @@ onMounted(() => {
 
           <el-dropdown v-if="auth.loggedIn">
             <span class="sw-user">
-              <el-avatar :size="28" :src="auth.user?.nickname ? undefined : undefined">
-                {{ (auth.user?.nickname ?? '匿').slice(0, 1) }}
-              </el-avatar>
+              <el-avatar :size="28">{{ (auth.user?.nickname ?? '匿').slice(0, 1) }}</el-avatar>
               <span class="sw-user__name">{{ auth.user?.nickname }}</span>
             </span>
             <template #dropdown>

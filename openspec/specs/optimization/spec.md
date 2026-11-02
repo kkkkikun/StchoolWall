@@ -103,6 +103,6 @@
 
 - **[优先级: 高，但需外部环境]** 真实环境验证缺口（工具链已就绪，缺环境）
 
-  - 当前影响：后端 pytest 未在目标 PostgreSQL 15 / Redis 7 跑过；迁移 `529bf8becb3f`、`b7e2c4a91d30` 未实测 upgrade/downgrade；k6 容量门禁（G3：100req/s×30min、200req/s×5min、8h soak）无数值；镜像 Trivy 扫描、真实密钥扫描、独立安全复核均未执行。**发布门禁 G1/G2/G3 因此仍未解除。**
-  - 建议方案：按 `docs/production/capacity.md` 建隔离库跑种子与 k6；用 CI 已配置好的 postgres 15 / redis 7 service 跑全量后端用例与迁移链；镜像扫描与 Gitleaks 由 CI 承担并留证；独立安全复核需人工安排。
-  - 验证方式：按 `docs/production/release-gates.md` 逐门禁保存提交、日期、环境、执行人、命令与原始报告，无证据一律保持未通过。
+  - 当前影响（2026-11-02 更新）：后端 pytest 已在目标 PostgreSQL 15 + Redis 7 上跑通（Production CI 运行 41369377491 的 verify 作业：**535 passed / 3 skipped**，运维脚本回归 20 项全 ok），迁移 `529bf8becb3f`、`b7e2c4a91d30` 的 upgrade → downgrade → 再 upgrade 与 `alembic check` 亦在同一环境通过，逻辑恢复冒烟通过，契约导出 125 paths，`pip-audit --strict` 无已知漏洞；密钥扫描（Gitleaks）通过。**镜像 Trivy 扫描实跑并失败** —— 基础镜像 `python:3.11-slim`（Debian 13.7）自带 46 条无修复版本 HIGH，另有镜像内 `setuptools` 内置依赖 2 条 HIGH，扫描失败即中止推送（带高危的镜像未发布）。仍未取得：k6 容量门禁（G3：100req/s×30min、200req/s×5min、8h soak）无数值、异机备份/PITR 与告警演练、独立人工安全复核。**发布门禁 G1（镜像扫描零未豁免高危）/G2（真实恢复与告警）/G3 因此仍未解除。**
+  - 建议方案：按 `docs/production/capacity.md` 建隔离库跑种子与 k6；镜像侧分两步 —— ① 仓库自控部分：在 `backend/Dockerfile` 内清理镜像自带的 `setuptools` 内置依赖（`jaraco.context`、`wheel` 两条 HIGH 有修复版本）；② 基础镜像的 46 条 HIGH 在 Debian 13 尚无修复版本，只能等上游发布安全更新后重建，或改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族 —— 后者属基础镜像族级变更，须走 `openspec/changes/` 提案与人工决策。独立安全复核需人工安排。
+  - 验证方式：按 `docs/production/release-gates.md` 逐门禁保存提交、日期、环境、执行人、命令与原始报告，无证据一律保持未通过；镜像侧以 Production CI main 分支 image 作业的 Trivy 步骤退出码 0（0 HIGH / 0 CRITICAL）且导入冒烟仍打印 `built image imports and exports contract` 为准。

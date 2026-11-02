@@ -23,12 +23,12 @@
 |---|---|
 | G0 主体与平台 | 个人身份能否经营目标社区类目、域名/小程序/App备案、目标商店准入、实际主体/联系方式/隐私政策与SDK清单。配置中的example域名不能提交审核。 |
 | G1 安全 | 依赖与镜像扫描零未豁免高危，独立安全复核，真实COS权限/版本清理检查，腾讯云额度/超时/费用验证；生产密钥及管理员TOTP配置。 |
-| G2 可靠性 | 目标PostgreSQL15/Redis7全量CI、预发布进程杀死/重启、发布与回滚、真实异机备份恢复；RPO≤1h/RTO≤4h以实测为准。 |
+| G2 可靠性 | 目标PostgreSQL15/Redis7全量CI（2026-11-02 已由 Production CI 通过：运行 41369377491，535 passed / 3 skipped，迁移链 upgrade/downgrade/再 upgrade PASS）、预发布进程杀死/重启、发布与回滚、真实异机备份恢复；RPO≤1h/RTO≤4h以实测为准。 |
 | G3 容量 | 1万用户/10万帖/50万评论，100req/s30min、200req/s5min、8小时稳定性，p95与5xx门槛及费用。脚本存在不等于承载达标。 |
 | G4 客户端 | 三端真实服务联调、浏览器跨标签refresh、微信隐私授权/真机分享、Android原生签名包/Keystore/拒绝及撤回隐私测试。 |
 | G5 试运营 | 50→200→全校放量，审核积压、投诉、费用和故障处置验证，公布可实际响应的支持/申诉渠道。 |
 
-主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate（2026-11-02 用官方 registry 重跑实测：全量 20 个告警包、生产口径 16 个）全部来自构建期依赖链 —— 17 个来自 `@intlify/core-base`，3 个来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch`，均为 devDependency 传递依赖，不进入客户端产物。原始报告见 `release/frontend-audit.json` 与 `release/frontend-audit-production.json`。镜像扫描、真实密钥扫描与独立安全复核仍未执行，G1门禁未解除；具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
+主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate（2026-11-02 用官方 registry 重跑实测：全量 20 个告警包、生产口径 16 个）全部来自构建期依赖链 —— 17 个来自 `@intlify/core-base`，3 个来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch`，均为 devDependency 传递依赖，不进入客户端产物。原始报告见 `release/frontend-audit.json` 与 `release/frontend-audit-production.json`。镜像扫描与密钥扫描已于 2026-11-02 在 Production CI 实跑：密钥扫描（Gitleaks）通过，镜像扫描（Trivy）**失败** —— 基础镜像 `python:3.11-slim`（Debian 13.7）自带 46 条无修复版本 HIGH，另有镜像内 `setuptools` 内置依赖 2 条 HIGH，扫描失败即中止推送，未豁免高危；独立安全复核仍未执行，G1门禁未解除。具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
 
 生产发布脚本默认拒绝缺失证据或对应版本未获批准的发布；不得为了跑通脚本填写虚构证据。尚未部署或提交任何平台审核。
 

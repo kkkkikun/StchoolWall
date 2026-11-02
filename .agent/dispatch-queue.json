@@ -1,8 +1,8 @@
 {
   "current": {
     "id": "backlog-004",
-    "title": "刷新前端审计原始报告（release/frontend-audit*.json）并对齐文档里的数字",
-    "brief": "发布门禁要求保存原始报告作为证据，`docs/client-release-validation.md` 也把 `release/frontend-audit.json` 与 `release/frontend-audit-production.json` 记为「原始审计输出」，但这两份入库报告已经过时：全量那份仍写着 17 moderate，实测已是 20 moderate（多出的 3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链）。\n\n目标：在 frontend/ 下用官方 registry 重跑 `npm audit --json` 与 `npm audit --omit=dev --json`，把两份原始报告刷新入库，并在 `docs/client-release-validation.md` 里写清核验日期、命令与环境；文档表格里的数字与报告一致（以实测为准，不手填）。\n\n边界：不升级依赖、不加 overrides、不加忽略配置、不改任何包版本；不改写历史结论，只更新「当前结果」与原始报告。\n\n验证：① 两份报告的 `metadata.vulnerabilities` 与文档表格数字一致；② `npm audit --audit-level=high` 仍为 0 high / 0 critical；③ openspec 校验与 CI 全绿。"
+    "title": "修复 Production CI 的 image 作业：trivy action 的 setup-trivy 依赖版本上游已不可用",
+    "brief": "main 的 Production CI 现在只有 image 作业是红的，verify 已经全绿。失败发生在 image 作业的 'Set up job' 阶段：.github/workflows/ci.yml 里 pin 的 aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2（v0.28.0）内部依赖 aquasecurity/setup-trivy@v0.2.1，而这个版本在上游已经无法解析，作业在执行任何一步之前就退出。结果是 main 一直红，deploy.yml（Staging then Production）永远被跳过，镜像扫描与自动部署都不再发生。\n\n目标：把 .github/workflows/ci.yml 中 image 作业使用的镜像扫描 action 换成当前可解析的版本（与仓库其它 action 一致，用固定 SHA 加版本注释），让 image 作业能在 runner 上完成 setup 并跑完；确认它扫描的正是本次构建出的那个镜像 digest。\n\n边界：只改 CI 工作流里 action 的版本 pin；不改扫描配置本身（severity 仍是 CRITICAL,HIGH）、不改 Dockerfile、不改应用代码、不降级任何检查项、不加 --skip、不删除这道门禁。\n\n验证：① 推送后 main 的 Production CI 两个作业都绿（verify 与 image）；② image 作业日志里能看到对本次镜像 digest 的扫描结果，而不是停在 Set up job；③ 部署流水线随之被触发，这是预期结果，不要为此修改 deploy.yml。\n\n完成后把 .agent/dispatch-queue.json 的 current 推进到 id 为 backlog-005 的「刷新前端审计原始报告（release/frontend-audit*.json）并对齐文档里的数字」这一条，它的完整简报见 git 历史中分支 agent/recorded-backlog-items-561c0aea67c2-doc-calibration 上的 .agent/dispatch-queue.json。"
   },
   "history": [
     {

@@ -66,10 +66,15 @@
       `nav-svg-walkthrough.py` 的菜单计数与清单要跟着变（17 → 18），
       `all-views-walkthrough.py` 的 ROUTES 补上 `('feedback', '/feedback')`，
       新页面纳入桌面与窄屏走查
-- [ ] 后端全量 pytest 回归（CI 与服务器实跑各一次）
+- [x] 后端全量 pytest 回归：**550 passed / 3 skipped**（服务器另建 `ey_wall_test` 库、
+      线上镜像挂载本地代码实跑，生产库未触碰；CI 的 pytest 作业同样通过）
 - [x] 线上验收：反馈通道专项 **11/11 通过**（未登录无口令被拒、口令错误被拒、
       免登录凭口令提交成功、响应不含真名或学号、截图上传成功、无令牌越权上传被拒、
       记录已落库、截图已写入私有目录、截图未进入公开媒体目录、管理端接口未鉴权被拒），
       PC 端验收 **9/9 通过**，PC 端反馈入口浏览器冒烟 **8/8 通过**、控制台 0 错误
 - [x] 服务器 `.env` 已配置 `FEEDBACK_TEST_CODE`（口令存 `~/.dsh/secrets/schoolwall-server.env`，
       经 scp 落地不进 argv）；`FEEDBACK_WEBHOOK_URL` 留空由负责人填群机器人地址
+- [x] 补齐部署侧持久化：Dockerfile 声明 `/data/private-feedback` 目录与卷、
+      compose 挂 `private_feedback` 卷、发布时校正私有卷属主
+      （卷已存在时 Docker 不会用镜像属主覆盖，手工建过的卷会是 root:root，
+      应用 uid 10001 写不进去，截图上传直接 500）

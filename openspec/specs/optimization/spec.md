@@ -79,7 +79,7 @@
 
 - **[优先级: 低] [部分完成 2026-11-01]** 残余 moderate 依赖告警（构建期，不进产物）
 
-  - 当前影响：主前端 20 moderate（`@intlify/core-base` 两条 advisory），管理台 3 moderate（`vue-tsc` → `@vue/language-core` → `minimatch` globparts 放大 ReDoS，GHSA-g3hv-75wg-m249）。均为 devDependency 传递链，实测客户端产物中不含相关代码，**0 high / 0 critical**。
+  - 当前影响（2026-11-02 官方 registry 实测）：主前端 20 moderate（17 条来自 `@intlify/core-base` 两条 advisory，3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` globparts 放大 ReDoS，GHSA-g3hv-75wg-m249），管理台 **0 vulnerabilities**（2026-11-01 起 `minimatch` 依赖链已消失，见下方「已完成」条目）。均为 devDependency 传递链，实测客户端产物中不含相关代码，**0 high / 0 critical**。原始审计输出见 `release/frontend-audit.json`（全量，20 moderate）与 `release/frontend-audit-production.json`（`--omit=dev`，16 moderate），2026-11-02 用官方 `https://registry.npmjs.org` 重跑刷新入库，命令与环境记录在 `docs/client-release-validation.md`。
   - 建议方案：主前端等 uni-cli-shared 的 `@intlify` 锁定版本推进（9.x 线内无同时避开两条 advisory 的版本，跨大版本会破坏其对 `@intlify/runtime@9.1.9` 的精确锁定）；管理台等 `@vue/language-core` 跟进 `minimatch >= 11.0.1`。**不要用 `overrides` 强行覆盖**，会破坏类型工具链。
   - 验证方式：每次升级后重跑 `npm audit --registry=https://registry.npmjs.org --audit-level=high`，并实测产物不含告警包字样。
   - 已完成（管理台侧，2026-11-01）：上游条件已兑现 —— `@vue/language-core` 从 3.0.2 起改用 `picomatch`，不再依赖 `minimatch`。管理台 `vue-tsc` 由 `^2.2.0` 升到 `~3.1.8`（连带 `@vue/language-core` 3.1.8、`@volar/*` 2.4.26），**管理台官方 npm audit 归零（0 vulnerabilities）**，`minimatch` 从依赖树中彻底消失。

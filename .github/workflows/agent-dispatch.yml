@@ -5,19 +5,24 @@
 # dispatcher. It reads .agent/dispatch-queue.json from main, and opens one issue that mentions
 # the agent when the queue holds a task and the agent looks idle.
 #
-# It stays silent while the agent is busy: an open pull request from an agent branch, a
-# dispatch issue that is already open, or a commit that landed on main in the last 30 minutes
-# all mean the agent is still working on the previous task. A pull request from an agent branch
-# that has not been touched for two hours belongs to a session that is gone, so it is closed
-# and the queue moves on; without that the loop would stall on the first lost session.
+# The trigger is the merge itself: every merge to main carries the queue forward, and that
+# push is what asks for the next task. A schedule is kept only as a backstop, because GitHub's
+# cron scheduler is unreliable on private repositories — it ran twice in nine hours.
+#
+# The agent looks busy when a pull request from an agent branch is open, or when the current
+# task already has an open dispatch issue. A pull request from an agent branch that nobody
+# touched for two hours belongs to a session that is gone, so it is closed and the queue moves
+# on; without that the loop would stall on the first lost session.
 #
 # Each step reads the queue file itself: a multi-line brief must not travel through
 # GITHUB_OUTPUT, which only accepts one line per value.
 name: Agent dispatch
 
 on:
+  push:
+    branches: [main]
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -57,7 +62,11 @@ jobs:
             exit 0
           fi
           MARKER="<!-- agent-dispatch:$ID -->"
-          if gh api "repos/$REPO/issues?state=open&per_page=100" --jq '.[] | .body // empty' | grep -qF "$MARKER"; then
+          # Only a dispatch issue opened by the dispatcher counts as "this task is in flight".
+          # A marker left on an issue a person opened must not block the queue forever.
+          INFLIGHT=$(gh api "repos/$REPO/issues?state=open&per_page=100" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body // "" | contains("'"$MARKER"'"))] | length')
+          if [ "$INFLIGHT" -gt 0 ]; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"
             echo "task $ID is already dispatched and still open"
             exit 0
@@ -75,13 +84,6 @@ jobs:
           if [ "$OPEN" -gt 0 ]; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"
             echo "$OPEN agent pull request(s) are open"
-            exit 0
-          fi
-          SINCE=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
-          RECENT=$(gh api "repos/$REPO/commits?sha=main&since=$SINCE&per_page=5" --jq 'length')
-          if [ "$RECENT" -gt 0 ]; then
-            echo "dispatch=false" >>"$GITHUB_OUTPUT"
-            echo "main moved within the last 30 minutes, the agent is probably still working"
             exit 0
           fi
           echo "dispatch=true" >>"$GITHUB_OUTPUT"

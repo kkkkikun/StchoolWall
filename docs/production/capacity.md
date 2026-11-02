@@ -96,3 +96,26 @@ ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http:
 # PROFILE=burst RATE=200 DURATION=5m；PROFILE=soak RATE=100 DURATION=8h
 ```
 
+### 宿主限制：WSL2 虚拟机会被冻结（影响计时口径）
+
+本次运行的宿主是 **WSL2** 虚拟机。压测过程中虚拟机曾被整体冻结 **70.2 分钟**（资源采样时间轴出现 `04:01:55Z → 05:12:10Z` 的空档，同期 k6 的墙钟显示 `1h30m` 而场景计时只走了 `20m22s/30m0s`）。冻结期间负载**没有**施加：
+
+- k6 的场景计时随虚拟机停摆，因此**每个场景的有效负载时长**（steady 30 分钟、burst 5 分钟、soak 8 小时）仍然成立；
+- 但**墙钟时间被消耗**：9 小时有效期的测试 token 会因冻结而提前到期，属于必须记录的 runner 限制；
+- 冻结瞬间在途请求被打断，会产生个别 503 与被冻结的极端耗时（本次 steady 出现 47 个 503、最大单请求耗时 4211 秒），会污染 p99/max 与 dropped iterations。
+
+因此本节所有数值都注明了是否跨越冻结窗口；跨窗的数据单独标注，不与干净数据混算。
+
+### 瓶颈定位：热点帖单行写锁队列
+
+第一次 steady（30 分钟有效负载）在读 p95 上超阈值的直接原因在 PostgreSQL 日志里可以定位到语句级：
+
+- `log_min_duration_statement=500ms` 记录到的慢语句中，占绝大多数的是
+  `UPDATE posts SET view_count=(posts.view_count + $1::INTEGER), updated_at=now() WHERE posts.id = $2::BIGINT`
+  —— 即**帖子详情页的浏览数自增**（`backend/app/services/post.py:208`）；
+- `log_lock_waits=on` 记录到同一行（relation 16997，tuple `(150,43)`）上的行级锁等待，单次等待队列最长 **38 个进程**；
+- 压测场景本身要求「详情 80% 集中单热点」，于是**每一次详情浏览都对同一行 posts 做一次 UPDATE**，点赞/取消点赞路径还会对同一行做 `SELECT ... FOR UPDATE`，写请求在单行上串行排队；
+- 官方 steady 窗口内 `UPDATE view_count` 慢语句 2651 条，p50 612ms、p90 2065ms、最大 9404ms，其中 637 条超过 1 秒。
+
+这是**产品级瓶颈**而不是压测脚本问题：浏览计数与点赞状态被放在同步事务里更新，热点帖的单行成为全局串行点。仓库本文档「报告与优化」一节已经把「异步浏览聚合」列为优先手段（见 `openspec/specs/optimization/spec.md`），本次实测为该结论提供了第一份可复现的证据。
+

@@ -12,7 +12,9 @@ from app.config import settings
 from app.models.feedback import Feedback
 
 _TIMEOUT_SECONDS = 5
-_CONTENT_LIMIT = 800
+_CONTENT_LIMIT = 600
+# 企业微信群机器人 text 消息的 content 上限是 2048 字节（不是字符数）
+_WECOM_TEXT_BYTE_LIMIT = 2048
 
 
 def _diagnostic_summary(diagnostics: dict | None) -> str:
@@ -59,13 +61,24 @@ def build_text(row: Feedback) -> str:
     return "\n".join(lines)
 
 
+def _truncate_utf8(text: str, limit_bytes: int) -> str:
+    """按字节截断且不切断多字节字符。省略号本身也占字节，要先预留。"""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= limit_bytes:
+        return text
+    if limit_bytes <= 3:
+        return encoded[:limit_bytes].decode("utf-8", errors="ignore")
+    # 先给结尾的省略号留出 3 字节，再解码——否则切在多字节字符中间会超限
+    return encoded[:limit_bytes - 3].decode("utf-8", errors="ignore") + "…"
+
+
 def build_payload(row: Feedback) -> dict:
     kind = (getattr(settings, "FEEDBACK_WEBHOOK_KIND", "generic") or "generic").lower()
     text = build_text(row)
     if kind == "feishu":
         return {"msg_type": "text", "content": {"text": text}}
     if kind in {"wecom", "wechat"}:
-        return {"msgtype": "text", "text": {"content": text}}
+        return {"msgtype": "text", "text": {"content": _truncate_utf8(text, _WECOM_TEXT_BYTE_LIMIT)}}
     return {
         "type": "feedback",
         "id": row.id,
@@ -96,6 +109,20 @@ def _sign(body: bytes) -> str | None:
     return hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
 
+def _check_response(status: int, raw: bytes) -> None:
+    """企微与飞书在业务失败时仍返回 HTTP 200，错误码在 body 里，必须自己判。"""
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return
+    if not isinstance(body, dict):
+        return
+    # 企微：{"errcode": 0, "errmsg": "ok"}；飞书：{"code": 0, "msg": "success"}
+    code = body.get("errcode", body.get("code", 0))
+    if isinstance(code, int) and code != 0:
+        raise ValueError(f"webhook 返回错误码 {code}: {body.get('errmsg') or body.get('msg') or ''}")
+
+
 def _post(url: str, body: bytes) -> None:
     request = urllib.request.Request(url, data=body, method="POST")
     request.add_header("Content-Type", "application/json; charset=utf-8")
@@ -103,7 +130,7 @@ def _post(url: str, body: bytes) -> None:
     if signature:
         request.add_header("X-Feedback-Signature", signature)
     with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
-        response.read()
+        _check_response(response.status, response.read())
 
 
 async def notify_feedback(row: Feedback) -> bool:

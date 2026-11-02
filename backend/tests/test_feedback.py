@@ -218,6 +218,39 @@ async def test_webhook_payload_formats():
     assert build_payload(row)["msg_type"] == "text"
 
     settings.FEEDBACK_WEBHOOK_KIND = "wecom"
-    assert "text" in build_payload(row)
+    wecom = build_payload(row)
+    assert "text" in wecom
+    # 企业微信 text 的 content 上限 2048 字节（不是字符数），中文也算在内
+    assert len(wecom["text"]["content"].encode("utf-8")) <= 2048
 
     settings.FEEDBACK_WEBHOOK_KIND = "generic"
+
+
+async def test_wecom_payload_is_truncated_to_byte_limit():
+    """长描述 + 长诊断摘要也不能撑破企业微信的 2048 字节上限。"""
+    from app.models.feedback import Feedback
+
+    row = Feedback(id=9, category="bug", severity="low", title="很长的标题" * 20,
+                   content="测试内容" * 500, route="/pc/feedback",
+                   diagnostics={"errors": [{"message": "报错详情" * 40} for _ in range(20)]},
+                   screenshots=[])
+    settings.FEEDBACK_WEBHOOK_KIND = "wecom"
+    content = build_payload(row)["text"]["content"]
+    assert len(content.encode("utf-8")) <= 2048
+    # 截断不能切坏多字节字符
+    assert content.encode("utf-8").decode("utf-8") == content
+    settings.FEEDBACK_WEBHOOK_KIND = "generic"
+
+
+async def test_webhook_business_error_code_is_detected():
+    """企微/飞书失败时也返回 HTTP 200，错误码在 body 里，必须自己判。"""
+    from app.services.feedback_notify import _check_response
+
+    _check_response(200, b'{"errcode":0,"errmsg":"ok"}')
+    _check_response(200, b'{"code":0,"msg":"success"}')
+    _check_response(200, b'not-json')
+
+    with pytest.raises(ValueError):
+        _check_response(200, b'{"errcode":45009,"errmsg":"too many requests"}')
+    with pytest.raises(ValueError):
+        _check_response(200, b'{"code":19001,"msg":"invalid webhook"}')

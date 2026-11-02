@@ -1,0 +1,205 @@
+/*
+ * PC 端设计令牌。
+ *
+ * 依据 openspec/specs/frontend-ui/spec.md：
+ * - 颜色全量收敛为语义化令牌，页面里不出现硬编码色值；
+ * - 品牌主色统一为玫瑰红 #c2455c，白字压主色与主色压白底均需 ≥4.5:1；
+ * - 支持亮/暗双模式，暗色只覆写令牌不改结构；
+ * - 最小字号 ≥12px，可点击控件 ≥32×32px。
+ */
+
+:root {
+  /* 品牌色：玫瑰红，与学生端 / 管理台同一套品牌 */
+  --sw-primary: #c2455c;
+  --sw-primary-strong: #a33649;
+  --sw-primary-soft: #fdeef0;
+  --sw-accent: #b8860b;
+  --sw-accent-soft: #fdf6e3;
+
+  /* 中性色 */
+  --sw-bg: #f5f6f7;
+  --sw-surface: #ffffff;
+  --sw-surface-muted: #fafbfb;
+  --sw-border: #e4e7e9;
+  --sw-border-strong: #ccd2d6;
+  --sw-text: #1f2328;
+  --sw-text-secondary: #57606a;
+  --sw-text-muted: #8b949e;
+
+  /* 语义色 */
+  --sw-danger: #cf222e;
+  --sw-warning: #b8860b;
+  --sw-success: #1a7f37;
+  --sw-info: #0969da;
+
+  /* 圆角 */
+  --sw-radius-sm: 6px;
+  --sw-radius: 10px;
+  --sw-radius-lg: 16px;
+  --sw-radius-pill: 999px;
+
+  /* 阴影 */
+  --sw-shadow-sm: 0 1px 2px rgb(31 35 40 / 6%);
+  --sw-shadow: 0 2px 10px rgb(31 35 40 / 8%);
+  --sw-shadow-lg: 0 8px 28px rgb(31 35 40 / 12%);
+
+  /* 间距 */
+  --sw-space-1: 4px;
+  --sw-space-2: 8px;
+  --sw-space-3: 12px;
+  --sw-space-4: 16px;
+  --sw-space-5: 24px;
+  --sw-space-6: 32px;
+
+  /* 字号（最小 12px，对应学生端 22rpx 约束） */
+  --sw-text-xs: 12px;
+  --sw-text-sm: 13px;
+  --sw-text-base: 14px;
+  --sw-text-lg: 16px;
+  --sw-text-xl: 20px;
+  --sw-text-2xl: 26px;
+
+  /* 布局 */
+  --sw-header-height: 60px;
+  --sw-rail-width: 208px;
+  --sw-content-width: 720px;
+  --sw-aside-width: 300px;
+
+  /* 元素尺寸：可点击控件 ≥32px */
+  --sw-control-size: 32px;
+
+  /* Element Plus 主题映射 */
+  --el-color-primary: var(--sw-primary);
+  --el-color-primary-light-3: #d2707f;
+  --el-color-primary-light-5: #df95a1;
+  --el-color-primary-light-7: #ecbcc4;
+  --el-color-primary-light-8: #f4d3d8;
+  --el-color-primary-light-9: var(--sw-primary-soft);
+  --el-color-primary-dark-2: var(--sw-primary-strong);
+  --el-border-radius-base: var(--sw-radius-sm);
+  --el-text-color-primary: var(--sw-text);
+  --el-text-color-regular: var(--sw-text-secondary);
+  --el-border-color: var(--sw-border);
+  --el-border-color-light: var(--sw-border);
+  --el-fill-color-blank: var(--sw-surface);
+}
+
+/* 暗色模式：只覆写令牌，结构与组件不变 */
+.theme-dark {
+  --sw-bg: #0f1216;
+  --sw-surface: #171b21;
+  --sw-surface-muted: #1d222a;
+  --sw-border: #2b323b;
+  --sw-border-strong: #3d454f;
+  --sw-text: #e6edf3;
+  --sw-text-secondary: #a9b3bd;
+  --sw-text-muted: #7d8792;
+  --sw-primary-soft: #341c22;
+  --sw-accent-soft: #332a12;
+  --sw-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --sw-shadow: 0 2px 10px rgb(0 0 0 / 45%);
+  --sw-shadow-lg: 0 8px 28px rgb(0 0 0 / 55%);
+  --el-bg-color: var(--sw-surface);
+  --el-bg-color-overlay: var(--sw-surface);
+  --el-fill-color-blank: var(--sw-surface);
+  --el-fill-color-light: var(--sw-surface-muted);
+  --el-text-color-primary: var(--sw-text);
+  --el-text-color-regular: var(--sw-text-secondary);
+  --el-border-color: var(--sw-border);
+  --el-border-color-light: var(--sw-border);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--sw-bg);
+  color: var(--sw-text);
+  font-size: var(--sw-text-base);
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--sw-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--sw-primary-strong);
+}
+
+/* 卡片：PC 端信息块统一容器 */
+.sw-card {
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-radius);
+  box-shadow: var(--sw-shadow-sm);
+}
+
+.sw-card__body {
+  padding: var(--sw-space-4);
+}
+
+.sw-card__title {
+  margin: 0;
+  font-size: var(--sw-text-lg);
+  font-weight: 600;
+}
+
+/* 多行文本截断 */
+.sw-clamp-1,
+.sw-clamp-2,
+.sw-clamp-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+.sw-clamp-1 {
+  -webkit-line-clamp: 1;
+}
+
+.sw-clamp-2 {
+  -webkit-line-clamp: 2;
+}
+
+.sw-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+
+.sw-muted {
+  color: var(--sw-text-muted);
+  font-size: var(--sw-text-sm);
+}
+
+.sw-empty {
+  padding: var(--sw-space-6) var(--sw-space-4);
+  text-align: center;
+  color: var(--sw-text-muted);
+}
+
+/* 滚动条：宽屏下默认滚动条过粗，做细一点 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sw-border-strong);
+  border-radius: var(--sw-radius-pill);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

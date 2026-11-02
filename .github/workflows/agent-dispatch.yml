@@ -62,6 +62,26 @@ jobs:
             exit 0
           fi
           MARKER="<!-- agent-dispatch:$ID -->"
+          # Sweep the leftovers of a session that died before it could clean up.
+          # A pull request from an agent branch that nobody touched for two hours belongs
+          # to a session that is gone. So does the dispatch issue that started it: left
+          # open, it would tell the next run that this task is still in flight, and the
+          # queue would never move again. Both are closed here, oldest first, so the
+          # task is dispatched again from the queue.
+          STALE=$(gh pr list --repo "$REPO" --state open --limit 50 --json number,headRefName,updatedAt \
+            --jq '[.[] | select(.headRefName | startswith("agent/")) | select((now - (.updatedAt | fromdateiso8601)) > 7200) | .number] | join(" ")')
+          for number in $STALE; do
+            echo "closing stale agent pull request #$number"
+            gh pr close "$number" --repo "$REPO" \
+              --comment "自动派活工作流关闭：此 PR 已两小时没有更新，判定上一轮会话已结束，下一轮从队列重新开始。" || true
+          done
+          STALE_ISSUES=$(gh api "repos/$REPO/issues?state=open&per_page=100" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body // "" | contains("<!-- agent-dispatch:")) | select((now - (.updated_at | fromdateiso8601)) > 7200) | .number] | join(" ")')
+          for number in $STALE_ISSUES; do
+            echo "closing stale dispatch issue #$number"
+            gh issue close "$number" --repo "$REPO" \
+              --comment "自动派活工作流关闭：此派活单已两小时没有对应的 agent PR，判定上一轮会话已结束，下一轮从队列重新开始。" || true
+          done
           # Only a dispatch issue opened by the dispatcher counts as "this task is in flight".
           # A marker left on an issue a person opened must not block the queue forever.
           INFLIGHT=$(gh api "repos/$REPO/issues?state=open&per_page=100" \
@@ -71,15 +91,6 @@ jobs:
             echo "task $ID is already dispatched and still open"
             exit 0
           fi
-          # A pull request from an agent branch that nobody touched for two hours belongs
-          # to a session that is gone. Close it so the queue can move on.
-          STALE=$(gh pr list --repo "$REPO" --state open --limit 50 --json number,headRefName,updatedAt \
-            --jq '[.[] | select(.headRefName | startswith("agent/")) | select((now - (.updatedAt | fromdateiso8601)) > 7200) | .number] | join(" ")')
-          for number in $STALE; do
-            echo "closing stale agent pull request #$number"
-            gh pr close "$number" --repo "$REPO" \
-              --comment "自动派活工作流关闭：此 PR 已两小时没有更新，判定上一轮会话已结束，下一轮从队列重新开始。" || true
-          done
           OPEN=$(gh pr list --repo "$REPO" --state open --limit 50 --json headRefName --jq '[.[] | select(.headRefName | startswith("agent/"))] | length')
           if [ "$OPEN" -gt 0 ]; then
             echo "dispatch=false" >>"$GITHUB_OUTPUT"

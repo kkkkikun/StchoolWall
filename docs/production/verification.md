@@ -134,9 +134,11 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 |---|---|
 | steady 100req/s × 30 分钟 | 读 p95 **435.26ms**、写 p95 **147.42ms**、业务成功率 **100.00%**、5xx **0.00%**、429 **0 次**、dropped iterations **16** —— 延迟与成功率达标，**「无 dropped iterations」未达标** |
 | burst 200req/s × 5 分钟 | 实际 **167.36 req/s**、读 p95 **2743.72ms**、写 p95 **4063.85ms**、业务成功率 99.996%、5xx 0%、dropped iterations **9624** —— **未通过** |
-| soak 100req/s × 8 小时 | 取证进行中（见[容量基线与压测](capacity.md)） |
+| soak 100req/s × 8 小时 | **中止于 7h22m30s（8 小时的 92%）**：有效速率 99.61 req/s、全部请求 p50/p95/p99 = 32.82ms / **467.04ms** / 732.82ms、5xx **1,355** 次、429 **47,158** 次单列、dropped iterations **10,187** —— 时长未达 8 小时，且「无 dropped iterations」未达标，**不作为正式长稳报告记账**（见[容量基线与压测](capacity.md)） |
 
 **G3 保持未通过**：`docs/production/release-gates.md` 的 G3 行不改写为已通过。根因已定位到**热点帖单行写锁队列**——详情页 `view_count` 自增（`backend/app/services/post.py:208`）与点赞路径的 `SELECT ... FOR UPDATE` 都写同一行，场景里 80% 详情集中在单帖即把该行变成全局串行点；PostgreSQL 日志记录到同一 tuple 上最长 38 个进程的锁等待队列与数千条 `>500ms` 慢语句。
+
+soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superagent 服务被停止时终止了自己的子进程树，把仍在运行的 k6 一并带走，该轮在 7 小时 22 分 30 秒（92%）被 SIGTERM 终止。中止前的数值可作为部分实测参考留档，但按「未达 8 小时的 soak 不得按正式报告记账」的口径不计入正式验收，**G3 仍未通过**。
 
 ### 已知限制与剩余人工前置条件
 
@@ -145,6 +147,7 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 3. **依赖版本**：本机只有 Python 3.10.12，无法复现 CI/生产的 Python 3.11.17 + Pillow 13.0.0 组合（Pillow 13.0.0 要求 ≥3.11），FastAPI/Starlette/uvicorn/SQLAlchemy/asyncpg/redis 均按锁定版本安装。
 4. **第三方边界**：本次只测可观测的本地处理能力；审核供应商与 COS 使用可控 stub，**未消耗真实审核额度、未验证真实供应商吞吐**；`docs/production/capacity.md` 要求的「真实认证→会话刷新、上传→隔离→审核→发帖、组局最后名额竞争、重复请求、发布期间流量、停worker重启、DB/Redis/审核超时与断网恢复」等补充场景只覆盖了「停 worker 重启」一项，其余未执行。
 5. **仍需人工/专用环境**：专用压测服务器（独占内存与磁盘）、生产等价 PostgreSQL 15 + Redis 7 拓扑、8 小时长稳在无冻结环境复跑、以及本文档列出的补充场景。
+6. **soak 中止的处置**：该轮 7h22m30s 的数值已按上文写进 `docs/production/capacity.md` 作为部分实测参考，但**不作为正式 8 小时长稳报告**。复跑时须保证压测进程与宿主上的常驻服务进程树解耦（例如把压测环境与 agent 服务分机部署，或让 agent 不持有压测进程的后台作业），避免再出现「停服务连带终止压测」的情况。
 
 ## 已知发布阻断
 

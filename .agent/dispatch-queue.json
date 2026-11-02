@@ -1,9 +1,5 @@
 {
-  "current": {
-    "id": "backlog-008",
-    "title": "按 docs/production/capacity.md 在隔离环境跑容量种子与 k6 压测，取 G3 实测数值并写入文档",
-    "brief": "发布门禁 G3 至今无数值：docs/production/release-gates.md 记「工具已提供，数值待实测」，openspec/specs/optimization/spec.md 的「真实环境验证缺口」也把 k6 容量门禁列为未取得项。目标：按 docs/production/capacity.md 的隔离准备与场景设置，在专用隔离库 schoolwall_loadtest 与专用 Redis 逻辑库上，用 scripts/load/seed.py 生成 1万用户/10万帖/50万评论 的合成数据（`ALLOW_SYNTHETIC_LOAD_SEED=YES_ISOLATED_DATABASE`，`ENVIRONMENT=test`，先 `python -m alembic upgrade head`），再按 scripts/load/campus.js 依次跑 steady（100req/s 持续 30 分钟）、burst（200req/s 持续 5 分钟）、soak（100req/s 持续 8 小时），把 p50/p95/p99、5xx/429、dropped iterations、业务成功率、DB 连接/锁等待/慢 SQL、任务最旧年龄/死信、内存曲线与恢复耗时写入 docs/production/capacity.md 与 docs/production/verification.md。\n\n边界：禁止对生产域名或真实学生数据发压；只用隔离库与合成数据（`ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION`、`ALLOWED_LOAD_HOST=127.0.0.1`、`BASE_URL` 必须匹配该 host）；种子生成的有效期 9 小时测试 token 与 accounts.json 不入库、不进 CI 制品、不写日志；scripts/load/seed.py 的三重限制（test 环境、*_loadtest 库名、显式 ACK）与「拒绝已有帖子数据库」的保护不得放宽（scripts/tests/test_load_seed_guard.py 必须仍全绿）。\n\n验证（取自 docs/production/capacity.md 的场景与接受条件）：读 p95 ≤ 500ms、写 p95 ≤ 800ms、5xx < 0.1%、无 dropped iterations、业务成功率 > 99%；429 单独累计 expected_rate_rejections，不得计为成功业务吞吐；慢 SQL 用 EXPLAIN (ANALYZE, BUFFERS) 记录；报告须含 commit/镜像 digest、CPU/内存/磁盘/PG 配置、数据量与分布、用户数、API 与 worker 数、RPS/并发、恢复耗时。注意 8 小时 soak 超过 GitHub 托管 runner 单作业 6 小时上限，需分段执行或改用自托管 runner，并在报告中如实写明实际时长与该限制 —— 未达 8 小时的 soak 不得按正式报告记账。未取得实测数值前 G3 保持未通过，docs/production/release-gates.md 的 G3 行不得改写为已通过。"
-  },
+  "current": {},
   "history": [
     {
       "id": "backlog-007",
@@ -39,6 +35,11 @@
       "id": "backlog-003",
       "title": "校准在案文档里过时的待办勾选与依赖版本表",
       "result": "关闭 tasks.md 四条与实际状态矛盾的待办（CodeGraph 索引已建且 healthy、OpenSpec 初始化产物已入库、前端已有测试体系 55+12 项、评论区与举报闭环已在 backend-social 规范在册）；references 规范的后端/前端/管理台依赖表按 requirements.txt 与两个 package.json 逐行校准；client-release-validation 的过时首屏数字与残余告警来源按实测更新；.gitignore 排除本地产物 .codegraph/。"
+    },
+    {
+      "id": "backlog-008",
+      "title": "按 docs/production/capacity.md 在隔离环境跑容量种子与 k6 压测，取 G3 实测数值并写入文档",
+      "result": "已取得 G3 部分实测数值，但 G3 仍未通过。steady（100req/s × 30 分钟）读 p95 435.26ms、写 p95 147.42ms、业务成功率 100.00%、5xx 0 次，延迟与成功率达标，但 dropped iterations 16 未达标；burst（200req/s × 5 分钟）实际 167.36 req/s、读 p95 2743.72ms、写 p95 4063.85ms、dropped iterations 9624，未通过，根因定位为热点帖单行写锁队列（详情页 view_count 自增与点赞 SELECT ... FOR UPDATE 争同一行，PostgreSQL 日志记录到同一 tuple 上最长 38 个进程的锁等待队列）。soak（100req/s × 8 小时）未完成：承载压测的宿主上 dsh-superagent 服务被停止时终止了自己的子进程树，把仍在运行的 k6 一并带走，该轮在 7h22m30s（8 小时的 92%）被 SIGTERM 中止；中止前 2,644,823 次请求、有效速率 99.61 req/s、全部请求 p50/p95/p99 = 32.82ms / 467.04ms / 732.82ms、5xx 1,355 次、429 47,158 次单列、dropped iterations 10,187。按「未达 8 小时的 soak 不得按正式报告记账」的既定口径，该轮不作为正式长稳报告记账，数值作为部分实测参考写入 docs/production/capacity.md 与 docs/production/verification.md，docs/production/release-gates.md 的 G3 行保持未通过。剩余差距：需在无宿主冻结、无进程树干扰的专用环境重跑满 8 小时，并在解决热点帖单行写锁瓶颈后重测 burst 与 soak。"
     }
   ]
 }

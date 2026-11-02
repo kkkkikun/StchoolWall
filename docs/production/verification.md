@@ -86,7 +86,7 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 - **OS 层 46 条**：`util-linux` 家族（`bsdutils`、`libblkid1`、`liblastlog2-2`、`libmount1`、`libsmartcols1`、`libuuid1`、`login`、`mount`、`util-linux`）的 `CVE-2026-76642`、`CVE-2026-78408`、`CVE-2026-78409`、`CVE-2026-78410`；`libacl1` 的 `CVE-2026-54369`；`libncursesw6`/`libtinfo6`/`ncurses-base` 的 `CVE-2025-69720`；`libsqlite3-0` 的 `CVE-2026-119373`、`CVE-2026-119586`；`libsystemd0`/`libudev1` 的 `CVE-2026-16742`；`perl-base` 的 `CVE-2026-9538`。**这 46 条的 Fixed Version 列为空**（状态为 `affected` / `fix_deferred`），即 Debian 13 当前没有可用修复版本。
 - **python-pkg 层 2 条**：来自基础镜像自带的 `setuptools 79.0.1` 内置副本 —— `setuptools/_vendor/jaraco.context 5.3.0`（`CVE-2026-23949`，修复版本 6.1.0）与 `setuptools/_vendor/wheel 0.45.1`（`CVE-2026-24049`，修复版本 0.46.2）。站点层的 `wheel 0.46.3`、`Pillow 13.0.0` 及其余应用依赖均为 0 条。这两条已在 `backend/Dockerfile` 内清理，见下节「镜像内 setuptools 高危清理」。
 
-**根因**：`backend/Dockerfile` 直接以 `python:3.11-slim`（Debian 13.7）为底，既没有做 OS 安全更新，也没有清理镜像内自带的构建工具 `setuptools`（其内置的 `jaraco.context`/`wheel` 副本带两条可修复的 HIGH）。Trivy 门禁按仓库既定规则 `severity=CRITICAL,HIGH` + `ignore-unfixed=false`，因此 Debian 侧尚无修复版本的 46 条 HIGH 同样判失败 —— **未做豁免**：没有加 `.trivyignore`、没有把 `ignore-unfixed` 改成 true、没有下调 severity 门禁。
+**根因**：`backend/Dockerfile` 直接以 `python:3.11-slim`（Debian 13.7）为底，既没有做 OS 安全更新，也没有清理镜像内自带的构建工具 `setuptools`（其内置的 `jaraco.context`/`wheel` 副本带两条可修复的 HIGH —— 这两条已在下一节清理）。Trivy 门禁按仓库既定规则 `severity=CRITICAL,HIGH` + `ignore-unfixed=false`，因此 Debian 侧尚无修复版本的 46 条 HIGH 同样判失败 —— **未做豁免**：没有加 `.trivyignore`、没有把 `ignore-unfixed` 改成 true、没有下调 severity 门禁。
 
 **处置**：`openspec/changes/backend-python-311/tasks.md` 第 9 行「image 作业（仅 main 分支）：`python:3.11-slim` 基础镜像构建、导入冒烟与 Trivy 扫描通过」**保持未勾选**。清除该门禁需要下列之一，且都属于运维/产品决策，不在本次证据记录的授权范围内：① 等 Debian 发布对应安全更新后重建镜像（可自主重跑验证）；② 改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族（属基础镜像族级变更，须走 `openspec/changes/` 提案）。其中镜像内 `setuptools` 自带的两条 HIGH 属仓库自控范围，已在 `backend/Dockerfile` 内单独清理（见下节），其「python-pkg 层 0 HIGH」的权威证据待合并后 main 分支的 image 作业复跑给出。
 
@@ -107,7 +107,6 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 | `grep -rn "pkg_resources"` 扫描已装依赖与 `tencentcloud-sdk-python==3.1.188`、`cos-python-sdk-v5==1.9.44` 官方 wheel | 同上 | 运行期依赖均不 import `pkg_resources`（命中项只在测试夹具、pytest/alembic 测试辅助与文档字符串里） |
 
 **未取得 / 未完成**：本机没有 Docker，本地无法构建镜像或执行 Trivy；`image` 作业只在 main 分支运行，因此「python-pkg 层 0 HIGH」的权威证据须由**合并后 main 分支的 Production CI image 作业**给出（Trivy 报告里 `Python (python-pkg)` 一节应为 `Total: 0`），且该次运行仍会因 OS 层 46 条 HIGH 退出码 1 —— 那是 Debian 13 尚无修复版本所致，属预期而非本次改动引入的回归。OS 层 46 条 HIGH 需等 Debian 上游发布安全更新后重建镜像，或改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族（属基础镜像族级变更，须走 `openspec/changes/` 提案与人工决策，本次未擅自更换）。据此 `openspec/changes/backend-python-311/tasks.md` 第 9 行**保持未勾选**。
-
 
 ## 已知发布阻断
 

@@ -28,7 +28,7 @@
 | G4 客户端 | 三端真实服务联调、浏览器跨标签refresh、微信隐私授权/真机分享、Android原生签名包/Keystore/拒绝及撤回隐私测试。 |
 | G5 试运营 | 50→200→全校放量，审核积压、投诉、费用和故障处置验证，公布可实际响应的支持/申诉渠道。 |
 
-主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate/low来自构建期依赖 `@intlify/core-base`，不进入客户端产物。镜像扫描、真实密钥扫描与独立安全复核仍未执行，G1门禁未解除；具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
+主前端npm audit已于2026-10-30清零高危（0 high / 0 critical，管理台0 vulnerabilities）；残余moderate（2026-11-02 用官方 registry 重跑实测：全量 20 个告警包、生产口径 16 个）全部来自构建期依赖链 —— 17 个来自 `@intlify/core-base`，3 个来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch`，均为 devDependency 传递依赖，不进入客户端产物。原始报告见 `release/frontend-audit.json` 与 `release/frontend-audit-production.json`。镜像扫描、真实密钥扫描与独立安全复核仍未执行，G1门禁未解除；具体依赖链与处理条件见docs/client-release-validation.md，实际验证汇总见docs/production/verification.md。
 
 生产发布脚本默认拒绝缺失证据或对应版本未获批准的发布；不得为了跑通脚本填写虚构证据。尚未部署或提交任何平台审核。
 

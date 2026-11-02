@@ -1,6 +1,6 @@
 # 前端依赖与客户端发布验收记录
 
-核验日期：2026-10-30（管理台依赖项 2026-11-01 复验）。所有 npm 元数据与 audit 均使用官方 `https://registry.npmjs.org`；不执行 `audit --force`，不忽略高危。
+核验日期：2026-10-30（管理台依赖项 2026-11-01 复验；主前端原始审计报告 2026-11-02 用官方 registry 重跑刷新入库）。所有 npm 元数据与 audit 均使用官方 `https://registry.npmjs.org`；不执行 `audit --force`，不忽略高危。
 
 ## 当前结果
 
@@ -16,7 +16,31 @@
 | 管理后台单元测试 | 12 passed（认证与文件下载） |
 | 管理后台类型检查与生产构建 | 通过；Element Plus 改按需引入后首屏 **JS 93.3KB gzip**（全量 JS 483.0KB gzip、echarts 懒加载块 174.9KB gzip），主 chunk 255KB raw，仍有较大 chunk 提示待拆分 |
 
-原始审计输出在 `release/frontend-audit.json` 和 `release/frontend-audit-production.json`。这些数字是 npm 依赖图的告警包数，不能解读为独立漏洞数，也不能解读为已无发布风险。
+原始审计输出在 `release/frontend-audit.json` 和 `release/frontend-audit-production.json`（2026-11-02 用官方 registry 重跑刷新，命令与环境见下节）。这些数字是 npm 依赖图的告警包数，不能解读为独立漏洞数，也不能解读为已无发布风险。
+
+## 原始审计报告刷新记录（2026-11-02）
+
+发布门禁要求保存原始报告作为证据。入库的全量报告此前停在 17 moderate（对应 2026-10-30 那次审计的 advisory 库状态），与实测的 20 moderate 不一致；本次用官方 registry 重跑并把原始输出刷新入库。
+
+| 项目 | 值 |
+| --- | --- |
+| 核验日期 | 2026-11-02 |
+| 工作目录 | `frontend/`（依赖树取自 `frontend/package-lock.json`，本次未改动任何依赖） |
+| 命令 | `npm audit --json --registry=https://registry.npmjs.org` → `release/frontend-audit.json`<br>`npm audit --omit=dev --json --registry=https://registry.npmjs.org` → `release/frontend-audit-production.json`<br>`npm audit --audit-level=high --registry=https://registry.npmjs.org`（门禁复核，退出码 0） |
+| registry | 官方 `https://registry.npmjs.org`（本机默认 registry 为 npmmirror，本次显式指向官方源） |
+| 运行环境 | Ubuntu 22.04.5 LTS / Linux 5.15 x86_64（WSL2）；Node v22.21.1；npm 10.9.4 |
+| 基线提交 | `917dd7b`（本次改动前的 main） |
+
+实测的 `metadata.vulnerabilities`：
+
+| 报告 | info | low | moderate | high | critical | total |
+| --- | --- | --- | --- | --- | --- | --- |
+| `release/frontend-audit.json`（全量） | 0 | 0 | **20** | 0 | 0 | 20 |
+| `release/frontend-audit-production.json`（`--omit=dev`） | 0 | 0 | **16** | 0 | 0 | 16 |
+
+与上表「当前结果」逐项对应：全量 20 个告警包 = 17 个 `@intlify/core-base` 链 + 3 个 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链；`--omit=dev` 的 16 个告警包即去掉后一条构建期链。生产那份的重跑输出与入库版本**逐字节一致**（md5 `1c2458fa526f79234a613755a6d91976`），因为该链只存在于 devDependency。
+
+本次只刷新证据，**未升级任何依赖、未新增 `overrides`、未加忽略配置、未改任何包版本**，历史处置结论不变；`npm audit --audit-level=high` 仍为 **0 high / 0 critical**（退出码 0）。
 
 ## 2026-10-30 高危清零的实际处置
 

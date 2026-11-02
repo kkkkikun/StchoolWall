@@ -48,18 +48,12 @@
         "@dcloudio/uni-cli-shared",
         "@dcloudio/uni-console"
       ],
-      "effects": [
-        "@dcloudio/uni-app-plus"
-      ],
+      "effects": [],
       "range": "*",
       "nodes": [
         "node_modules/@dcloudio/uni-app-uts"
       ],
-      "fixAvailable": {
-        "name": "@dcloudio/uni-app-plus",
-        "version": "0.0.253",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": true
     },
     "@dcloudio/uni-app-vite": {
       "name": "@dcloudio/uni-app-vite",
@@ -68,12 +62,18 @@
       "via": [
         "@dcloudio/uni-cli-shared"
       ],
-      "effects": [],
+      "effects": [
+        "@dcloudio/uni-app-plus"
+      ],
       "range": "*",
       "nodes": [
         "node_modules/@dcloudio/uni-app-vite"
       ],
-      "fixAvailable": true
+      "fixAvailable": {
+        "name": "@dcloudio/uni-app-plus",
+        "version": "0.0.253",
+        "isSemVerMajor": true
+      }
     },
     "@dcloudio/uni-cli-shared": {
       "name": "@dcloudio/uni-cli-shared",
@@ -113,6 +113,7 @@
         "@dcloudio/uni-cli-shared"
       ],
       "effects": [
+        "@dcloudio/uni-app",
         "@dcloudio/uni-components"
       ],
       "range": "*",
@@ -147,16 +148,12 @@
       "via": [
         "@dcloudio/uni-cli-shared"
       ],
-      "effects": [
-        "@dcloudio/uni-app"
-      ],
+      "effects": [],
       "range": "*",
       "nodes": [
         "node_modules/@dcloudio/uni-console"
       ],
-      "fixAvailable": {
-        "isSemVerMajor": true
-      }
+      "fixAvailable": true
     },
     "@dcloudio/uni-h5": {
       "name": "@dcloudio/uni-h5",
@@ -340,16 +337,89 @@
         "version": "0.2.994",
         "isSemVerMajor": true
       }
+    },
+    "@redocly/openapi-core": {
+      "name": "@redocly/openapi-core",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "minimatch"
+      ],
+      "effects": [
+        "openapi-typescript"
+      ],
+      "range": "<=2.6.0",
+      "nodes": [
+        "node_modules/@redocly/openapi-core"
+      ],
+      "fixAvailable": {
+        "name": "openapi-typescript",
+        "version": "6.7.6",
+        "isSemVerMajor": true
+      }
+    },
+    "minimatch": {
+      "name": "minimatch",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1244012,
+          "name": "minimatch",
+          "dependency": "minimatch",
+          "title": "minimatch has potential denial of service via globparts amplification",
+          "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-405"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<11.0.1"
+        }
+      ],
+      "effects": [
+        "@redocly/openapi-core"
+      ],
+      "range": "<11.0.1",
+      "nodes": [
+        "node_modules/@redocly/openapi-core/node_modules/minimatch"
+      ],
+      "fixAvailable": {
+        "name": "openapi-typescript",
+        "version": "6.7.6",
+        "isSemVerMajor": true
+      }
+    },
+    "openapi-typescript": {
+      "name": "openapi-typescript",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@redocly/openapi-core"
+      ],
+      "effects": [],
+      "range": ">=7.0.0-next.0",
+      "nodes": [
+        "node_modules/openapi-typescript"
+      ],
+      "fixAvailable": {
+        "name": "openapi-typescript",
+        "version": "6.7.6",
+        "isSemVerMajor": true
+      }
     }
   },
   "metadata": {
     "vulnerabilities": {
       "info": 0,
       "low": 0,
-      "moderate": 17,
+      "moderate": 20,
       "high": 0,
       "critical": 0,
-      "total": 17
+      "total": 20
     },
     "dependencies": {
       "prod": 348,

@@ -1,10 +1,15 @@
 {
   "current": {
-    "id": "backlog-005",
-    "title": "刷新前端审计原始报告（release/frontend-audit*.json）并对齐文档里的数字",
-    "brief": "发布门禁要求保存原始报告作为证据，`docs/client-release-validation.md` 也把 `release/frontend-audit.json` 与 `release/frontend-audit-production.json` 记为「原始审计输出」，但这两份入库报告已经过时：全量那份仍写着 17 moderate，实测已是 20 moderate（多出的 3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链）。\n\n目标：在 frontend/ 下用官方 registry 重跑 `npm audit --json` 与 `npm audit --omit=dev --json`，把两份原始报告刷新入库，并在 `docs/client-release-validation.md` 里写清核验日期、命令与环境；文档表格里的数字与报告一致（以实测为准，不手填）。\n\n边界：不升级依赖、不加 overrides、不加忽略配置、不改任何包版本；不改写历史结论，只更新「当前结果」与原始报告。\n\n验证：① 两份报告的 `metadata.vulnerabilities` 与文档表格数字一致；② `npm audit --audit-level=high` 仍为 0 high / 0 critical；③ openspec 校验与 CI 全绿。"
+    "id": "backlog-006",
+    "title": "取得并记录 Production CI 后端作业与 image 作业证据，勾选 backend-python-311 剩余两条",
+    "brief": "openspec/changes/backend-python-311/tasks.md 还剩两条未勾选：第 8 行「Production CI：PostgreSQL 15 + Redis 7 上的后端全量 pytest、迁移 upgrade/downgrade、API 契约导出与 pip-audit 硬门禁全部通过」与第 9 行「image 作业（仅 main 分支）：python:3.11-slim 基础镜像构建、导入冒烟与 Trivy 扫描通过」。本机不跑 PostgreSQL/Redis，Production CI（.github/workflows/ci.yml，verify 作业带 postgres:15-alpine + redis:7-alpine 服务，image 作业 needs: verify 且仅在 main 分支运行）是唯一权威。\n\n目标：在 Production CI 上取到后端作业全绿证据（pytest、scripts/check_migrations.py 的 upgrade/downgrade、scripts/check_restore.py、scripts/check_api_contract.py 导出 release/openapi.json、pip-audit --strict）与 main 分支 image 作业证据（python:3.11-slim 构建、导入冒烟、Trivy 扫描），把命令、日期、环境与结果写入 docs/production/verification.md，并在证据确实取得后才勾选 openspec/changes/backend-python-311/tasks.md 对应行；证据未取得的行保持未勾选，不得凭推断勾选。\n\n边界：不改后端业务代码与依赖版本、不豁免高危、不伪造 CI 记录、不改写历史结论；若 CI 因真实缺陷失败，先定位根因再决定最小修复，修复单独成 PR。\n\n验证：① Production CI 的 verify 作业全部步骤成功（含 pytest、迁移链、契约导出、pip-audit）与 main 分支 image 作业成功；② docs/production/verification.md 记录命令、日期、环境与结果，与 CI 日志一致；③ openspec validate --specs 通过；④ 未取得证据的条目保持未勾选。"
   },
   "history": [
+    {
+      "id": "backlog-005",
+      "title": "刷新前端审计原始报告（release/frontend-audit*.json）并对齐文档里的数字",
+      "result": "2026-11-02 在 frontend/ 用官方 registry 重跑 `npm audit --json` 与 `npm audit --omit=dev --json`，刷新入库 release/frontend-audit.json（全量：0 high / 0 critical，20 moderate = 17 条 @intlify/core-base 链 + 3 条 openapi-typescript → @redocly/openapi-core → minimatch 链）与 release/frontend-audit-production.json（--omit=dev：0 high / 0 critical，16 moderate，与入库旧版逐字节一致）。docs/client-release-validation.md 新增「原始审计报告刷新记录」小节，写清核验日期、命令、registry、运行环境（Ubuntu 22.04.5 / Node v22.21.1 / npm 10.9.4）与基线提交；docs/production/implementation-status.md 的残余告警来源同步为实测值。未升级依赖、未加 overrides、未加忽略配置、未改任何包版本；`npm audit --audit-level=high` 退出码 0（0 high / 0 critical），openspec validate --specs 7/7 通过。"
+    },
     {
       "id": "backlog-004",
       "title": "修复 Production CI 的 image 作业：trivy action 的 setup-trivy 依赖版本上游已不可用",

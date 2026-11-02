@@ -49,7 +49,7 @@
 
 - [ ] 前端补测试（当前测试集中在后端 `backend/tests/`，前端无测试体系）
 - [x] CI：后端 `pytest` + 前端 `type-check` 自动化（2026-09-11：deploy/ci/ 全 Docker 化管线，本地全量绿 425 passed；服务器安装执行待用户 → openspec/changes/server-ci/ T8）
-- [ ] 前端页面与后端 API 的契约校验（可考虑 OpenAPI 自动生成类型）
+- [x] 前端页面与后端 API 的契约校验（2026-11-01：类型由 openapi-typescript 从后端契约生成，并新增 `frontend/scripts/api-contract-check.mjs` 守卫——生成类型与契约必须一致、学生端与管理台 API 模块里的 138 处路径字面量必须都在后端契约中；已接入 CI，两条负向验证均 exit 1）
 
 ### 业务（按 SchoolWall.md MVP 蓝图）
 

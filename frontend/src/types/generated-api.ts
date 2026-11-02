@@ -1679,6 +1679,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Maintenance Cleanup
+         * @description 系统维护：扫描并清理超过指定时间的无引用孤儿静态文件及未绑定私有媒体。
+         */
+        post: operations["admin_maintenance_cleanup_api_v1_admin_maintenance_cleanup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/banners": {
         parameters: {
             query?: never;
@@ -2571,6 +2591,19 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** MaintenanceCleanupRequest */
+        MaintenanceCleanupRequest: {
+            /**
+             * Max Age Seconds
+             * @default 86400
+             */
+            max_age_seconds: number;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
         };
         /**
          * MpLoginRequest
@@ -5857,6 +5890,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_maintenance_cleanup_api_v1_admin_maintenance_cleanup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceCleanupRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

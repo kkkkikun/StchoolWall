@@ -13,7 +13,7 @@
 | 运维脚本回归 | **20 passed**，覆盖备份失败不清理、保留顺序、发布证据/回滚/迁移恢复/压测种子保护，以及可信代理真实ASGI来源IP与伪造转发头边界。 |
 | 数据库迁移 | 空库到head、上一版本合成用户/微信身份/重复足迹迁移、downgrade一版后重新upgrade及alembic check通过；用户UUID保留、旧认证和原始个人资料清理、足迹留最新。 |
 | 逻辑备份恢复 | 合成测试数据库dump并恢复到另一个隔离数据库，核对成功；不是异机PITR、灾难切换或RPO/RTO演练。 |
-| API契约 | 最终后端OpenAPI校验通过，**124 paths**；快照release/openapi.json，前端由openapi-typescript生成类型，认证/学生证请求实际引用。 |
+| API契约 | 最终后端OpenAPI校验通过，**125 paths**；快照release/openapi.json，前端由openapi-typescript生成类型，认证/学生证请求实际引用。2026-11-01 起新增 `frontend/scripts/api-contract-check.mjs` 漂移守卫（生成类型与契约一致 + 前端/管理台路径字面量都在契约里），已接入 CI。 |
 | 主前端 | Node22独立运行时：类型检查、H5、微信小程序、Android代码构建通过；单元测试**55 passed**。未产出签名APK。 |
 | 管理台 | 类型检查及生产构建通过；单元测试**12 passed**；有大chunk提示，仍需真实运行及加载性能检查。 |
 | 依赖 | Python安装与pip check/pip-audit通过（2026-11-01：pillow 12.3.0 命中 39 条新 advisory，Pillow 13.0.0 要求 Python ≥ 3.11，随 `openspec/changes/backend-python-311/` 升级运行时一并解除）；**主前端官方npm audit 0 high / 0 critical**，管理台官方npm audit **0 vulnerabilities**。主前端残余 **20 moderate**（17 条来自 `@intlify/core-base` 构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，0 low），实测 H5 与微信小程序产物中不含相关包。处置明细见[客户端验收记录](../client-release-validation.md)。 |

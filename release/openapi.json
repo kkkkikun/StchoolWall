@@ -5415,6 +5415,58 @@
         }
       }
     },
+    "/api/v1/admin/maintenance/cleanup": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin Maintenance Cleanup",
+        "description": "系统维护：扫描并清理超过指定时间的无引用孤儿静态文件及未绑定私有媒体。",
+        "operationId": "admin_maintenance_cleanup_api_v1_admin_maintenance_cleanup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MaintenanceCleanupRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/banners": {
       "get": {
         "tags": [
@@ -8211,6 +8263,23 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MaintenanceCleanupRequest": {
+        "properties": {
+          "max_age_seconds": {
+            "type": "integer",
+            "minimum": 300.0,
+            "title": "Max Age Seconds",
+            "default": 86400
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "MaintenanceCleanupRequest"
       },
       "MpLoginRequest": {
         "properties": {

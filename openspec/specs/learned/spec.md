@@ -167,6 +167,11 @@
 - **WHEN** 为清掉 `vue-tsc` → `@vue/language-core` → `minimatch` 的 moderate 告警而升级类型工具，`vue-tsc@3.3.14` 报 `Property 'value' does not exist on type '{...}'`（`BannersView.vue`），`3.2.9` 报 `:initial-index="idx"` 的 `string | number` 类型错
 - **THEN** 根因是**工具侧回归，不是模板写错**：Vue 编译器对 `<el-input v-model="form.link_url" placeholder="https://…" />` 生成的代码是正确的（`modelValue` + `onUpdate:modelValue`），但 3.3.x 在**属性值里出现 `//`** 时会错判 `v-model` 目标（动态 `:placeholder="'https://abc'"` 同样触发，随后同模板内的其它 `v-model` 会被连坐报错）；实测 3.0.5 / 3.0.11 / 3.1.8 三版对本仓库均 0 错。解法：锁定 `~3.1.8`（`@vue/language-core` 自 3.0.2 起改用 `picomatch`，`minimatch` 依赖链消失，管理台 npm audit 归零），不跨到 3.2+；预防：**升级类型工具必须先跑一遍 `vue-tsc --noEmit` 比对**，不要只看版本号新旧 —— 顺带记一条：`@vue/language-core` 的 minimatch 条件一旦由上游兑现，就该升级并用 `~` 锁在实测干净的那一版，别用 `overrides` 强行覆盖
 
+#### Scenario: CI 里 generate:api 覆盖了入库文件，漂移检查等于没做
+
+- **WHEN** 想加「生成类型必须与后端契约一致」的守卫，却发现 CI 的前端步骤先跑了 `npm run generate:api`，工作区里的生成文件已经被刷新成最新的
+- **THEN** 根因：守卫比对的是**入库的文件**，而 CI 在比对前已经把它覆盖了，于是永远相等；解法：守卫必须跑在生成之前（CI 顺序：`npm ci` → 守卫 → `npm run generate:api` → `type-check`），并且要配两条负向验证（手改生成文件 / 造一个后端没有的接口）确认真的会 exit 1；预防：任何「比对入库产物与上游」的守卫，都要先确认 CI 步骤顺序没有在上游先覆盖产物
+
 ### Requirement: 技巧模式
 
 高效做法 MUST 被记录以促进复用。

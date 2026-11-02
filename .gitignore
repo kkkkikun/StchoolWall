@@ -21,6 +21,9 @@ env/
 # GH Actions 部署：服务器上的 npm 缓存挂载目录
 .npm-cache/
 
+# 本地代码索引产物（codegraph init 生成，不入库）
+.codegraph/
+
 # IDE
 .vscode/
 .idea/

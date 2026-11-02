@@ -14,7 +14,7 @@
 | Web / 微信小程序 / Android 代码构建 | Node 22 下全部通过 |
 | 前端单元测试 | 55 passed（会话/导航/小程序登录/帖子映射/Web 登录守卫/错误文案） |
 | 管理后台单元测试 | 12 passed（认证与文件下载） |
-| 管理后台类型检查与生产构建 | 通过；首屏实测 411KB gzip（JS 362K + CSS 49K），主 chunk 1.1MB raw，仍有较大 chunk 提示待拆分 |
+| 管理后台类型检查与生产构建 | 通过；Element Plus 改按需引入后首屏 **JS 93.3KB gzip**（全量 JS 483.0KB gzip、echarts 懒加载块 174.9KB gzip），主 chunk 255KB raw，仍有较大 chunk 提示待拆分 |
 
 原始审计输出在 `release/frontend-audit.json` 和 `release/frontend-audit-production.json`。这些数字是 npm 依赖图的告警包数，不能解读为独立漏洞数，也不能解读为已无发布风险。
 
@@ -31,7 +31,7 @@
 
 管理后台同步修复：follow-redirects → `^1.16.2`，Vite 由 6.4.3 升到 6.4.5（launch-editor 系列漏洞），审计归零。
 
-残余的 20 moderate 告警全部来自 `@intlify/core-base` 的两条 advisory（GHSA-x8qp-wqqm-57ph DOM XSS 与 GHSA-8rc2-428q-7ww3 参数转义），该包只作为 `@dcloudio/uni-cli-shared`（devDependency）的传递依赖存在。已实测 `dist/build/h5` 与 `dist/build/mp-weixin` 产物中不含 `vue-i18n`、`intlify` 或 `escapeParameterHtml` 任何字样，即不进入客户端。9.x 线内不存在同时避开两条 advisory 的版本（>=9.14.5 引入新的 high），跨大版本覆盖到 11.x 会破坏 uni-cli-shared 对 `@intlify/runtime@9.1.9` 的精确锁定，因此维持现状并在此记录，不伪造清零。
+残余的 20 moderate 告警里，17 条来自 `@intlify/core-base` 的两条 advisory（GHSA-x8qp-wqqm-57ph DOM XSS 与 GHSA-8rc2-428q-7ww3 参数转义），该包只作为 `@dcloudio/uni-cli-shared`（devDependency）的传递依赖存在；另 3 条来自 `openapi-typescript` → `@redocly/openapi-core`（1.x 精确锁定 `minimatch@5.1.9`）。已实测 `dist/build/h5` 与 `dist/build/mp-weixin` 产物中不含 `vue-i18n`、`intlify` 或 `escapeParameterHtml` 任何字样，即不进入客户端。9.x 线内不存在同时避开两条 advisory 的版本（>=9.14.5 引入新的 high），跨大版本覆盖到 11.x 会破坏 uni-cli-shared 对 `@intlify/runtime@9.1.9` 的精确锁定，因此维持现状并在此记录，不伪造清零。
 
 管理后台的 3 moderate 已于 2026-11-01 清零：`vue-tsc` → `@vue/language-core` → `minimatch` 的 globparts 放大 ReDoS（GHSA-g3hv-75wg-m249）。上游条件已兑现 —— `@vue/language-core` 自 3.0.2 起改用 `picomatch`，不再依赖 `minimatch`。管理台 `vue-tsc` 由 `^2.2.0` 升到 `~3.1.8`（连带 `@vue/language-core` 3.1.8、`@volar/language-core` 与 `@volar/typescript` 2.4.26），`minimatch` 连同 `brace-expansion`/`balanced-match`/`de-indent`/`he` 一并从依赖树移除，官方 npm audit 归零（0 vulnerabilities）。**未使用 `overrides` 强行覆盖**。
 

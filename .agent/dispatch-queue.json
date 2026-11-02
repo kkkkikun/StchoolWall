@@ -1,8 +1,8 @@
 {
   "current": {
-    "id": "backlog-003",
-    "title": "校准在案文档里过时的待办勾选与依赖版本表",
-    "brief": "把仓库文档里明显与实际状态不符的在案记录校准掉，全部以仓库现状为准，不新增功能。\n\n目标（逐条核对后再改，只改确实过时的）：\n1. `.claude/docs/tasks.md` 待办区的三条：①「提交本次 OpenSpec 初始化产物（openspec/、.claude/docs/、CLAUDE.md）」——核对 openspec/ 与 CLAUDE.md 是否已入库，已入库则勾选并注明依据；②「前端补测试（当前测试集中在后端，前端无测试体系）」——核对前端单测现状（frontend/tests/ 目录与 package.json 的 test 脚本），确已建立则勾选并注明现状数字；③「CodeGraph 索引」——确认本机是否可用、索引是否属于入库产物，若属本机开发辅助则注明「不入库」并勾选，若仍可用则保留待办并写清前置条件。\n2. `openspec/specs/references/spec.md` 的后端依赖表：当前表里的 fastapi/starlette/python-jose/uvicorn 等版本与 `backend/requirements.txt` 已明显不一致（该规范自身要求「新增或升级依赖时必须同步更新本文件」）。以 `backend/requirements.txt` 为准逐行校准，并把 Pillow 行补齐。\n\n边界：只改文档与勾选状态，不改任何业务代码、依赖版本或接口；被勾选的每一条都要写明核对依据（文件路径或实测数字）。\n\n验证：① 逐条核对后 `.claude/docs/tasks.md` 不再有与实际状态矛盾的待办；② references 后端依赖表与 `backend/requirements.txt` 逐行一致（可用一次性脚本比对，不入库）；③ `npx @fission-ai/openspec@1.4.1 validate --specs` 通过；④ Production CI 全绿。"
+    "id": "backlog-004",
+    "title": "刷新前端审计原始报告（release/frontend-audit*.json）并对齐文档里的数字",
+    "brief": "发布门禁要求保存原始报告作为证据，`docs/client-release-validation.md` 也把 `release/frontend-audit.json` 与 `release/frontend-audit-production.json` 记为「原始审计输出」，但这两份入库报告已经过时：全量那份仍写着 17 moderate，实测已是 20 moderate（多出的 3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链）。\n\n目标：在 frontend/ 下用官方 registry 重跑 `npm audit --json` 与 `npm audit --omit=dev --json`，把两份原始报告刷新入库，并在 `docs/client-release-validation.md` 里写清核验日期、命令与环境；文档表格里的数字与报告一致（以实测为准，不手填）。\n\n边界：不升级依赖、不加 overrides、不加忽略配置、不改任何包版本；不改写历史结论，只更新「当前结果」与原始报告。\n\n验证：① 两份报告的 `metadata.vulnerabilities` 与文档表格数字一致；② `npm audit --audit-level=high` 仍为 0 high / 0 critical；③ openspec 校验与 CI 全绿。"
   },
   "history": [
     {
@@ -14,6 +14,11 @@
       "id": "backlog-002",
       "title": "前端/管理台 API 契约漂移守卫",
       "result": "新增 frontend/scripts/api-contract-check.mjs（生成类型与契约一致 + 前端/管理台 138 处路径字面量必须在契约中），接入 CI（跑在 npm run generate:api 之前）；刷新了落后于后端的契约快照（124 → 125 条路径）与生成类型；两条负向验证均 exit 1。"
+    },
+    {
+      "id": "backlog-003",
+      "title": "校准在案文档里过时的待办勾选与依赖版本表",
+      "result": "关闭 tasks.md 四条与实际状态矛盾的待办（CodeGraph 索引已建且 healthy、OpenSpec 初始化产物已入库、前端已有测试体系 55+12 项、评论区与举报闭环已在 backend-social 规范在册）；references 规范的后端/前端/管理台依赖表按 requirements.txt 与两个 package.json 逐行校准；client-release-validation 的过时首屏数字与残余告警来源按实测更新；.gitignore 排除本地产物 .codegraph/。"
     }
   ]
 }

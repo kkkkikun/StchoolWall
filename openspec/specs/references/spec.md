@@ -3,7 +3,7 @@
 记录 SchoolWall 的依赖版本与外部参考资源，确保构建可重现、依赖可追溯、外部文档可获取。新增或升级依赖时必须同步更新本文件。
 
 > 版本：1.0 ｜ 最后更新：2026-07-06
-> 依赖来源：`backend/requirements.txt`、`frontend/package.json`、`.env.example`、`docker-compose.yml`
+> 依赖来源：`backend/requirements.txt`、`frontend/package.json`、`admin-frontend/package.json`、`.env.example`、`docker-compose.yml`
 
 ## Requirements
 
@@ -18,22 +18,28 @@ Python 后端关键依赖 MUST 可追溯版本与用途。
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| fastapi | 0.115.6 | Web 框架 |
+| fastapi | 0.143.2 | Web 框架 |
+| starlette | 1.7.0 | ASGI 框架（显式锁定版本） |
 | uvicorn[standard] | 0.34.0 | ASGI 服务器 |
 | sqlalchemy[asyncio] | 2.0.36 | ORM（异步） |
 | asyncpg | 0.30.0 | PostgreSQL 异步驱动 |
 | alembic | 1.14.0 | 数据库迁移 |
 | redis[hiredis] | 5.2.1 | 缓存/队列 |
-| python-jose[cryptography] | 3.3.0 | JWT |
+| pyjwt | 2.15.1 | JWT 签发与校验 |
 | pydantic-settings | 2.7.1 | 配置管理 |
 | httpx | 0.28.1 | HTTP 客户端（爬虫） |
 | rsa | 4.9 | 正方登录 RSA 加密 |
 | beautifulsoup4 | 4.12.3 | 正方登录 HTML 解析 |
 | boto3 | 1.36.2 | Cloudflare R2 / S3 兼容存储 |
-| python-multipart | 0.0.20 | 文件上传解析 |
+| python-multipart | 0.0.32 | 文件上传解析 |
+| pytest | 9.1.1 | 测试框架 |
+| pytest-asyncio | 1.4.0 | 异步测试支持 |
+| bcrypt | 4.2.1 | 管理员与网页登录口令散列 |
 | Pillow | 13.0.0 | 用户上传图片解码、去 EXIF 与证件材料处理（13.0.0 起要求 Python ≥ 3.11） |
-| pytest | 8.3.4 | 测试框架 |
-| pytest-asyncio | 0.24.0 | 异步测试支持 |
+| cryptography | 50.0.2 | 证件材料与密钥加密 |
+| tencentcloud-sdk-python | 3.1.188 | 腾讯云内容审核 |
+| cos-python-sdk-v5 | 1.9.44 | 腾讯云 COS 私有存储 |
+| prometheus-client | 0.23.1 | HTTP 指标暴露 |
 
 - **运行时**：Python 3.11（开发机实测 3.11.15）
 
@@ -44,18 +50,34 @@ uni-app 前端关键依赖 MUST 可追溯。
 #### Scenario: 查询前端依赖
 
 - **WHEN** 需要确认前端框架或构建工具版本
-- **THEN** 查阅下表（来自 `frontend/package.json`）：
+- **THEN** 查阅下表：
+
+学生端（`frontend/package.json`）：
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| @dcloudio/uni-app | 3.0.0-4080420251103001 | uni-app 核心（多端编译） |
+| @dcloudio/uni-app / uni-app-plus / uni-components / uni-h5 / uni-mp-weixin | 3.0.0-5020620260917001 | uni-app 运行时与多端编译（版本统一锁定） |
 | vue | ^3.4.21 | 视图框架 |
-| vue-i18n | ^9.1.9 | 国际化 |
-| typescript | ^4.9.4 | 类型系统（dev） |
-| vite | 5.2.8 | 构建工具（dev） |
-| vue-tsc | ^1.0.24 | 类型检查（dev，`npm run type-check`） |
+| typescript | ~5.9.3 | 类型系统（dev） |
+| vite | 7.3.7 | 构建工具（dev） |
+| vue-tsc | ^3.3.13 | 类型检查（dev，`npm run type-check`） |
+| openapi-typescript | ^7.13.0 | 由后端契约生成前端类型（dev，`npm run generate:api`） |
 
-- **目标平台**：首选微信小程序（`dev:mp-weixin`），支持 H5/多端
+管理台（`admin-frontend/package.json`）：
+
+| 依赖 | 版本 | 用途 |
+|------|------|------|
+| vue | ^3.5.13 | 视图框架 |
+| element-plus | ^2.9.1 | UI 组件库（按需引入） |
+| echarts | 6.1.0 | 看板图表（按需注册） |
+| pinia | ^2.3.0 | 状态管理 |
+| vue-router | ^4.5.0 | 路由 |
+| axios | ^1.7.9 | HTTP 客户端 |
+| vite | ^6.0.5 | 构建工具（dev） |
+| typescript | ~5.7.2 | 类型系统（dev） |
+| vue-tsc | ~3.1.8 | 类型检查（dev；锁 3.1.x 是因为 3.2/3.3 对本仓库模板误报，见 `openspec/specs/learned/spec.md`） |
+
+- **目标平台**：首选微信小程序（`dev:mp-weixin`），支持 H5/多端；管理台为独立 Web 应用（`build:admin`，部署前缀 `/admin/`）
 
 ### Requirement: 基础设施与外部服务
 

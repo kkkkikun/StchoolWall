@@ -210,6 +210,7 @@ ROUTES = [
     ('student-verifications', '/student-verifications'),
     ('users', '/users'),
     ('reports', '/reports'),
+    ('feedback', '/feedback'),
     ('comments', '/comments'),
     ('parties', '/parties'),
     ('banners', '/banners'),

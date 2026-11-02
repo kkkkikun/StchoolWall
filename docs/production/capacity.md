@@ -65,7 +65,7 @@ ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http:
 | 缓存 | Redis 7.2.5（源码编译，端口 6399，逻辑库 13） |
 | 压测工具 | k6 v2.3.0（GitHub 官方 release 二进制） |
 | 应用运行时 | Python 3.10.12 + `backend/requirements.txt` 锁定依赖（fastapi 0.143.2 / starlette 1.7.0 / uvicorn 0.34.0 / sqlalchemy 2.0.36 / asyncpg 0.30.0 / redis 5.2.1）；**Pillow 用 12.3.0 代替锁定的 13.0.0**，因为 Pillow 13.0.0 要求 Python ≥ 3.11 而本机只有 3.10.12（CI/生产为 Python 3.11.17） |
-| PG 关键配置 | `shared_buffers=1GB`、`effective_cache_size=3GB`、`work_mem=16MB`、`maintenance_work_mem=256MB`、`max_connections=100`、`log_min_duration_statement=500ms`、`log_lock_waits=on`、`track_io_timing=on`、`jit=on`、`synchronous_commit=on` |
+| PG 关键配置 | `shared_buffers=512MB`、`effective_cache_size=2GB`、`work_mem=16MB`、`maintenance_work_mem=256MB`、`max_connections=100`、`log_min_duration_statement=500ms`、`log_lock_waits=on`、`track_io_timing=on`、`jit=on`、`synchronous_commit=on` |
 | API / worker | uvicorn **4 个 worker 进程**（127.0.0.1:8000）+ 后台 worker **1 个进程**；连接池 `DB_POOL_SIZE=10`、`DB_MAX_OVERFLOW=5`，连接预算 4×15+15=75 < `max_connections=100` |
 | 负载发生位置 | k6 与 API/PG/Redis **同机**（同一台笔记本），存在资源竞争，记录时如实标注 |
 
@@ -108,7 +108,7 @@ ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http:
 
 ### 瓶颈定位：热点帖单行写锁队列
 
-第一次 steady（30 分钟有效负载）在读 p95 上超阈值的直接原因在 PostgreSQL 日志里可以定位到语句级：
+PostgreSQL 日志把「尾部变慢」定位到了语句级：
 
 - `log_min_duration_statement=500ms` 记录到的慢语句中，占绝大多数的是
   `UPDATE posts SET view_count=(posts.view_count + $1::INTEGER), updated_at=now() WHERE posts.id = $2::BIGINT`
@@ -118,4 +118,41 @@ ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http:
 - 官方 steady 窗口内 `UPDATE view_count` 慢语句 2651 条，p50 612ms、p90 2065ms、最大 9404ms，其中 637 条超过 1 秒。
 
 这是**产品级瓶颈**而不是压测脚本问题：浏览计数与点赞状态被放在同步事务里更新，热点帖的单行成为全局串行点。仓库本文档「报告与优化」一节已经把「异步浏览聚合」列为优先手段（见 `openspec/specs/optimization/spec.md`），本次实测为该结论提供了第一份可复现的证据。
+
+### 实测结果
+
+#### 场景一：steady（100 req/s × 30 分钟）
+
+干净窗口（`05:34:48Z → 06:04:51Z`，全程无冻结、无内存耗尽）。k6 实际发出 **179984** 次请求，平均 **99.96 req/s**。
+
+| 指标 | 实测 | 接受条件 | 判定 |
+|---|---|---|---|
+| 读 p50 / p95 / p99 | 29.37ms / **435.26ms** / 531.01ms | p95 ≤ 500ms | 通过 |
+| 写 p50 / p95 / p99 | 43.01ms / **147.42ms** / 377.61ms | p95 ≤ 800ms | 通过 |
+| 业务成功率（checks） | **100.00%**（179984/179984） | > 99% | 通过 |
+| 5xx | **0.00%**（0 次） | < 0.1% | 通过 |
+| HTTP 失败率 | 0.00% | < 1% | 通过 |
+| 429（`expected_rate_rejections`） | **0 次** | 单列、不计成功吞吐 | 无触发 |
+| dropped iterations | **16** | 0 | **未通过** |
+| 并发（VU） | 均值 13，峰值 66（上限 200） | — | — |
+
+路由分布与脚本配比一致（180000 次请求）：最新流 45%（81000）、详情 25%（45000）、热榜 10%（18000）、搜索 7%（12597）、赞/取消 6%（10794）、评论 4%（7196）、未读 3%（5397）。
+
+作为对照，**跨越 70 分钟冻结窗口的那一轮 steady**（`03:46:36Z → 05:29:19Z`）读 p95 为 530.77ms、写 p95 512.59ms、dropped iterations 4966、5xx 47 次（0.03%）、最大单请求耗时 4211 秒 —— 同一份代码、同一份数据，仅宿主状态不同即产生数量级差异，因此该轮数据**不作为正式记账**，只用于说明 runner 限制的影响。
+
+#### 场景二：burst（200 req/s × 5 分钟）
+
+窗口 `05:29:34Z → 05:34:38Z`，无冻结。目标 200 req/s，实际发出 **50377** 次请求、**167.36 req/s**（差额由 dropped iterations 承担）。
+
+| 指标 | 实测 | 接受条件 | 判定 |
+|---|---|---|---|
+| 读 p50 / p95 / p99 | 694.38ms / **2743.72ms** / 4338.91ms | p95 ≤ 500ms | **未通过** |
+| 写 p50 / p95 / p99 | 1498.13ms / **4063.85ms** / 5888.37ms | p95 ≤ 800ms | **未通过** |
+| 业务成功率（checks） | 99.996%（50375/50377） | > 99% | 通过 |
+| 5xx | 0.00%（0 次） | < 0.1% | 通过 |
+| 429（`expected_rate_rejections`） | 0 次 | 单列 | 无触发 |
+| dropped iterations | **9624** | 0 | **未通过** |
+
+速率翻倍后，热点帖单行的写锁队列成为硬瓶颈：到达率执行器无法维持 200 req/s，延迟与丢弃同时上升。该场景**未通过**，与「热点帖单行写锁队列」定位一致。
+
 

@@ -20,9 +20,10 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini .
 RUN groupadd --gid 10001 schoolwall && useradd --uid 10001 --gid schoolwall --no-create-home schoolwall \
-    && mkdir -p /data/static /data/private-media /data/private-verifications && chown -R schoolwall:schoolwall /data /app
+    && mkdir -p /data/static /data/private-media /data/private-verifications /data/private-feedback \
+    && chown -R schoolwall:schoolwall /data /app
 ENV STATIC_BASE_DIR=/data/static
-VOLUME ["/data/static", "/data/private-media", "/data/private-verifications"]
+VOLUME ["/data/static", "/data/private-media", "/data/private-verifications", "/data/private-feedback"]
 USER schoolwall
 EXPOSE 8000
 # Migrations are a single release job, never an API/worker startup side effect.

@@ -67,6 +67,9 @@
       `all-views-walkthrough.py` 的 ROUTES 补上 `('feedback', '/feedback')`，
       新页面纳入桌面与窄屏走查
 - [ ] 后端全量 pytest 回归（CI 与服务器实跑各一次）
-- [ ] 线上验收：电脑端与 H5 端提交反馈、截图入库、管理台查看、Webhook 推送
-- [ ] 服务器 `.env` 配置 `FEEDBACK_TEST_CODE`（口令存 `~/.dsh/secrets/schoolwall-server.env`），
-      `FEEDBACK_WEBHOOK_URL` 由负责人填入群机器人地址
+- [x] 线上验收：反馈通道专项 **11/11 通过**（未登录无口令被拒、口令错误被拒、
+      免登录凭口令提交成功、响应不含真名或学号、截图上传成功、无令牌越权上传被拒、
+      记录已落库、截图已写入私有目录、截图未进入公开媒体目录、管理端接口未鉴权被拒），
+      PC 端验收 **9/9 通过**，PC 端反馈入口浏览器冒烟 **8/8 通过**、控制台 0 错误
+- [x] 服务器 `.env` 已配置 `FEEDBACK_TEST_CODE`（口令存 `~/.dsh/secrets/schoolwall-server.env`，
+      经 scp 落地不进 argv）；`FEEDBACK_WEBHOOK_URL` 留空由负责人填群机器人地址

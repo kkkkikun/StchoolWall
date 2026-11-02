@@ -221,7 +221,9 @@ jobs:
             -e ENVIRONMENT=test -e JWT_SECRET=ci-only-never-production-0123456789abcdef \
             schoolwall-ci:"$GITHUB_SHA" -c "from app.main import app; assert '/health/live' in app.openapi()['paths']; print('built image imports and exports contract')"
       - name: Scan exact production image before push
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        # v0.28.0 内部按 tag 依赖 aquasecurity/setup-trivy@v0.2.1，该 tag 上游已删除，
+        # 作业会在 Set up job 阶段就解析失败。新版本按 commit SHA 依赖 setup-trivy，可稳定解析。
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: schoolwall-ci:${{ github.sha }}
           exit-code: "1"

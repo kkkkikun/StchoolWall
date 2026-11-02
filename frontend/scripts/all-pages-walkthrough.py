@@ -227,6 +227,7 @@ PAGES = [
     ('my-posts', 'pages/my-posts/index', ''),
     ('appeals', 'pages/appeals/index', ''),
     ('blocks', 'pages/blocks/index', ''),
+    ('feedback', 'pages/feedback/index', ''),
 ]
 
 report = {

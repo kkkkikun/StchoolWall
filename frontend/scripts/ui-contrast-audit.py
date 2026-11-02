@@ -14,13 +14,15 @@
 - 横向裁切：自带渐隐层的横向滚动容器属于设计内，不算裁切缺陷。
 """
 import json
+import os
 import pathlib
 import re
 import sys
 
 from playwright.sync_api import sync_playwright
 
-BASE = 'http://127.0.0.1:8080'
+# 端口可用环境变量覆盖：8080 被占用时（代理/其他服务）换个端口即可
+BASE = os.environ.get('SW_AUDIT_BASE', 'http://127.0.0.1:8080')
 OUT = pathlib.Path('/tmp/audit')
 SRC_ROOT = pathlib.Path(__file__).resolve().parent.parent / 'src'
 
@@ -50,6 +52,7 @@ PAGES = [
     ('my-posts', 'pages/my-posts/index', ''),
     ('appeals', 'pages/appeals/index', ''),
     ('blocks', 'pages/blocks/index', ''),
+    ('feedback', 'pages/feedback/index', ''),
 ]
 
 # 品牌主色：既作品牌小字，也作主按钮底色；具体色值由 App.vue 令牌决定

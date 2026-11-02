@@ -3,15 +3,18 @@
  * PC 端骨架：顶部导航 + 左侧导航 + 内容区 + 右侧信息栏。
  * 与移动端五 Tab 的差异：电脑端用三栏布局承载更高的信息密度。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Bell, EditPen, Search } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, EditPen, Search } from '@element-plus/icons-vue'
 
 import { useAuthStore } from '@/stores/auth'
 import { getHotUsers, getNotifications, getUnreadSummary } from '@/api/user'
 import { getTags } from '@/api/content'
 import type { HotUser, NotificationItem, TagItem } from '@/api/types'
+
+// 反馈弹窗带上传、诊断等交互，懒加载避免把 Element Plus 表单组件拖进首屏包
+const FeedbackDialog = defineAsyncComponent(() => import('@/components/FeedbackDialog.vue'))
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -22,6 +25,15 @@ const hotTags = ref<TagItem[]>([])
 const hotUsers = ref<HotUser[]>([])
 const announcements = ref<NotificationItem[]>([])
 const unread = ref(0)
+const feedbackOpen = ref(false)
+
+/** 反馈入口做成快捷键，测试员遇到问题当场就能截图上报。 */
+function onShortcut(event: KeyboardEvent): void {
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+    event.preventDefault()
+    feedbackOpen.value = true
+  }
+}
 
 const navItems = [
   { name: 'feed', label: '校园墙' },
@@ -80,8 +92,13 @@ async function handleLogout(): Promise<void> {
 onMounted(() => {
   const saved = localStorage.getItem('sw_theme')
   if (saved === 'dark') document.documentElement.classList.add('theme-dark')
+  window.addEventListener('keydown', onShortcut)
   loadAside()
   loadAnnouncements()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onShortcut)
 })
 </script>
 
@@ -119,6 +136,15 @@ onMounted(() => {
             <el-badge :value="unread" :hidden="unread === 0" class="sw-badge">
               <el-button circle :icon="Bell" @click="router.push({ name: 'notifications' })" />
             </el-badge>
+          </el-tooltip>
+
+          <el-tooltip content="意见反馈（Ctrl+Shift+F）" placement="bottom">
+            <el-button
+              class="sw-feedback-trigger"
+              circle
+              :icon="ChatDotRound"
+              @click="feedbackOpen = true"
+            />
           </el-tooltip>
 
           <el-button text @click="toggleTheme">暗色</el-button>
@@ -211,6 +237,8 @@ onMounted(() => {
         </section>
       </aside>
     </div>
+
+    <FeedbackDialog v-model="feedbackOpen" />
   </div>
 </template>
 

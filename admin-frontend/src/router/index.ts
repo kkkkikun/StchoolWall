@@ -18,6 +18,7 @@ const routes = [
       { path: 'student-verifications', name: 'student-verifications', component: () => import('@/views/StudentVerificationsView.vue'), meta: { title: '学生证认证' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '用户管理' } },
       { path: 'reports', name: 'reports', component: () => import('@/views/ReportsView.vue'), meta: { title: '举报处理' } },
+      { path: 'feedback', name: 'feedback', component: () => import('@/views/FeedbackView.vue'), meta: { title: '反馈箱' } },
       { path: 'comments', name: 'comments', component: () => import('@/views/CommentsView.vue'), meta: { title: '评论管理' } },
       { path: 'parties', name: 'parties', component: () => import('@/views/PartiesView.vue'), meta: { title: '组局管理' } },
       { path: 'banners', name: 'banners', component: () => import('@/views/BannersView.vue'), meta: { title: '轮播广告' } },

@@ -129,6 +129,7 @@ import {
   Lock,
   PriceTag,
   Calendar,
+  ChatLineSquare,
 } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
@@ -156,6 +157,7 @@ const menus: MenuItem[] = [
   { path: '/student-verifications', title: '学生证认证', icon: School },
   { path: '/users', title: '用户管理', icon: User },
   { path: '/reports', title: '举报处理', icon: WarningFilled },
+  { path: '/feedback', title: '反馈箱', icon: ChatLineSquare },
   { path: '/comments', title: '评论管理', icon: ChatDotRound },
   { path: '/parties', title: '组局管理', icon: Basketball },
   { path: '/banners', title: '轮播广告', icon: Picture },

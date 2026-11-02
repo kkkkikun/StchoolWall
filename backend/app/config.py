@@ -61,6 +61,13 @@ class Settings(BaseSettings):
     ZHENGFANG_BASE_URL: str = ""
     ZHENGFANG_TEST_STUDENT_ID: str = ""
     ZHENGFANG_TEST_PASSWORD: str = ""
+    # 内部测试反馈通道
+    FEEDBACK_TEST_CODE: str = ""
+    FEEDBACK_WEBHOOK_URL: str = ""
+    FEEDBACK_WEBHOOK_KIND: str = "generic"
+    FEEDBACK_WEBHOOK_SECRET: str = ""
+    FEEDBACK_ADMIN_BASE_URL: str = ""
+    FEEDBACK_PRIVATE_DIR: str = "private-feedback"
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 settings = Settings()

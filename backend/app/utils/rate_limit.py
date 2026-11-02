@@ -13,6 +13,8 @@ RATE_POST_CREATE = (10, 3600)    # 发帖 10 次/小时
 RATE_COMMENT = (30, 600)         # 评论 30 次/10 分钟
 RATE_REPORT = (10, 600)          # 举报 10 次/10 分钟（防举报轰炸管理队列）
 RATE_UPLOAD = (30, 3600)         # 上传 30 次/小时
+RATE_FEEDBACK = (20, 3600)       # 反馈 20 次/小时（登录用户）
+RATE_FEEDBACK_ANON = (5, 3600)   # 反馈 5 次/小时（免登录口令，按 IP）
 LOGIN_USER_RATE = (5, 600)       # 管理台按用户名连续失败 5 次/10 分钟
 
 

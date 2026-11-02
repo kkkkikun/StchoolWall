@@ -40,6 +40,7 @@ SchoolWall（鄂应墙）—— 单校校园社区，Web→微信小程序→And
 | 认证 | PyJWT + 正方爬虫（rsa + bs4 + httpx） | 2.10.1 |
 | 存储 | boto3 适配器（local / R2 / aliyun） | 1.36.2 |
 | 前端 | uni-app (Vue 3 + Vite 5 + TS 4.9) | dcloudio 3.0.0-408 |
+| 电脑端前端 | Vue 3 + Vite 6 + TS 5.7 + Element Plus + Pinia（`desktop-frontend/`，base `/pc/`） | vue 3.5 / element-plus 2.9 |
 | 基础设施 | Docker Compose；生产 Nginx + HTTPS | — |
 | 测试 | pytest + pytest-asyncio | 8.3.4 / 0.24.0 |
 
@@ -65,6 +66,16 @@ SchoolWall/
 │   ├── requirements.txt
 │   ├── pytest.ini             # asyncio_mode=auto
 │   └── .env
+├── desktop-frontend/         # 电脑端用户界面（Vue3 + Element Plus，base /pc/）
+│   ├── src/
+│   │   ├── api/              # auth / posts / social / content / user（契约守卫扫描目录）
+│   │   ├── components/       # PostCard / UserAvatar / EmptyState
+│   │   ├── layouts/          # DesktopLayout（顶栏 + 左导航 + 内容区 + 右信息栏）
+│   │   ├── views/            # feed / post / search / tags / publish / profile / notifications / settings
+│   │   ├── stores/           # auth（访问令牌只放内存）
+│   │   ├── styles/tokens.css # 设计令牌（玫瑰红品牌色 + 亮/暗双模式）
+│   │   └── utils/            # http（axios 封装）/ format
+│   └── tests/                # node --test：映射层 + HTTP 封装
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # auth / posts / notification / banner ...

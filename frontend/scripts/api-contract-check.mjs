@@ -5,7 +5,7 @@
  * 断言三件事，任一不满足即非零退出：
  * 1. 入库的生成类型 frontend/src/types/generated-api.ts 与后端契约 release/openapi.json
  *    重新生成的结果一致（后端改了接口却没重新生成类型 = 漂移）；
- * 2. 学生端与管理台 API 模块里出现的 API 路径字面量都存在于后端契约中
+ * 2. 学生端、管理台与电脑端 API 模块里出现的 API 路径字面量都存在于后端契约中
  *    （前端调了后端没有的接口 = 漂移）；
  * 3. 契约里的路径都是版本化的 /api/v1/**。
  *
@@ -25,6 +25,7 @@ const GENERATED_TYPES_PATH = path.join(ROOT, 'frontend/src/types/generated-api.t
 const API_MODULE_DIRS = [
   path.join(ROOT, 'frontend/src/api'),
   path.join(ROOT, 'admin-frontend/src/api'),
+  path.join(ROOT, 'desktop-frontend/src/api'),
 ]
 
 const LITERAL_PATTERN = /(['"`])(\/[^'"`\s]*)/g
@@ -105,7 +106,7 @@ async function main() {
   }
   console.log(
     `[通过] 契约与生成类型一致（${contractPaths.length} 条路径），` +
-      `学生端与管理台 API 模块 ${literals.length} 处路径字面量均存在于后端契约中`,
+      `学生端、管理台与电脑端 API 模块 ${literals.length} 处路径字面量均存在于后端契约中`,
   )
 }
 

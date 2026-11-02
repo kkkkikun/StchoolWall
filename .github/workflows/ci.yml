@@ -106,6 +106,12 @@ jobs:
           npm test
           npm run build:admin
           npm audit --registry=https://registry.npmjs.org --audit-level=high
+          cd ../desktop-frontend
+          npm ci
+          npm run type-check
+          npm test
+          npm run build:desktop
+          npm audit --registry=https://registry.npmjs.org --audit-level=high
       - name: OpenSpec specification validation
         run: npx --yes @fission-ai/openspec@1.4.1 validate --specs
       - name: Icon registry consistency check
@@ -156,11 +162,12 @@ jobs:
       - name: Package verified web and contract artifacts
         run: |
           ARTIFACT_DIR="$RUNNER_TEMP/verified-release"
-          mkdir -p "$ARTIFACT_DIR/web/h5" "$ARTIFACT_DIR/web/admin" "$ARTIFACT_DIR/deploy"
+          mkdir -p "$ARTIFACT_DIR/web/h5" "$ARTIFACT_DIR/web/admin" "$ARTIFACT_DIR/web/pc" "$ARTIFACT_DIR/deploy"
           python -m pip freeze > "$ARTIFACT_DIR/python-constraints.txt"
           cp release/openapi.json "$ARTIFACT_DIR/"
           cp -a frontend/dist/build/h5/. "$ARTIFACT_DIR/web/h5/"
           cp -a admin-frontend/dist/. "$ARTIFACT_DIR/web/admin/"
+          cp -a desktop-frontend/dist/. "$ARTIFACT_DIR/web/pc/"
           cp -a deploy/docker-compose.prod.yml deploy/healthcheck.sh "$ARTIFACT_DIR/deploy/"
           cp scripts/rollout.sh scripts/rollback-release.sh "$ARTIFACT_DIR/"
           tar -czf verified-web.tar.gz -C "$ARTIFACT_DIR" .

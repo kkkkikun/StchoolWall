@@ -139,7 +139,12 @@ onBeforeUnmount(() => {
           </el-tooltip>
 
           <el-tooltip content="意见反馈（Ctrl+Shift+F）" placement="bottom">
-            <el-button circle :icon="ChatDotRound" @click="feedbackOpen = true" />
+            <el-button
+              class="sw-feedback-trigger"
+              circle
+              :icon="ChatDotRound"
+              @click="feedbackOpen = true"
+            />
           </el-tooltip>
 
           <el-button text @click="toggleTheme">暗色</el-button>

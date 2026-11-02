@@ -69,6 +69,10 @@ project.zip
 # CI 产物（deploy/ci/ci.sh 输出）
 ci-artifacts/
 
+# 电脑端运行时冒烟截图（本地生成，不入库）
+desktop-frontend/*.png
+
 # Isolated media and student evidence (never commit)
 private-media/
 private-verifications/
+private-feedback/

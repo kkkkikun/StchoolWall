@@ -113,6 +113,7 @@ def main() -> int:
     parser.add_argument("--dist", default=str(ROOT / "desktop-frontend" / "dist"))
     parser.add_argument("--port", type=int, default=8138)
     parser.add_argument("--api", default="http://64.188.23.179")
+    parser.add_argument("--bind", default="127.0.0.1")
     args = parser.parse_args()
 
     dist = pathlib.Path(args.dist)
@@ -127,11 +128,11 @@ def main() -> int:
         daemon_threads = True
         allow_reuse_address = True
 
-    httpd = ThreadedServer(("127.0.0.1", args.port), make_handler(dist, args.api))
+    httpd = ThreadedServer((args.bind, args.port), make_handler(dist, args.api))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
     errors: list[str] = []
-    base = f"http://127.0.0.1:{args.port}/pc/"
+    base = f"http://{args.bind}:{args.port}/pc/"
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()

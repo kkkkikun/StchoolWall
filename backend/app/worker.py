@@ -13,6 +13,7 @@ from app.services.moderation import (
     check_post_moderation, check_profile_moderation, ManualReviewRequired, ContentRejected,
 )
 from app.services.view_counters import flush_post_view_counters
+from app.services.hot_scores import HOT_SCORE_REFRESH_SECONDS, refresh_hot_scores
 
 logger = logging.getLogger(__name__)
 JOB_TIMEOUT_SECONDS = 120
@@ -84,6 +85,7 @@ async def run(once: bool = False) -> None:
         loop.add_signal_handler(signum, stop.set)
     last_cleanup = 0.0
     last_view_flush = 0.0
+    last_hot_score = 0.0
     while not stop.is_set():
         try:
             if time.monotonic() - last_cleanup >= CLEANUP_INTERVAL_SECONDS:
@@ -101,6 +103,16 @@ async def run(once: bool = False) -> None:
                 except Exception as exc:
                     logger.error("view counter flush failed error=%s", type(exc).__name__)
                 last_view_flush = time.monotonic()
+            if time.monotonic() - last_hot_score >= HOT_SCORE_REFRESH_SECONDS:
+                # 榜单预计算：推荐流的热度分按固定周期算好落表，读接口只做
+                # (score, id) 索引扫描（榜单过期时读接口自动退回实时计算）
+                try:
+                    async with async_session() as db:
+                        scored = await refresh_hot_scores(db)
+                    logger.info("hot scores refreshed posts=%s", scored)
+                except Exception as exc:
+                    logger.error("hot score refresh failed error=%s", type(exc).__name__)
+                last_hot_score = time.monotonic()
             worked = await run_once()
         except Exception as exc:
             logger.error("worker iteration failed error=%s", type(exc).__name__)

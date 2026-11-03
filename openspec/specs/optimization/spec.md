@@ -116,8 +116,12 @@
   - 踩坑：走查必须按 `/pc/` 前缀访问，且 **SPA 回退不能把缺失的静态资源回成 index.html**（会把 .js 请求变成 HTML，浏览器报解析错误被误判成真实缺陷）；另外电脑端的会话只在内存里，刷新页面要走刷新通道换回来，因此接口夹具必须记住「是否登录过」并在 `/auth/refresh` 上返回会话，走查才能验证「刷新后会话恢复」。
   - 负向验证：体积基线调小 30% → exit 1 并逐项指出超出的指标；把正文令牌改成低对比度色值 → 对比度门禁 exit 1。
 
-- **[优先级: 中] [新记录 2026-11-03]** 电脑端弱化文字、占位符与暗色品牌小字未达对比度规范
+- **[优先级: 中] [已完成 2026-11-03]** 电脑端弱化文字、占位符与暗色品牌小字未达对比度规范
 
   - 当前影响：`desktop-frontend/scripts/ui-contrast-audit.py` 首次客观扫描（亮/暗两套配色 × 四条关键路径）实测 80 处未达 4.5:1 的文字，全部属于**既有配色**而非新引入的缺陷：① 品牌色小字 37 处，最低 3.22:1（`--sw-primary` #c2455c 压暗色 `--sw-primary-soft` #341c22）—— `openspec/specs/frontend-ui/spec.md` 要求暗色下品牌小字用提亮的 `--primary-text` 令牌并在全部暗底上 ≥4.5:1，电脑端 `tokens.css` 尚无该令牌；② 弱化文字 31 处，最低 2.84:1（`--sw-text-muted` #8b949e 压 `--sw-bg` #f5f6f7）；③ Element Plus 默认色 11 处：占位符 #a8abb2 在白底仅 2.30:1（规范要求 ≥4.0:1）、禁用态 #a9a9a9 配白字仅 2.35:1、次要文字 #909399 仅 3.08:1。
   - 建议方案：按 `openspec/specs/frontend-ui/spec.md` 的既有阈值补令牌（暗色专属品牌文字令牌、收紧 `--sw-text-muted`、覆写 Element Plus 的 `--el-text-color-placeholder` / `--el-disabled-*`），并把对比度脚本里这几类从「观察项」升级为阻断项。**属配色决策，本次门禁建设未擅自改动**，先记录在案。
   - 验证方式：`cd desktop-frontend && python3 scripts/ui-contrast-audit.py` 退出码 0 且观察项归零；`python3 scripts/ui-walkthrough.py` 仍 19 项全 PASS、控制台错误 0 条。
+  - 已完成（2026-11-03）：按规范已写明的阈值补齐令牌并把门禁升级为阻断项 —— ① `tokens.css` 新增品牌小字令牌 `--sw-primary-text`（亮色 #ad3649 / 暗色 #e07087），品牌**填充**仍用 `--sw-primary`（与学生端 `--primary` / `--primary-text` 的分工一致），页底 / 卡片底 / 品牌浅底全部 ≥4.5:1；② 收紧 `--sw-text-muted`（亮色 #8b949e → #626d7a、暗色 #7d8792 → #8b949e），页底与卡片底均 ≥4.5:1（原最低 2.84:1）；③ 覆写 Element Plus 默认色：`--el-text-color-placeholder` / `--el-text-color-secondary` / `--el-text-color-disabled` / `--el-disabled-*` 全部取本仓库令牌，占位符白底 5.27:1、次要文字 6.39:1、禁用文字 5.27:1（禁用底 4.91:1），并补上语义色 success/warning/danger/info（默认色白底只有 2.0~3.1:1）；暗色下 `--el-color-primary` 提亮为 #e07087 承担品牌**文字**，实心主按钮与选中态单选按钮组的填充压深到 #b03e53 保证白字 5.74:1（与管理台 `theme.css` 的暗色口径一致）；④ `desktop-frontend/scripts/ui-contrast-audit.py` 把品牌色文字 / 弱化文字 / 次要文字 / 其他令牌 / 字面量色值 / 占位符六类由观察项升级为阻断项（阈值取自规范：正文 ≥4.5:1、占位符 ≥4.0:1、大字 ≥3:1，未放宽），并新增令牌级断言（品牌小字与弱化文字在各自底色、Element Plus 占位符/次要/禁用文字在卡片底与禁用底）。**实测：阻断项 0 条、观察项 0 条**（改前 80 条观察项）。
+  - 连带修掉的两处既有缺陷：① 首页轮播位的暗化层按「最亮底色」也压不到白字 4.5:1（实测 2.35:1），已把渐变暗化层调整为 `rgb(0 0 0 / 60%) → rgb(0 0 0 / 90%)`；② 品牌浅底 `--sw-primary-soft` 压品牌主色只有 4.34:1（Element Plus 的 plain 按钮与 plain 标签都落在这个底色上），已压到 #fdf6f7（4.58:1）。
+  - 负向验证：把 `--sw-text-muted` 改回 #8b949e → 对比度门禁 exit 1 并逐条指出「弱化文字 / 占位符未达标」；恢复后 exit 0。走查仍 19/19 PASS、控制台错误 0 条，体积基线按改后实际产物重定（CSS +1743 B raw / +272 B gzip，来自新增的令牌与覆写规则，JS 体积不变）。
+

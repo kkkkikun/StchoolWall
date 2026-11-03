@@ -12,7 +12,12 @@
   /* 品牌色：玫瑰红，与学生端 / 管理台同一套品牌 */
   --sw-primary: #c2455c;
   --sw-primary-strong: #a33649;
-  --sw-primary-soft: #fdeef0;
+  /* 品牌浅底压到品牌色文字也达 4.5:1（#c2455c 压 #fdf6f7 为 4.58:1）——
+     Element Plus 的 plain 按钮与 plain 标签都落在这个底色上 */
+  --sw-primary-soft: #fdf6f7;
+  /* 品牌色小字（链接 / 标签 / 选中态）专用令牌：填充仍用 --sw-primary，
+     小字用本令牌 —— 白底 6.18:1 / 浅粉底 5.79:1 / 页底 5.71:1（规范要求 ≥4.5:1） */
+  --sw-primary-text: #ad3649;
   --sw-accent: #b8860b;
   --sw-accent-soft: #fdf6e3;
 
@@ -24,7 +29,8 @@
   --sw-border-strong: #ccd2d6;
   --sw-text: #1f2328;
   --sw-text-secondary: #57606a;
-  --sw-text-muted: #8b949e;
+  /* 弱化文字：页底 4.87:1 / 卡底 5.27:1 / 品牌浅底 4.94:1（规范要求正文阈值 ≥4.5:1） */
+  --sw-text-muted: #626d7a;
 
   /* 语义色 */
   --sw-danger: #cf222e;
@@ -79,6 +85,22 @@
   --el-border-radius-base: var(--sw-radius-sm);
   --el-text-color-primary: var(--sw-text);
   --el-text-color-regular: var(--sw-text-secondary);
+  /* Element Plus 默认色在白底上不达规范，这里一律按令牌覆写：
+     次要文字 #909399 白底仅 3.08:1 → 6.39:1；占位符 #a8abb2 白底仅 2.30:1 → 5.27:1 */
+  --el-text-color-secondary: var(--sw-text-secondary);
+  --el-text-color-placeholder: var(--sw-text-muted);
+  --el-text-color-disabled: var(--sw-text-muted);
+  /* 禁用态：文字取弱化文字色，在页面底（5.27:1）与禁用填充底（4.91:1）上都达正文阈值 */
+  --el-disabled-text-color: var(--sw-text-muted);
+  --el-disabled-bg-color: #f5f7fa;
+  --el-disabled-border-color: var(--sw-border-strong);
+  /* Element Plus 语义色：默认 success/warning/danger/info 白底只有 2.0~3.1:1，
+     保持色相压深一档，正文与标签文字达 AA */
+  --el-color-success: #007a4d;
+  --el-color-warning: #a85b00;
+  --el-color-danger: #c93a3a;
+  --el-color-error: #c93a3a;
+  --el-color-info: #536471;
   --el-border-color: var(--sw-border);
   --el-border-color-light: var(--sw-border);
   --el-fill-color-blank: var(--sw-surface);
@@ -93,7 +115,12 @@
   --sw-border-strong: #3d454f;
   --sw-text: #e6edf3;
   --sw-text-secondary: #a9b3bd;
-  --sw-text-muted: #7d8792;
+  /* 弱化文字：深底 6.10:1 / 卡底 5.62:1 / 品牌浅粉底 5.11:1 */
+  --sw-text-muted: #8b949e;
+  /* 暗色下品牌小字必须提亮：深玫红在深底上只有 3.22~3.54:1 */
+  --sw-primary-text: #e07087;
+  /* 悬停态的品牌色：亮色更深、暗色更亮，两套配色都在各自底色上 ≥4.5:1 */
+  --sw-primary-strong: #e8849a;
   --sw-primary-soft: #341c22;
   --sw-accent-soft: #332a12;
   --sw-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
@@ -105,8 +132,64 @@
   --el-fill-color-light: var(--sw-surface-muted);
   --el-text-color-primary: var(--sw-text);
   --el-text-color-regular: var(--sw-text-secondary);
+  --el-text-color-secondary: var(--sw-text-secondary);
+  --el-text-color-placeholder: var(--sw-text-muted);
+  --el-text-color-disabled: var(--sw-text-muted);
+  --el-disabled-text-color: var(--sw-text-muted);
+  --el-disabled-bg-color: var(--sw-surface-muted);
+  --el-disabled-border-color: var(--sw-border-strong);
+  /* Element Plus 品牌色在暗色下提亮做文字/图标色：卡底 5.63:1 / 深底 6.11:1 */
+  --el-color-primary: #e07087;
+  --el-color-primary-light-3: #d45f74;
+  --el-color-primary-light-5: #b54a5d;
+  --el-color-primary-light-7: #8c3a49;
+  --el-color-primary-light-8: #6d2d39;
+  --el-color-primary-light-9: var(--sw-primary-soft);
+  --el-color-primary-dark-2: #d45f74;
+  /* 暗色下的语义色：深底上仍达正文阈值 */
+  --el-color-success: #3fd6a0;
+  --el-color-warning: #e0a33a;
+  --el-color-danger: #ff7a86;
+  --el-color-error: #ff7a86;
+  --el-color-info: var(--sw-text-secondary);
   --el-border-color: var(--sw-border);
   --el-border-color-light: var(--sw-border);
+}
+
+/* Element Plus 的 plain 主按钮：品牌色小字取品牌文字令牌
+   （默认取 --el-color-primary，压品牌浅底只有 4.58:1） */
+:root .el-button--primary.is-plain {
+  --el-button-text-color: var(--sw-primary-text);
+}
+
+/* 暗色下实心主按钮：填充压深，白字 5.74:1（浅玫瑰填充只有 3.07:1） */
+.theme-dark .el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-bg-color: #b03e53;
+  --el-button-hover-bg-color: #c2455c;
+  --el-button-active-bg-color: #9b374a;
+  --el-button-border-color: #b03e53;
+  --el-button-hover-border-color: #c2455c;
+  --el-button-active-border-color: #9b374a;
+  --el-button-text-color: #ffffff;
+  --el-button-hover-text-color: #ffffff;
+  --el-button-active-text-color: #ffffff;
+}
+
+/* 暗色下 plain 主按钮：底色保持品牌浅底，文字用提亮的品牌色；
+   悬停/按下态填充压深，白字 4.88:1 / 6.91:1 */
+.theme-dark .el-button--primary.is-plain {
+  --el-button-text-color: var(--sw-primary-text);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-bg-color: #c2455c;
+  --el-button-active-text-color: #ffffff;
+  --el-button-active-bg-color: #9b374a;
+}
+
+/* 暗色下选中态单选按钮组：填充同样压深，白字 5.74:1 */
+.theme-dark .el-radio-button {
+  --el-radio-button-checked-bg-color: #b03e53;
+  --el-radio-button-checked-border-color: #b03e53;
+  --el-radio-button-checked-text-color: #ffffff;
 }
 
 * {
@@ -131,7 +214,7 @@ body {
 }
 
 a {
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   text-decoration: none;
 }
 

@@ -24,7 +24,7 @@ const style = computed(() => ({ width: `${props.size}px`, height: `${props.size}
 <style scoped>
 .sw-avatar-fallback {
   background: var(--sw-primary-soft);
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 </style>

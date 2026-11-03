@@ -22,7 +22,7 @@ const router = useRouter()
   margin: 0;
   font-size: 56px;
   font-weight: 700;
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
 }
 
 .sw-notfound__text {

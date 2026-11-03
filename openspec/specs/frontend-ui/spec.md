@@ -79,6 +79,11 @@ TBD - created by archiving change frontend-redesign. Update Purpose after archiv
 - **WHEN** 渲染管理台（Element Plus）文字与输入框占位符
 - **THEN** 颜色一律取自 `admin-frontend/src/styles/theme.css` 令牌，不得回退到组件库默认色（默认占位符 `#a8abb2` 在白底上仅 2.30:1，必须覆写）；由 `admin-frontend/scripts/ui-walkthrough.py` 断言输入框占位符 ≥4.5:1
 
+#### Scenario: 电脑端同口径
+
+- **WHEN** 渲染电脑端（`desktop-frontend/`）的品牌小字、弱化文字、占位符与 Element Plus 组件
+- **THEN** 品牌小字取 `--sw-primary-text`（暗色下提亮，页底 / 卡片底 / 品牌浅底均 ≥4.5:1），弱化文字取 `--sw-text-muted`（≥4.5:1），Element Plus 的占位符 / 次要文字 / 禁用文字一律覆写（占位符 ≥4.0:1，其余 ≥4.5:1）；由 `desktop-frontend/scripts/ui-contrast-audit.py` 判定，**这些类别的不达标项为阻断项而非观察项**
+
 ### Requirement: 可点击控件最小点击区
 
 所有真实可点击控件 MUST 具备不小于 32×32px 的点击区，不得仅靠小图标本身承载点击。

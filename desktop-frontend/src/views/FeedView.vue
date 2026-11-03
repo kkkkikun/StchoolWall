@@ -167,8 +167,10 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--sw-space-2);
-  /* 图片上的文字要有暗化层，否则最坏情况对比度不达标 */
-  background: linear-gradient(transparent, rgb(0 0 0 / 65%));
+  /* 图片上的文字要有暗化层，否则最坏情况对比度不达标：
+     暗化层按「最亮底色」（页面浅灰底）也压到白字 ≥4.5:1 取值，
+     对比度门禁按渐变实际 alpha 合成后逐字判定 */
+  background: linear-gradient(rgb(0 0 0 / 60%), rgb(0 0 0 / 90%));
   color: #fff;
 }
 
@@ -210,7 +212,7 @@ onMounted(async () => {
 
 .sw-tabs__item.is-active {
   background: var(--sw-primary-soft);
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 

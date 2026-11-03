@@ -43,7 +43,8 @@
 - [x] 深色模式与对比度走查：新增 `desktop-frontend/scripts/ui-contrast-audit.py`，
       断言基于 `src/styles/tokens.css` 的令牌（不写死色值），覆盖亮/暗两套配色 × 四条关键路径；
       阻断项 0 条，既有设计差距（品牌色小字、弱化文字、Element Plus 默认占位符色）单列记录不阻断，
-      已接入 CI
+      已接入 CI（2026-11-03 补齐：品牌小字 / 弱化文字 / 占位符 / 其他令牌四类已由观察项升级为阻断项，
+      令牌补齐后观察项归零，阈值仍取规范值未放宽）
 - [x] 发布路径：`deploy/nginx.schoolwall.conf` 增加 `location /pc/`（alias 指向
       `/opt/schoolwall/current/web/pc/`），并同步到部署侧的服务器配置脚本
 - [x] 线上验收（2026-11-02）：主仓合并 cb9511d 后由手工发布上线，revision `cb9511d1cfb7`。

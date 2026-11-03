@@ -107,8 +107,17 @@
   - 建议方案：按 `docs/production/capacity.md` 建隔离库跑种子与 k6；镜像侧分两步 —— ① 仓库自控部分：**已完成 2026-11-02** —— `backend/Dockerfile` 的依赖安装层内在同一层移除镜像自带的 `setuptools`/`wheel` 并断言其不再存在（运行期不需要构建工具，`setuptools/_vendor` 内置的 `jaraco.context 5.3.0`、`wheel 0.45.1` 两条 HIGH 随之消失；未豁免、未改 severity、未改应用依赖版本；命令与环境见 `docs/production/verification.md`）；② 基础镜像的 46 条 HIGH 在 Debian 13 尚无修复版本，只能等上游发布安全更新后重建，或改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族 —— 后者属基础镜像族级变更，须走 `openspec/changes/` 提案与人工决策。独立安全复核需人工安排。
   - 验证方式：按 `docs/production/release-gates.md` 逐门禁保存提交、日期、环境、执行人、命令与原始报告，无证据一律保持未通过；镜像侧以 Production CI main 分支 image 作业的 Trivy 步骤退出码 0（0 HIGH / 0 CRITICAL）且导入冒烟仍打印 `built image imports and exports contract` 为准。
 
-- **[优先级: 中]** 电脑端 `desktop-frontend/` 的体积预算、浏览器走查与深色对比度未入门禁
+- **[优先级: 中] [已完成 2026-11-03]** 电脑端 `desktop-frontend/` 的体积预算、浏览器走查与深色对比度未入门禁
 
   - 当前影响：电脑端已接入 CI 的 type-check / node --test / build / `npm audit --audit-level=high`，接口漂移也已被契约守卫覆盖，但与另外两个前端相比仍缺三道门禁 —— ① **没有体积基线**：学生端有 `frontend/perf-baseline.json`、管理台有 `admin-frontend/bundle-baseline.json`，桌面端没有，依赖升级带来的主 chunk 膨胀不会被当场抓住（当前实测产物 752KB、主 chunk 361KB raw / 132KB gzip）；② **没有浏览器级走查脚本**：H5 与管理台的 UI 回归覆盖不到电脑端；③ **深色模式与对比度没有客观扫描**，亮/暗两套配色目前只有人工目视。
   - 建议方案：仿 `admin-frontend/scripts/bundle-budget-check.py` 新增 `desktop-frontend/scripts/bundle-budget-check.py`（基线 `desktop-frontend/bundle-baseline.json`），新增 `desktop-frontend/scripts/*-walkthrough.py`（Playwright，覆盖信息流 / 帖子详情 / 登录 / 发帖四条关键路径），两者接入 CI；深色与对比度断言沿用 `frontend/scripts/ui-contrast-audit.py` 的令牌化做法（断言基于令牌而非色值）。注意电脑端 base 是 `/pc/`，走查必须按该前缀访问，否则会走查失败（管理台曾因 `--base=/admin/` 不匹配导致 34 场景全挂）。
   - 验证方式：正常跑 exit 0；人为把基线调小 30% 即 exit 1 并指出超出的项；走查四条关键路径全 PASS 且 console 错误为 0；`openspec validate --specs` 通过。
+  - 已完成：新增三道门禁并接入 Production CI —— ① `desktop-frontend/scripts/bundle-budget-check.py` + 基线 `desktop-frontend/bundle-baseline.json`（按 2026-11-03 实际产物定，未放宽：主 chunk 370356 B raw / 134576 B gzip、全量 JS 571913 B raw / 214098 B gzip、全量产物 713864 B raw，容差沿用另外两个前端的 10%）；② `desktop-frontend/scripts/ui-walkthrough.py`（Playwright，19 项断言全 PASS、控制台错误 0 条，按 `/pc/` 前缀访问），配套抽出 `walkthrough_server.py`（静态服务 + 前缀剥离）与 `desktop_mock_api.py`（信封格式接口夹具，不含任何真实用户数据）；③ `desktop-frontend/scripts/ui-contrast-audit.py`（亮/暗两套配色 × 四条关键路径，断言基于 `src/styles/tokens.css` 的令牌：正文令牌 --sw-text 在页面底/卡片底 ≥4.5:1、白字压主色 ≥4.5:1、主色压亮底 ≥4.5:1、源码不得引用未定义令牌；实测阻断项 0 条）。新增单元测试 `scripts/tests/test_desktop_ci_gates.py`（19 项）随运维脚本回归一起跑。
+  - 踩坑：走查必须按 `/pc/` 前缀访问，且 **SPA 回退不能把缺失的静态资源回成 index.html**（会把 .js 请求变成 HTML，浏览器报解析错误被误判成真实缺陷）；另外电脑端的会话只在内存里，刷新页面要走刷新通道换回来，因此接口夹具必须记住「是否登录过」并在 `/auth/refresh` 上返回会话，走查才能验证「刷新后会话恢复」。
+  - 负向验证：体积基线调小 30% → exit 1 并逐项指出超出的指标；把正文令牌改成低对比度色值 → 对比度门禁 exit 1。
+
+- **[优先级: 中] [新记录 2026-11-03]** 电脑端弱化文字、占位符与暗色品牌小字未达对比度规范
+
+  - 当前影响：`desktop-frontend/scripts/ui-contrast-audit.py` 首次客观扫描（亮/暗两套配色 × 四条关键路径）实测 80 处未达 4.5:1 的文字，全部属于**既有配色**而非新引入的缺陷：① 品牌色小字 37 处，最低 3.22:1（`--sw-primary` #c2455c 压暗色 `--sw-primary-soft` #341c22）—— `openspec/specs/frontend-ui/spec.md` 要求暗色下品牌小字用提亮的 `--primary-text` 令牌并在全部暗底上 ≥4.5:1，电脑端 `tokens.css` 尚无该令牌；② 弱化文字 31 处，最低 2.84:1（`--sw-text-muted` #8b949e 压 `--sw-bg` #f5f6f7）；③ Element Plus 默认色 11 处：占位符 #a8abb2 在白底仅 2.30:1（规范要求 ≥4.0:1）、禁用态 #a9a9a9 配白字仅 2.35:1、次要文字 #909399 仅 3.08:1。
+  - 建议方案：按 `openspec/specs/frontend-ui/spec.md` 的既有阈值补令牌（暗色专属品牌文字令牌、收紧 `--sw-text-muted`、覆写 Element Plus 的 `--el-text-color-placeholder` / `--el-disabled-*`），并把对比度脚本里这几类从「观察项」升级为阻断项。**属配色决策，本次门禁建设未擅自改动**，先记录在案。
+  - 验证方式：`cd desktop-frontend && python3 scripts/ui-contrast-audit.py` 退出码 0 且观察项归零；`python3 scripts/ui-walkthrough.py` 仍 19 项全 PASS、控制台错误 0 条。

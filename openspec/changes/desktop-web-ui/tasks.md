@@ -33,11 +33,17 @@
 - [x] `npm run type-check` 无报错
 - [x] `npm test`（node --test）覆盖映射层与 HTTP 封装：17 项全绿
 - [x] `npx @fission-ai/openspec@1.4.1 validate --specs` 通过
-- [ ] 桌面端主 chunk 体积预算：新建 `desktop-frontend/bundle-baseline.json`，
-      并扩展 `frontend/scripts/perf-budget-check.py` 或新增独立预算脚本，接入 CI
-- [ ] 浏览器级 UI 回归：补 `desktop-frontend/scripts/*-walkthrough.py`（Playwright），
-      覆盖信息流、详情、登录、发帖四类关键路径
-- [ ] 深色模式与对比度走查：走查断言基于令牌而非色值，正文对比度 ≥4.5:1
+- [x] 桌面端主 chunk 体积预算：新增 `desktop-frontend/scripts/bundle-budget-check.py`，
+      基线 `desktop-frontend/bundle-baseline.json`（按 2026-11-03 实际产物定：主 chunk 370356 B raw /
+      134576 B gzip、全量产物 713864 B raw），接入 CI；负向验证：基线调小 30% 即 exit 1 并指出超出的项
+- [x] 浏览器级 UI 回归：新增 `desktop-frontend/scripts/ui-walkthrough.py`（Playwright，
+      覆盖信息流、帖子详情、登录、发帖四条关键路径，base 按 `/pc/` 访问），
+      配套 `desktop-frontend/scripts/walkthrough_server.py` 与 `desktop-frontend/scripts/desktop_mock_api.py`；
+      走查 19 项断言全 PASS、控制台错误 0 条，已接入 CI
+- [x] 深色模式与对比度走查：新增 `desktop-frontend/scripts/ui-contrast-audit.py`，
+      断言基于 `src/styles/tokens.css` 的令牌（不写死色值），覆盖亮/暗两套配色 × 四条关键路径；
+      阻断项 0 条，既有设计差距（品牌色小字、弱化文字、Element Plus 默认占位符色）单列记录不阻断，
+      已接入 CI
 - [x] 发布路径：`deploy/nginx.schoolwall.conf` 增加 `location /pc/`（alias 指向
       `/opt/schoolwall/current/web/pc/`），并同步到部署侧的服务器配置脚本
 - [x] 线上验收（2026-11-02）：主仓合并 cb9511d 后由手工发布上线，revision `cb9511d1cfb7`。

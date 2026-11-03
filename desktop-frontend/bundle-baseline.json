@@ -1,0 +1,20 @@
+{
+  "updated_at": "2026-11-03",
+  "tolerance": 0.1,
+  "note": "体积为字节数；gzip 口径为 gzip -9，与学生端、管理台同一算法；raw 口径为磁盘原始大小",
+  "bundle": {
+    "main_chunk_js_raw": 370356,
+    "main_chunk_js_gzip": 134576,
+    "main_chunk_css_raw": 61572,
+    "main_chunk_css_gzip": 8964,
+    "total_js_raw": 571913,
+    "total_js_gzip": 214098,
+    "total_css_raw": 141362,
+    "total_css_gzip": 25716,
+    "largest_js_raw": 370356,
+    "largest_js_gzip": 134576,
+    "dist_raw_bytes": 713864,
+    "js_count": 29,
+    "css_count": 21
+  }
+}

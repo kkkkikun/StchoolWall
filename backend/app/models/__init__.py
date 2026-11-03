@@ -1,5 +1,6 @@
 from app.models.user import User
 from app.models.post import Post
+from app.models.hot_score import PostHotScore, PostHotScoreState
 from app.models.view_counter import PostViewCounter
 from app.models.tag import Tag, PostTag
 from app.models.report import Report

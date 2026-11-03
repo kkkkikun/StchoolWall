@@ -1,10 +1,12 @@
 from sqlalchemy import select, func, and_, update, text, literal, tuple_
+from datetime import datetime, timedelta, timezone
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload, aliased
 
 from app.models.interaction import Favorite, Footprint, Like
+from app.models.hot_score import PostHotScore
 from app.models.post import Post
 from app.models.report import Report
 from app.models.tag import PostTag
@@ -14,6 +16,11 @@ from app.services.jobs import enqueue_job
 from app.services.blocks import visible_author
 from app.services.media import bind_media, media_url
 from app.services.view_counters import current_view_count, record_post_view
+from app.services.hot_scores import (
+    HOT_SCORE_STALE_SECONDS,
+    hot_score_expr,
+    hot_score_state,
+)
 
 # 微号披露允许的帖型：交易/拼车联系刚需，其余帖型不向其他学生返回 contact_wechat
 TRADE_POST_TYPES = {"second_hand", "carpool"}
@@ -22,13 +29,10 @@ TRADE_POST_TYPES = {"second_hand", "carpool"}
 def _hot_score(p: Post) -> any:
     """推荐热度分：互动加权 / 时间衰减（Reddit 式）。
 
-    - 分子 +1 保底：零互动新帖不被永久淹没，无互动时退化为近似时间序
-    - 分母 (发布小时 + 2)^1.2：好帖大约存活 1~2 天后自然沉底
-    - 权重与热帖榜（hot_posts）同源：like*3 + comment*2 + view*0.2
+    公式见 `app.services.hot_scores.hot_score_expr`（单一来源，预计算与实时
+    两条路径共用，保证推荐结果口径一致）。
     """
-    hours = func.extract("epoch", func.now() - p.created_at) / 3600.0
-    engagement = p.like_count * 3 + p.comment_count * 2 + p.view_count * 0.2 + 1
-    return engagement / func.power(hours + 2, 1.2)
+    return hot_score_expr(p)
 
 
 async def create_post(
@@ -69,6 +73,71 @@ async def create_post(
     return post
 
 
+def _leaderboard_fresh(state) -> bool:
+    """榜单是否新鲜可用（worker 正常时每分钟刷新一次）。"""
+    return (
+        state is not None
+        and state.computed_at is not None
+        and state.computed_at >= datetime.now(timezone.utc) - timedelta(seconds=HOT_SCORE_STALE_SECONDS)
+    )
+
+
+def _realtime_order(cursor: int | None, conditions: list) -> tuple:
+    """降级路径：按同一公式实时算热度分（榜单缺失或过期时）。"""
+    score = _hot_score(Post)
+    if cursor:
+        cur = aliased(Post)
+        cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
+        conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
+    return (score.desc(), Post.id.desc())
+
+
+async def _leaderboard_order(
+    db: AsyncSession, state, cursor: int | None, conditions: list,
+) -> tuple[tuple, bool]:
+    """榜单路径：热度分已算好落表，查询只做 (score, id) 索引扫描 + 键集分页。
+
+    返回 (排序子句, 是否需要 join 榜单表)；排序子句为空表示游标帖已不存在。
+    """
+    score = PostHotScore.score
+    if cursor:
+        cur_score = (await db.execute(
+            select(PostHotScore.score).where(PostHotScore.post_id == cursor)
+        )).scalar_one_or_none()
+        if cur_score is None:
+            # 游标帖不在榜单里（刚被隐藏/置顶/删除）：按同一公式、同一参考
+            # 时刻当场算一次，翻页不中断
+            cur_score = (await db.execute(
+                select(hot_score_expr(Post, state.computed_at)).where(Post.id == cursor)
+            )).scalar_one_or_none()
+        if cur_score is None:
+            return (), True
+        # 键集条件只用榜单表的 (score, post_id) 两列，行比较才能落成
+        # (score, post_id) 索引上的 Index Cond（跨表行比较只能当 Filter）
+        conditions.append(
+            tuple_(PostHotScore.score, PostHotScore.post_id)
+            < tuple_(literal(cur_score), literal(cursor))
+        )
+    return (score.desc(), Post.id.desc()), True
+
+
+async def _recommend_order(
+    db: AsyncSession, cursor: int | None, conditions: list,
+) -> tuple[tuple, bool]:
+    """推荐位的热度分排序条件。
+
+    榜单预计算可用时（worker 已把热度分算好落表）走 post_hot_scores 的
+    (score, id) 索引扫描；否则退回实时计算（worker 未运行或榜单过期时的降级
+    路径）。两条路径的排序口径完全一致。
+
+    返回 (排序子句, 是否需要 join 榜单表)。
+    """
+    state = await hot_score_state(db)
+    if not _leaderboard_fresh(state):
+        return _realtime_order(cursor, conditions), False
+    return await _leaderboard_order(db, state, cursor, conditions)
+
+
 async def list_posts(
     db: AsyncSession,
     cursor: int | None = None,
@@ -102,6 +171,7 @@ async def list_posts(
 
     # 普通帖子：游标分页
     conditions = [Post.post_type != "advertisement", Post.status == 1, visible_author(Post.user_id, viewer)]
+    precomputed = False
     # 推荐位置顶帖从主流排除（只在置顶块出现，防止翻页重复）
     if is_recommend:
         conditions.append(Post.is_pinned.is_(False))
@@ -115,27 +185,22 @@ async def list_posts(
         conditions.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
 
     if is_recommend:
-        # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id，
-        # 其得分在查询时按当前时间重算，对客户端透明）
-        score = _hot_score(Post)
-        if cursor:
-            cur = aliased(Post)
-            cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
-            conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
-        order_clause = (score.desc(), Post.id.desc())
+        # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id）
+        order_clause, use_leaderboard = await _recommend_order(db, cursor, conditions)
+        if not order_clause:
+            # 游标帖已不存在：没有可继续的排序位置
+            return [], None, False
     else:
         # 分类/类型流/最新流：保持最新在前
         if cursor:
             conditions.append(Post.id < cursor)
         order_clause = (Post.id.desc(),)
+        use_leaderboard = False
 
-    stmt = (
-        select(Post, User)
-        .join(User, Post.user_id == User.id)
-        .where(*conditions)
-        .order_by(*order_clause)
-        .limit(limit + 1)
-    )
+    stmt = select(Post, User).join(User, Post.user_id == User.id)
+    if use_leaderboard:
+        stmt = stmt.join(PostHotScore, PostHotScore.post_id == Post.id)
+    stmt = stmt.where(*conditions).order_by(*order_clause).limit(limit + 1)
     result = await db.execute(stmt)
     rows = result.all()
 

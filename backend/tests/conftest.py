@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -43,6 +44,9 @@ TestSession = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_com
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_database():
     async with test_engine.begin() as conn:
+        # 搜索收敛用到的 pg_trgm 扩展：GIN 索引的 gin_trgm_ops 操作符类依赖它
+        # （生产与迁移链同样由 Alembic 迁移创建，见 d7e8f9a0b123）
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
     yield
 

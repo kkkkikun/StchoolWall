@@ -237,6 +237,40 @@ soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superage
 4. **待人工**：专用压测服务器与生产等价拓扑、真实 COS/审核联调、真实成本核算仍需人工安排。推荐流的全表扫描长尾已于 2026-11-03 收敛（搜索改 `pg_trgm` GIN 索引、推荐流改榜单预计算，Alembic 迁移 `d7e8f9a0b123`；隔离环境实测推荐流 109.478ms → 0.893ms、搜索 90.854ms → 0.504ms，burst 读 p95 355.07ms → 23.59ms，数值与代价见 `docs/production/capacity.md`）；剩余的人工决策项是**预计算周期**（本次取 60 秒）与 `pg_trgm` 扩展的引入。
 
 
+## G3 容量复测（2026-11-03，推荐流纳入压测口径后）
+
+本节记录**把推荐流 `/api/v1/posts`（不带 `order`，学生端默认首屏）纳入 k6 场景配比后**的 burst 复测。`openspec/specs/optimization/spec.md`「帖子列表类查询的全表扫描」条目记录的遗留：推荐流此前从未进入压测流量，容量证据缺这一条。环境与上一节同一专用隔离环境（容器化 PostgreSQL 15 / Redis 7），**未接触生产域名、真实学生数据、开发库或生产 Redis**；本轮**只改压测脚本与文档，未改后端代码**。
+
+### 环境与命令
+
+| 项 | 值 |
+|---|---|
+| 代码版本 | 分支 `agent/add-feed-load-scenario-03a2d6476442`（PR #38），应用镜像 `schoolwall-loadtest:local` 与 PR #36 合并后的代码一致 |
+| 宿主 / 工具 | KVM 虚拟机 / Ubuntu 24.04.5；k6 v0.57.0；脚本 = 本工单工作树的 `scripts/load/campus.js` |
+| 数据库 / 缓存 | PostgreSQL 15.14（容器 `swload-pg`，端口 55433，专用库 `schoolwall_loadtest`）/ Redis 7.4.7（容器 `swload-redis`，端口 6399，逻辑库 13） |
+| 数据集 | **同一隔离实例**：10000 用户 / 100000 帖（95000 可见 + 5000 待审）/ 580121 评论（种子 50 万 + 历轮压测评论累积，未重建库）；`post_hot_scores` 95000 行 |
+| 口径变化 | 既有七项场景权重与相对比例不变（45/25/10/7/6/4/3），只新增推荐流权重 10，循环长度 100→110 ⇒ 推荐流有效占比 9.1%；脚本新增按场景分列的 `scenario_<name>_count` / `scenario_<name>_duration` |
+| 发压命令 | `ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http://127.0.0.1:8000 PROFILE=burst RATE=200 DURATION=5m k6 run scripts/load/campus.js` |
+| 执行计划取证 | 捕获应用真实执行的语句后 `EXPLAIN (ANALYZE, BUFFERS)`（隔离容器内 Python 3.11 + 仓库锁定依赖） |
+
+### 判定
+
+| 项 | 结果 |
+|---|---|
+| burst 200req/s × 5 分钟 | `2026-11-03T21:30:50Z → 21:35:54Z`，实际 **199.893 req/s**（60000 次迭代）、读 p50/p95/p99 = 9.83ms / **23.26ms** / 33.58ms、写 p50/p95/p99 = 8.84ms / **18.37ms** / 31.62ms、业务成功率 **99.887%**（429 **68 次**单列后）、5xx **0 次**、dropped iterations **0** —— **通过** |
+| 推荐流路径实测延迟 | p50 **11.45ms** / p95 **18.19ms** / p99 27.75ms / 最大 151.77ms（5450 次请求，占 9.08%） |
+| 推荐流执行计划 | `Index Only Scan Backward using ix_post_hot_scores_rank on post_hot_scores` → `Index Scan using posts_pkey` → `Memoize` → `Index Scan using users_pkey`，**Execution Time 0.860ms**，**无全表 Seq Scan、单次 < 50ms**（收敛前为 Parallel Seq Scan → Sort，109.478ms / 662.276ms） |
+| 压测窗口内数据库证据 | 行锁等待（`log_lock_waits`）**0 次**；>500ms 慢语句 **5 条，全部是 worker 每约 63 秒一次的榜单刷新**（2742.062 / 2729.218 / 2692.669 / 2759.936 / 2725.793 ms），**无一条是用户请求路径** |
+
+**G3 判定**：G3 仍为通过，容量证据新增「推荐流在压测流量内」这一条；数值与判定见 `docs/production/capacity.md` 与 `docs/production/release-gates.md` 的 G3 行。
+
+### 本地已验与仍待 CI 判定
+
+- 本地已验：`python3 -m unittest discover -s scripts/tests`（新增 `scripts/tests/test_load_campus_mix.py` 5 项全绿；`test_proxy_headers` 因本机无 uvicorn 无法导入，其余 49 项全绿，与上一轮相同）；k6 脚本语法检查（`node --check`）通过。
+- **后端用例套件、迁移链与 API 契约由 Production CI 判定**（本机无 PostgreSQL/Redis）；本工单未改后端代码与迁移，接口面不变。
+- `openspec validate --specs` 由 Production CI 判定（本机未安装 openspec CLI）；本工单只改了 `openspec/specs/optimization/spec.md` 里与推荐流压测口径、G3 状态相关的**记录性文字**，未增删需求条目、未改任何 requirement。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

@@ -20,6 +20,31 @@ const rejected = new Counter('expected_rate_rejections');
 const serverErrors = new Rate('server_errors');
 const readDuration = new Trend('read_duration', true);
 const writeDuration = new Trend('write_duration', true);
+// 每个场景各自的请求数与时延，便于按路径归因容量证据（推荐流是学生端默认首屏）。
+function makeScenarioMetrics(names) {
+  const metrics = {};
+  for (const name of names) {
+    metrics[name] = {
+      count: new Counter('scenario_' + name + '_count'),
+      duration: new Trend('scenario_' + name + '_duration', true),
+    };
+  }
+  return metrics;
+}
+const scenarioMetrics = makeScenarioMetrics([
+  'feed', 'post_detail', 'hot', 'search', 'like', 'unlike', 'comment', 'unread', 'recommend_feed',
+]);
+// 场景权重（循环长度 110）：既有七项的权重与相对比例完全不变（最新流 45、详情 25、
+// 热榜 10、搜索 7、赞/取消 6、评论 4、未读 3，合计 100），只新增推荐流 10
+// （/api/v1/posts 不带 order，学生端默认首屏）⇒ 推荐流有效占比 10/110 = 9.1%。
+const MIX_TOTAL = 110;
+const MIX_FEED = 45;
+const MIX_DETAIL = 70;
+const MIX_HOT = 80;
+const MIX_SEARCH = 87;
+const MIX_LIKE = 93;
+const MIX_COMMENT = 97;
+const MIX_UNREAD = 100;
 export const options = {
   scenarios: { campus: { executor:'constant-arrival-rate', rate, duration, timeUnit:'1s',
     preAllocatedVUs:Number(__ENV.VUS || 100), maxVUs:Number(__ENV.MAX_VUS || 500) } },
@@ -44,6 +69,11 @@ function send(method,path,body,token,name) {
   if (r.status === 429) rejected.add(1);
   serverErrors.add(r.status >= 500 && r.status < 600);
   (method === 'GET' ? readDuration : writeDuration).add(r.timings.duration);
+  const scenario = scenarioMetrics[name];
+  if (scenario) {
+    scenario.count.add(1);
+    scenario.duration.add(r.timings.duration);
+  }
   check(r, {'successful business response': x => x.status>=200 && x.status<300});
   return r;
 }
@@ -52,15 +82,16 @@ export default function () {
   const token = accounts[sequence % accounts.length].token;
   const hot = Math.random() < 0.8;
   const id = hot ? ids[0] : ids[Math.floor(Math.random()*ids.length)];
-  const kind = sequence % 100;
-  if(kind < 45) send('GET','/api/v1/posts?limit=20&order=time',null,token,'feed');
-  else if(kind < 70) send('GET','/api/v1/posts/'+id,null,token,'post_detail');
-  else if(kind < 80) send('GET','/api/v1/posts/hot',null,token,'hot');
-  else if(kind < 87) send('GET','/api/v1/posts/search?q=course',null,token,'search');
-  else if(kind < 93) {
+  const kind = sequence % MIX_TOTAL;
+  if(kind < MIX_FEED) send('GET','/api/v1/posts?limit=20&order=time',null,token,'feed');
+  else if(kind < MIX_DETAIL) send('GET','/api/v1/posts/'+id,null,token,'post_detail');
+  else if(kind < MIX_HOT) send('GET','/api/v1/posts/hot',null,token,'hot');
+  else if(kind < MIX_SEARCH) send('GET','/api/v1/posts/search?q=course',null,token,'search');
+  else if(kind < MIX_LIKE) {
     if ((Math.floor(sequence / accounts.length) + sequence % 2) % 2 === 0) send('POST','/api/v1/posts/'+id+'/like',{},token,'like');
     else send('DELETE','/api/v1/posts/'+id+'/like',null,token,'unlike');
-  } else if(kind < 97) send('POST','/api/v1/posts/'+id+'/comments',{content:'Synthetic nonproduction campus load '+sequence},token,'comment');
-  else send('GET','/api/v1/notifications/unread-summary',null,token,'unread');
+  } else if(kind < MIX_COMMENT) send('POST','/api/v1/posts/'+id+'/comments',{content:'Synthetic nonproduction campus load '+sequence},token,'comment');
+  else if(kind < MIX_UNREAD) send('GET','/api/v1/notifications/unread-summary',null,token,'unread');
+  else send('GET','/api/v1/posts?limit=20',null,token,'recommend_feed');
   sleep(Math.random()*0.2);
 }

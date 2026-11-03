@@ -73,6 +73,53 @@ async def create_post(
     return post
 
 
+async def _recommend_order(
+    db: AsyncSession, cursor: int | None, conditions: list,
+) -> tuple[tuple, bool]:
+    """推荐位的热度分排序条件。
+
+    榜单预计算可用时（worker 已把热度分算好落表）走 post_hot_scores 的
+    (score, id) 索引扫描 + 键集分页；否则退回实时计算（worker 未运行或榜单
+    过期时的降级路径）。两条路径的排序口径完全一致。
+
+    返回 (排序子句, 是否需要 join 榜单表)；排序子句为空表示游标帖已不存在。
+    """
+    state = await hot_score_state(db)
+    fresh = (
+        state is not None
+        and state.computed_at is not None
+        and state.computed_at >= datetime.now(timezone.utc) - timedelta(seconds=HOT_SCORE_STALE_SECONDS)
+    )
+    if not fresh:
+        score = _hot_score(Post)
+        if cursor:
+            cur = aliased(Post)
+            cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
+            conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
+        return (score.desc(), Post.id.desc()), False
+
+    score = PostHotScore.score
+    if cursor:
+        cur_score = (await db.execute(
+            select(PostHotScore.score).where(PostHotScore.post_id == cursor)
+        )).scalar_one_or_none()
+        if cur_score is None:
+            # 游标帖不在榜单里（刚被隐藏/置顶/删除）：按同一公式、同一参考
+            # 时刻当场算一次，翻页不中断
+            cur_score = (await db.execute(
+                select(hot_score_expr(Post, state.computed_at)).where(Post.id == cursor)
+            )).scalar_one_or_none()
+        if cur_score is None:
+            return (), False
+        # 键集条件只用榜单表的 (score, post_id) 两列，行比较才能落成
+        # (score, post_id) 索引上的 Index Cond（跨表行比较只能当 Filter）
+        conditions.append(
+            tuple_(PostHotScore.score, PostHotScore.post_id)
+            < tuple_(literal(cur_score), literal(cursor))
+        )
+    return (score.desc(), Post.id.desc()), True
+
+
 async def list_posts(
     db: AsyncSession,
     cursor: int | None = None,
@@ -120,54 +167,20 @@ async def list_posts(
         conditions.append(Post.content.ilike(f"%#{escape_like(tag_text)}%"))
 
     if is_recommend:
-        # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id，
-        # 其得分在查询时按当前时间重算，对客户端透明）
-        #
-        # 榜单预计算可用时（worker 已把热度分算好落表）走 post_hot_scores 的
-        # (score, id) 索引扫描；否则退回实时计算（worker 未运行或榜单过期），
-        # 两条路径的排序口径完全一致。
-        state = await hot_score_state(db)
-        precomputed = (
-            state is not None
-            and state.computed_at is not None
-            and state.computed_at >= datetime.now(timezone.utc) - timedelta(seconds=HOT_SCORE_STALE_SECONDS)
-        )
-        if precomputed:
-            score = PostHotScore.score
-            if cursor:
-                cur_score = (await db.execute(
-                    select(PostHotScore.score).where(PostHotScore.post_id == cursor)
-                )).scalar_one_or_none()
-                if cur_score is None:
-                    # 游标帖不在榜单里（刚被隐藏/置顶/删除）：按同一公式、同一参考
-                    # 时刻当场算一次，翻页不中断
-                    cur_score = (await db.execute(
-                        select(hot_score_expr(Post, state.computed_at)).where(Post.id == cursor)
-                    )).scalar_one_or_none()
-                if cur_score is None:
-                    return [], None, False
-                # 键集条件只用榜单表的 (score, post_id) 两列，行比较才能落成
-                # (score, post_id) 索引上的 Index Cond（跨表行比较只能当 Filter）
-                conditions.append(
-                    tuple_(PostHotScore.score, PostHotScore.post_id)
-                    < tuple_(literal(cur_score), literal(cursor))
-                )
-            order_clause = (score.desc(), Post.id.desc())
-        else:
-            score = _hot_score(Post)
-            if cursor:
-                cur = aliased(Post)
-                cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
-                conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
-            order_clause = (score.desc(), Post.id.desc())
+        # 推荐位：热度分排序 + (score, id) 键集分页（游标仍是上一页末条 id）
+        order_clause, use_leaderboard = await _recommend_order(db, cursor, conditions)
+        if not order_clause:
+            # 游标帖已不存在：没有可继续的排序位置
+            return [], None, False
     else:
         # 分类/类型流/最新流：保持最新在前
         if cursor:
             conditions.append(Post.id < cursor)
         order_clause = (Post.id.desc(),)
+        use_leaderboard = False
 
     stmt = select(Post, User).join(User, Post.user_id == User.id)
-    if is_recommend and precomputed:
+    if use_leaderboard:
         stmt = stmt.join(PostHotScore, PostHotScore.post_id == Post.id)
     stmt = stmt.where(*conditions).order_by(*order_clause).limit(limit + 1)
     result = await db.execute(stmt)

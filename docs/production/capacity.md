@@ -335,3 +335,58 @@ PostgreSQL 日志把「尾部变慢」定位到了语句级：
 - **计数一致性与任务恢复报告：通过**（全库不一致帖数 0；租约过期 ≤2.1 秒被重新领取；连续失败 5 次进入死信）。
 - **G3**：三个场景全部达标、必需证据齐备 —— `docs/production/release-gates.md` 的 G3 行据实更新为通过；同机基线不是生产容量承诺，生产等价拓扑与成本核算仍需人工安排。
 
+
+## 2026-11-03 隔离环境复测（帖子列表类查询的扫描面收敛后）
+
+本节记录 `openspec/specs/optimization/spec.md`「帖子列表类查询的全表扫描」条目的复测：**同一 k6 脚本、同一数据集、同一隔离实例**前后对比 —— 改前 = 迁移 `d7e8f9a0b123` 已回退（索引与榜单表都不存在）且镜像是改前代码；改后 = 迁移已应用且镜像是改后代码。
+
+### 隔离边界与环境
+
+| 项 | 值 |
+|---|---|
+| 数据库 | 隔离库 `schoolwall_loadtest` @ `127.0.0.1:55433`（PostgreSQL 15.14；`shared_buffers` 512MB、`work_mem` 16MB、`max_parallel_workers_per_gather` 2、`log_min_duration_statement` 500ms、`log_lock_waits` on） |
+| 数据 | `scripts/load/seed.py` 的纯合成数据：10000 用户 / 100000 帖（95000 可见 + 5000 待审）/ 575501 评论，**无真实学生数据** |
+| 应用 | `schoolwall-loadtest:local` 镜像，API 4 worker 进程 + 后台 worker，只监听 `127.0.0.1:8000` |
+| 发压 | k6 v0.57.0，`scripts/load/campus.js`，burst = 200 req/s × 5 分钟，账号取隔离运行目录里未过期的测试 token（不入库、不进制品） |
+
+### SQL 执行计划（`EXPLAIN (ANALYZE, BUFFERS)`，同一实例前后对比）
+
+| 语句 | 改前计划 / 耗时 | 改后计划 / 耗时 |
+|---|---|---|
+| 推荐流 `/api/v1/posts`（无 `order`，首页 21 条） | **Parallel Seq Scan**（posts 31,667 行）→ Sort → Hash Join，**109.478ms** | **Index Only Scan Backward**（`ix_post_hot_scores_rank`）→ `posts_pkey` → `users_pkey`，**0.893ms** |
+| 推荐流翻页（键集 `(score, id)`） | 同上（全表扫描 + 排序），109.478ms | **Index Cond: `ROW(score, post_id) < ROW(...)`** + Index Only Scan Backward，**0.821ms** |
+| 搜索 `/api/v1/posts/search?q=course` | **Parallel Seq Scan** → Hash Join → Sort，**90.854ms** | **Index Scan Backward**（`ix_posts_featured_id`，`ILIKE` 作为行过滤），**0.504ms** |
+| 搜索（稀有词 `q=#99333`） | 同上（全表扫描 + 排序），90.854ms | **Bitmap Index Scan**（`ix_posts_content_trgm`）→ Bitmap Heap Scan，**0.548ms** |
+
+改前数值取自同一实例、把迁移回退后用同一份 SQL 实测；改后数值取自**应用真实执行的那条语句**（捕获 SQL 后再 EXPLAIN）。**两条路径都不再出现全表 Seq Scan，单次耗时均 < 50ms**（原为 109.478ms / 90.854ms）。
+
+> 注：合成数据的帖子正文都是 `synthetic campus loadtest <hash> #N course book study activity`，`q=course` 命中 95000/95000 行，属于**非选择性**查询 —— 这种查询本来就要读遍全部命中行，靠 `(is_featured, id)` 复合索引「取到 21 条即停」比全表扫描更快；选择性更高的查询（`q=#99333`）则由 `pg_trgm` GIN 索引收敛。真实场景的搜索词绝大多数是选择性的。
+
+### burst 复测（200 req/s × 5 分钟，同一脚本同一数据集）
+
+| 指标 | 改前 | 改后 | 接受条件 | 判定 |
+|---|---|---|---|---|
+| 实际速率 | 199.67 req/s（60001 次迭代） | **199.89 req/s**（60001 次迭代） | 200 req/s | 通过 |
+| 读 p50 / p95 / p99 / max | 11.81ms / **355.07ms** / 403.69ms / 507.98ms | **9.59ms / 23.59ms / 34.18ms / 161.43ms** | p95 ≤ 500ms | **通过**（p95 −93%） |
+| 写 p50 / p95 / p99 / max | 10.73ms / 23.92ms / 37.49ms / 181.33ms | **9.22ms / 18.39ms / 30.05ms / 141.77ms** | p95 ≤ 800ms | 通过 |
+| 业务成功率（429 单列后） | 99.85%（90 次 429） | **99.85%**（90 次 429） | > 99% | 通过 |
+| 5xx | 0 | **0** | < 0.1% | 通过 |
+| HTTP 失败率 | 0.00% | **0.00%** | < 1% | 通过 |
+| dropped iterations | 0 | **0** | 0 | 通过 |
+| >500ms 慢语句（PostgreSQL 日志） | 0 | **0** | — | 无恶化 |
+| 行锁等待（`log_lock_waits`） | 0 | **0** | 0 | 通过 |
+
+**尾延迟归因（可复现）**：k6 脚本里 7% 的流量打搜索（`q=course`），改前这条路径每次都做一次全表扫描。用 `pgbench` 复现同一并发（14 个并发客户端 = 200 req/s × 7%）：
+
+| 搜索语句 | 平均延迟 | 吞吐 |
+|---|---|---|
+| 改前计划（强制顺序扫描，等价于改前无索引） | **126.169ms** | 110.96 tps |
+| 改后计划（索引扫描） | **0.972ms** | 14399.63 tps |
+
+也就是说，改前搜索路径在全表扫描时单条要 126ms（单线程 EXPLAIN 是 90.854ms，并发下互相抢 CPU 与缓冲进一步放大），它把读 p95 抬到 355ms；改后同一路径降到 1ms 以内，读 p95 随之降到 **23.59ms**。k6 脚本不含推荐流（不带 `order`），推荐流这条路径的收益见上文的执行计划（109.478ms → 0.893ms），补进压测口径是下一条派活项。
+
+### 榜单预计算的代价（如实记录）
+
+- 一次刷新（10 万帖、95000 个候选）实测 **2.873s**：95,000 行 upsert + 过期行清理 + 状态行更新，一个事务内完成，读接口只会看到上一轮或新一轮榜单；
+- 周期 60s ⇒ 约 **4.8%** 的单核占用与 95000 行/分钟的写入放大（合成数据集；真实单校规模远小于此）。周期是可调参数，取值属人工决策项；
+- 榜单表刻意不加到 `posts.id` 的外键（同 `post_view_counters` 的取舍：外键检查会对 posts 行取 KEY SHARE 锁）。

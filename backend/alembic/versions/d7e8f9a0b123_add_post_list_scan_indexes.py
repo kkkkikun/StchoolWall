@@ -54,7 +54,7 @@ def upgrade() -> None:
     op.create_index("ix_post_hot_scores_rank", "post_hot_scores", ["score", "post_id"], unique=False)
     op.create_table(
         'post_hot_score_state',
-        sa.Column('id', sa.SmallInteger(), nullable=False),
+        sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('computed_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('post_count', sa.Integer(), nullable=False, server_default='0'),
         sa.PrimaryKeyConstraint('id'),

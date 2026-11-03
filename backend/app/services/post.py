@@ -146,7 +146,12 @@ async def list_posts(
                     )).scalar_one_or_none()
                 if cur_score is None:
                     return [], None, False
-                conditions.append(tuple_(score, Post.id) < tuple_(literal(cur_score), literal(cursor)))
+                # 键集条件只用榜单表的 (score, post_id) 两列，行比较才能落成
+                # (score, post_id) 索引上的 Index Cond（跨表行比较只能当 Filter）
+                conditions.append(
+                    tuple_(PostHotScore.score, PostHotScore.post_id)
+                    < tuple_(literal(cur_score), literal(cursor))
+                )
             order_clause = (score.desc(), Post.id.desc())
         else:
             score = _hot_score(Post)

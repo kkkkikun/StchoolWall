@@ -1,5 +1,9 @@
 {
-  "current": {},
+  "current": {
+    "id": "backlog-009",
+    "title": "给电脑端 desktop-frontend 补齐体积预算、浏览器走查与深色对比度三道门禁",
+    "brief": "openspec/specs/optimization/spec.md 的「电脑端 desktop-frontend/ 的体积预算、浏览器走查与深色对比度未入门禁」条目记录着：与另外两个前端相比，电脑端缺三道门禁 —— ① 没有体积基线（学生端有 frontend/perf-baseline.json、管理台有 admin-frontend/bundle-baseline.json，桌面端没有），依赖升级带来的主 chunk 膨胀不会被当场抓住（当前实测产物 752KB、主 chunk 361KB raw / 132KB gzip）；② 没有浏览器级走查脚本，H5 与管理台的 UI 回归覆盖不到电脑端；③ 深色模式与对比度没有客观扫描，亮/暗两套配色目前只有人工目视。\n\n目标：按该条目已写明的建议方案补齐三道门禁并接入 CI ——\n① 仿 admin-frontend/scripts/bundle-budget-check.py 新增 desktop-frontend/scripts/bundle-budget-check.py，基线 desktop-frontend/bundle-baseline.json 按当前实际产物定（产物 752KB、主 chunk 361KB raw / 132KB gzip）；\n② 新增 desktop-frontend/scripts/*-walkthrough.py（Playwright，覆盖信息流 / 帖子详情 / 登录 / 发帖四条关键路径），结构仿管理台的走查脚本；\n③ 新增 desktop-frontend/scripts/ui-contrast-audit.py，沿用 frontend/scripts/ui-contrast-audit.py 的令牌化做法（断言基于令牌而非色值），覆盖亮/暗两套配色。\n\n边界：不新增产品功能、不重新设计视觉方向、不改架构决策 —— CLAUDE.md、openspec/specs/rules/spec.md 与各域 spec 就是规范本身，偏离它们就是错的。电脑端 base 是 /pc/，走查必须按该前缀访问，否则会走查失败（管理台曾因 --base=/admin/ 不匹配导致 34 场景全挂）。对比度断言必须基于令牌，不得写死色值。体积基线按当前实际产物定，不得为了通过而把基线放宽。新增脚本接入 CI，与电脑端既有的 type-check / node --test / build / npm audit 并列。按仓库惯例走 openspec/changes/ 提案流程并为新增脚本补测试覆盖。\n\n验证方式（取自 openspec/specs/optimization/spec.md 同一条目的「验证方式」）：三个脚本正常跑 exit 0；人为把体积基线调小 30% 即 exit 1 并指出超出的项；走查四条关键路径全 PASS 且 console 错误为 0；openspec validate --specs 通过。\n\n交付：每个条目一个 PR，说明改了什么、怎么验证的、还需要 CI 确认什么；按本部署的合并策略自己合并；完成后把 .agent/dispatch-queue.json 的 current 推进到下一条具体项并随该 PR 提交。"
+  },
   "history": [
     {
       "id": "backlog-007",

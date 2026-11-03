@@ -73,31 +73,32 @@ async def create_post(
     return post
 
 
-async def _recommend_order(
-    db: AsyncSession, cursor: int | None, conditions: list,
-) -> tuple[tuple, bool]:
-    """推荐位的热度分排序条件。
-
-    榜单预计算可用时（worker 已把热度分算好落表）走 post_hot_scores 的
-    (score, id) 索引扫描 + 键集分页；否则退回实时计算（worker 未运行或榜单
-    过期时的降级路径）。两条路径的排序口径完全一致。
-
-    返回 (排序子句, 是否需要 join 榜单表)；排序子句为空表示游标帖已不存在。
-    """
-    state = await hot_score_state(db)
-    fresh = (
+def _leaderboard_fresh(state) -> bool:
+    """榜单是否新鲜可用（worker 正常时每分钟刷新一次）。"""
+    return (
         state is not None
         and state.computed_at is not None
         and state.computed_at >= datetime.now(timezone.utc) - timedelta(seconds=HOT_SCORE_STALE_SECONDS)
     )
-    if not fresh:
-        score = _hot_score(Post)
-        if cursor:
-            cur = aliased(Post)
-            cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
-            conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
-        return (score.desc(), Post.id.desc()), False
 
+
+def _realtime_order(cursor: int | None, conditions: list) -> tuple:
+    """降级路径：按同一公式实时算热度分（榜单缺失或过期时）。"""
+    score = _hot_score(Post)
+    if cursor:
+        cur = aliased(Post)
+        cur_score = select(_hot_score(cur)).where(cur.id == cursor).scalar_subquery()
+        conditions.append(tuple_(score, Post.id) < tuple_(cur_score, literal(cursor)))
+    return (score.desc(), Post.id.desc())
+
+
+async def _leaderboard_order(
+    db: AsyncSession, state, cursor: int | None, conditions: list,
+) -> tuple[tuple, bool]:
+    """榜单路径：热度分已算好落表，查询只做 (score, id) 索引扫描 + 键集分页。
+
+    返回 (排序子句, 是否需要 join 榜单表)；排序子句为空表示游标帖已不存在。
+    """
     score = PostHotScore.score
     if cursor:
         cur_score = (await db.execute(
@@ -110,7 +111,7 @@ async def _recommend_order(
                 select(hot_score_expr(Post, state.computed_at)).where(Post.id == cursor)
             )).scalar_one_or_none()
         if cur_score is None:
-            return (), False
+            return (), True
         # 键集条件只用榜单表的 (score, post_id) 两列，行比较才能落成
         # (score, post_id) 索引上的 Index Cond（跨表行比较只能当 Filter）
         conditions.append(
@@ -118,6 +119,23 @@ async def _recommend_order(
             < tuple_(literal(cur_score), literal(cursor))
         )
     return (score.desc(), Post.id.desc()), True
+
+
+async def _recommend_order(
+    db: AsyncSession, cursor: int | None, conditions: list,
+) -> tuple[tuple, bool]:
+    """推荐位的热度分排序条件。
+
+    榜单预计算可用时（worker 已把热度分算好落表）走 post_hot_scores 的
+    (score, id) 索引扫描；否则退回实时计算（worker 未运行或榜单过期时的降级
+    路径）。两条路径的排序口径完全一致。
+
+    返回 (排序子句, 是否需要 join 榜单表)。
+    """
+    state = await hot_score_state(db)
+    if not _leaderboard_fresh(state):
+        return _realtime_order(cursor, conditions), False
+    return await _leaderboard_order(db, state, cursor, conditions)
 
 
 async def list_posts(

@@ -96,3 +96,24 @@ SHALL 支持亮/暗双模式，且暗色模式只覆写令牌不改结构。
 - **WHEN** 仓库流水线运行 Production CI
 - **THEN** 电脑端 SHALL 依次执行类型检查、单元测试、构建与依赖高危审计
 - **AND** 发布制品 SHALL 包含 `web/pc/` 目录
+
+#### Scenario: 产物体积预算门禁
+
+- **WHEN** 电脑端构建产物比入库基线 `desktop-frontend/bundle-baseline.json` 超出容差
+- **THEN** `desktop-frontend/scripts/bundle-budget-check.py` SHALL 以非零退出码失败
+- **AND** 该脚本 SHALL 指出超出的具体指标
+- **AND** 基线 SHALL 按实际产物设定，SHALL NOT 为了通过而放宽
+
+#### Scenario: 浏览器级走查门禁
+
+- **WHEN** 仓库流水线运行 Production CI
+- **THEN** 电脑端 SHALL 执行 `desktop-frontend/scripts/ui-walkthrough.py`
+- **AND** 该脚本 SHALL 按部署前缀 `/pc/` 访问信息流、帖子详情、登录、发帖四条关键路径
+- **AND** 走查 SHALL 断言控制台错误为 0，任何未通过项 SHALL 触发非零退出码
+
+#### Scenario: 深色与对比度门禁
+
+- **WHEN** 仓库流水线运行 Production CI
+- **THEN** 电脑端 SHALL 执行 `desktop-frontend/scripts/ui-contrast-audit.py`，覆盖亮色与暗色两套配色
+- **AND** 对比度判定 SHALL 基于 `desktop-frontend/src/styles/tokens.css` 的令牌与实测对比度，SHALL NOT 写死色值
+- **AND** 正文对比度低于 4.5:1 时 SHALL 以非零退出码失败

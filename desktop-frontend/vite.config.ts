@@ -33,7 +33,7 @@ export default defineConfig({
     },
   },
   build: {
-    // 电脑端首屏预算与体积门禁由 scripts/perf-budget-check.py 复核
+    // 电脑端首屏预算与体积门禁由 scripts/bundle-budget-check.py 复核
     chunkSizeWarningLimit: 700,
   },
 })

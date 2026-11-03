@@ -122,10 +122,14 @@ jobs:
         run: python3 frontend/scripts/perf-budget-check.py
       - name: Admin bundle performance budget
         run: python3 admin-frontend/scripts/bundle-budget-check.py
+      - name: Desktop bundle performance budget
+        run: python3 desktop-frontend/scripts/bundle-budget-check.py
       - name: Browser-level UI regression
         env:
           # 管理台按 --base=/admin/ 出制品（nginx location /admin/），走查须同前缀访问
           ADMIN_BASE_PREFIX: /admin
+          # 电脑端按 --base=/pc/ 出制品（nginx location /pc/），走查须同前缀访问
+          DESKTOP_BASE_PREFIX: /pc
         run: |
           python3 -m pip install playwright
           python3 -m playwright install --with-deps chromium
@@ -147,6 +151,12 @@ jobs:
             python3 "scripts/$s.py"
             echo "::endgroup::"
           done
+          cd ../desktop-frontend
+          for s in ui-walkthrough; do
+            echo "::group::desktop-frontend/scripts/$s.py"
+            python3 "scripts/$s.py"
+            echo "::endgroup::"
+          done
       - name: Objective UI defect audit
         run: |
           python3 scripts/preview.py web --port 8080 > /tmp/preview.log 2>&1 &
@@ -159,6 +169,9 @@ jobs:
           python3 frontend/scripts/external-request-check.py --base-url http://127.0.0.1:8080
           # 顺带采集运行时首屏指标（FCP/DCL/LCP）写进体积预算报告，仅供横向比较、不拦截
           python3 frontend/scripts/perf-budget-check.py --base-url http://127.0.0.1:8080
+      - name: Desktop objective UI contrast audit
+        # 电脑端亮/暗两套配色的客观扫描：断言基于 tokens.css 的令牌，不写死色值
+        run: python3 desktop-frontend/scripts/ui-contrast-audit.py
       - name: Package verified web and contract artifacts
         run: |
           ARTIFACT_DIR="$RUNNER_TEMP/verified-release"

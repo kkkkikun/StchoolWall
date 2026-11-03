@@ -222,6 +222,6 @@ onMounted(async () => {
 
 .sw-publish__add:hover {
   border-color: var(--sw-primary);
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
 }
 </style>

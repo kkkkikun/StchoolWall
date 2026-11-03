@@ -127,7 +127,7 @@ onMounted(load)
 
 .sw-tabs__item.is-active {
   background: var(--sw-primary-soft);
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 

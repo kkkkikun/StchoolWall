@@ -14,10 +14,13 @@
 1. 源码引用了未定义的令牌；
 2. 正文令牌在页面底 / 卡片底上的对比度 < 4.5:1（亮暗两套配色都要）；
 3. 白字压品牌主色 < 4.5:1，或品牌主色压亮色卡片底 < 4.5:1；
-4. 运行时扫描里**正文角色**的可见文字对比度 < 4.5:1（大字 ≥3:1）。
+4. 品牌文字令牌、弱化文字令牌在各自底色上的对比度 < 4.5:1；
+5. Element Plus 的占位符 < 4.0:1、次要文字 < 4.5:1、禁用文字 < 4.5:1；
+6. 运行时扫描里**任何可见文字**（正文、品牌色文字、次要/弱化文字、其他令牌、字面量色值）
+   的对比度 < 4.5:1（大字 ≥3:1），占位符 < 4.0:1。
 
-不阻断但会记录的问题（既有设计差距，改配色属设计决策，不在门禁脚本里偷改）：
-品牌色小字、次要/弱化文字、字面量色值、占位符、图片底文字。
+不阻断但会记录的问题：只有照片底上的文字 —— 底色由后台下发、无法客观合成，
+按最坏情况（纯白）取下界后仍不达标才记为观察项。
 
 用法：
     cd desktop-frontend && python3 scripts/ui-contrast-audit.py
@@ -40,8 +43,9 @@ BODY_MIN = 4.5      # 正文
 LARGE_MIN = 3.0      # 大字
 PLACEHOLDER_MIN = 4.0  # 占位符
 
-# 品牌色相关令牌：按 frontend 的既有口径单列计数，不阻断
-BRAND_TOKENS = ('--sw-primary', '--sw-primary-strong', '--sw-primary-soft')
+# 品牌色相关令牌：按 frontend 的既有口径单列计数
+BRAND_TOKENS = ('--sw-primary', '--sw-primary-strong', '--sw-primary-soft',
+                '--sw-primary-text', '--el-color-primary')
 
 # 扫描的页面：与走查脚本一致的四条关键路径
 PAGES = [
@@ -354,8 +358,16 @@ def undefined_token_references(src_dir, tokens):
 
 
 def token_level_findings(tokens):
-    """令牌级的对比度断言：正文底色、白字压主色、主色压亮底。"""
+    """令牌级的对比度断言。
+
+    覆盖正文、品牌文字、弱化文字与 Element Plus 的默认色覆写：
+    每个令牌都要在自己会出现的底色上达到规范阈值（正文 ≥4.5:1、占位符 ≥4.0:1）。
+    """
     findings = []
+
+    def add(mode, issue, detail):
+        findings.append({'mode': mode, 'issue': issue, 'detail': detail})
+
     for mode in MODES:
         toks = tokens[mode]
         body = as_hex(resolve(toks, '--sw-text'))
@@ -365,29 +377,74 @@ def token_level_findings(tokens):
                 continue
             ratio = contrast(body, bg)
             if ratio < BODY_MIN:
-                findings.append({
-                    'mode': mode, 'issue': f'正文令牌 --sw-text 压 {bg_name} 仅 {ratio:.2f}:1',
-                    'detail': f'{body} on {bg}',
-                })
+                add(mode, f'正文令牌 --sw-text 压 {bg_name} 仅 {ratio:.2f}:1',
+                    f'{body} on {bg}')
         primary = as_hex(resolve(toks, '--sw-primary'))
         if primary:
             ratio = contrast('#ffffff', primary)
             if ratio < BODY_MIN:
-                findings.append({
-                    'mode': mode, 'issue': f'白字压品牌主色 --sw-primary 仅 {ratio:.2f}:1',
-                    'detail': f'#ffffff on {primary}',
-                })
+                add(mode, f'白字压品牌主色 --sw-primary 仅 {ratio:.2f}:1',
+                    f'#ffffff on {primary}')
+
+        # 品牌文字令牌与弱化文字令牌：页底 / 卡片底 / 次级面 / 品牌浅底都要达正文阈值
+        for token_name, bgs in (
+            ('--sw-primary-text', ('--sw-bg', '--sw-surface', '--sw-surface-muted', '--sw-primary-soft')),
+            ('--sw-text-muted', ('--sw-bg', '--sw-surface', '--sw-surface-muted')),
+        ):
+            fg = as_hex(resolve(toks, token_name))
+            if not fg:
+                continue
+            for bg_name in bgs:
+                bg = as_hex(resolve(toks, bg_name))
+                if not bg:
+                    continue
+                ratio = contrast(fg, bg)
+                if ratio < BODY_MIN:
+                    add(mode, f'{token_name} 压 {bg_name} 仅 {ratio:.2f}:1', f'{fg} on {bg}')
+
+        # Element Plus 默认色覆写：占位符 ≥4.0:1，次要/禁用文字 ≥4.5:1
+        surface = as_hex(resolve(toks, '--sw-surface'))
+        placeholder = as_hex(resolve(toks, '--el-text-color-placeholder'))
+        if placeholder and surface:
+            ratio = contrast(placeholder, surface)
+            if ratio < PLACEHOLDER_MIN:
+                add(mode, f'占位符 --el-text-color-placeholder 压卡片底仅 {ratio:.2f}:1',
+                    f'{placeholder} on {surface}')
+        for token_name in ('--el-text-color-secondary', '--el-disabled-text-color'):
+            fg = as_hex(resolve(toks, token_name))
+            if not fg or not surface:
+                continue
+            ratio = contrast(fg, surface)
+            if ratio < BODY_MIN:
+                add(mode, f'{token_name} 压卡片底仅 {ratio:.2f}:1', f'{fg} on {surface}')
+        disabled_text = as_hex(resolve(toks, '--el-disabled-text-color'))
+        disabled_bg = as_hex(resolve(toks, '--el-disabled-bg-color'))
+        if disabled_text and disabled_bg:
+            ratio = contrast(disabled_text, disabled_bg)
+            if ratio < BODY_MIN:
+                add(mode, f'--el-disabled-text-color 压禁用底仅 {ratio:.2f}:1',
+                    f'{disabled_text} on {disabled_bg}')
+
     light = tokens['light']
     primary = as_hex(resolve(light, '--sw-primary'))
     surface = as_hex(resolve(light, '--sw-surface'))
     if primary and surface:
         ratio = contrast(primary, surface)
         if ratio < BODY_MIN:
-            findings.append({
-                'mode': 'light', 'issue': f'品牌主色 --sw-primary 压亮色卡片底仅 {ratio:.2f}:1',
-                'detail': f'{primary} on {surface}',
-            })
+            add('light', f'品牌主色 --sw-primary 压亮色卡片底仅 {ratio:.2f}:1',
+                f'{primary} on {surface}')
     return findings
+
+
+def verdict(ratio, need, over_image=False):
+    """判定一次实测对比度的归属。
+
+    品牌色文字 / 弱化文字 / 次要文字 / 其他令牌 / 字面量色值 / 占位符 一律阻断；
+    只有照片底上的文字无法客观合成底色，记为观察项。
+    """
+    if ratio >= need:
+        return 'pass'
+    return 'observation' if over_image else 'blocking'
 
 
 def classify(color, tokens, index):
@@ -469,22 +526,34 @@ def main():
                             'font_size': round(fs, 1),
                         }
                         if ratio < need:
-                            if role == '正文':
-                                blocking.append({'kind': '正文对比度', 'issue':
-                                    f"{key}：正文 {token}={item['color']} 压底 {item['bg']} 仅 {ratio:.2f}:1",
-                                    'detail': item['text']})
+                            record['over_image'] = item['overImage']
+                            if verdict(ratio, need, item['overImage']) == 'blocking':
+                                blocking.append({
+                                    'kind': f'{role}对比度',
+                                    'issue': (f"{key}：{role} {token or '字面量色值'}={item['color']}"
+                                              f" 压底 {item['bg']} 仅 {ratio:.2f}:1（需 {need}:1）"),
+                                    'detail': item['text'],
+                                })
                             else:
-                                observations.append(dict(record, kind=f'{role}未达标'))
+                                observations.append(dict(record, kind='图片底文字未达标'))
                     for item in result['placeholders']:
                         ratio = contrast(item['color'], item['bg'])
                         if ratio < PLACEHOLDER_MIN:
-                            observations.append({
-                                'page': key, 'role': '占位符', 'token': None,
-                                'text': item['placeholder'], 'cls': item['tag'],
-                                'color': item['color'], 'bg': item['bg'],
-                                'ratio': round(ratio, 2), 'need': PLACEHOLDER_MIN,
-                                'font_size': 0, 'kind': '占位符未达标',
-                            })
+                            if verdict(ratio, PLACEHOLDER_MIN) == 'blocking':
+                                blocking.append({
+                                    'kind': '占位符对比度',
+                                    'issue': (f"{key}：占位符 {item['color']} 压底 {item['bg']}"
+                                              f" 仅 {ratio:.2f}:1（需 {PLACEHOLDER_MIN}:1）"),
+                                    'detail': item['placeholder'],
+                                })
+                            else:
+                                observations.append({
+                                    'page': key, 'role': '占位符', 'token': None,
+                                    'text': item['placeholder'], 'cls': item['tag'],
+                                    'color': item['color'], 'bg': item['bg'],
+                                    'ratio': round(ratio, 2), 'need': PLACEHOLDER_MIN,
+                                    'font_size': 0, 'kind': '占位符未达标',
+                                })
                     print(f'   {key}: 文字 {len(result["texts"])} 个、占位符 {len(result["placeholders"])} 个')
                 context.close()
             browser.close()

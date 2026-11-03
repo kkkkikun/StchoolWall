@@ -133,12 +133,12 @@ const imageCount = computed(() => props.post.images.length)
 }
 
 .sw-post__price {
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 
 .sw-post__tag {
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
 }
 
 .sw-post__counts {

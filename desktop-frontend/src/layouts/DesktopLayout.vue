@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
 }
 
 .sw-header__link.router-link-active {
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 
@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
 
 .sw-rail__item.is-active {
   background: var(--sw-primary-soft);
-  color: var(--sw-primary);
+  color: var(--sw-primary-text);
   font-weight: 600;
 }
 

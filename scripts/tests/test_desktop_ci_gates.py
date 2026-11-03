@@ -122,6 +122,81 @@ class ContrastAuditTests(unittest.TestCase):
         self.assertEqual(name, '--sw-text')
         self.assertEqual(role, '正文')
 
+    def test_brand_text_token_exists_in_both_modes(self):
+        for mode in ('light', 'dark'):
+            self.assertIn('--sw-primary-text', self.tokens[mode])
+            self.assertNotEqual(self.tokens[mode]['--sw-primary-text'],
+                                self.tokens[mode]['--sw-primary'],
+                                '品牌小字必须与填充色分开，暗色下要提亮')
+
+    def test_brand_text_token_reaches_body_threshold_on_every_surface(self):
+        surfaces = ('--sw-bg', '--sw-surface', '--sw-surface-muted', '--sw-primary-soft')
+        for mode in ('light', 'dark'):
+            toks = self.tokens[mode]
+            fg = self.mod.as_hex(self.mod.resolve(toks, '--sw-primary-text'))
+            for name in surfaces:
+                bg = self.mod.as_hex(self.mod.resolve(toks, name))
+                self.assertGreaterEqual(
+                    self.mod.contrast(fg, bg), self.mod.BODY_MIN,
+                    f'{mode} 的 --sw-primary-text 压 {name} 未达正文阈值')
+
+    def test_muted_text_token_reaches_body_threshold(self):
+        for mode in ('light', 'dark'):
+            toks = self.tokens[mode]
+            fg = self.mod.as_hex(self.mod.resolve(toks, '--sw-text-muted'))
+            for name in ('--sw-bg', '--sw-surface', '--sw-surface-muted'):
+                bg = self.mod.as_hex(self.mod.resolve(toks, name))
+                self.assertGreaterEqual(
+                    self.mod.contrast(fg, bg), self.mod.BODY_MIN,
+                    f'{mode} 的 --sw-text-muted 压 {name} 未达正文阈值')
+
+    def test_element_plus_defaults_are_overridden(self):
+        for mode in ('light', 'dark'):
+            toks = self.tokens[mode]
+            surface = self.mod.as_hex(self.mod.resolve(toks, '--sw-surface'))
+            placeholder = self.mod.as_hex(self.mod.resolve(toks, '--el-text-color-placeholder'))
+            secondary = self.mod.as_hex(self.mod.resolve(toks, '--el-text-color-secondary'))
+            disabled = self.mod.as_hex(self.mod.resolve(toks, '--el-disabled-text-color'))
+            self.assertGreaterEqual(self.mod.contrast(placeholder, surface),
+                                    self.mod.PLACEHOLDER_MIN,
+                                    f'{mode} 的占位符未达 4.0:1')
+            self.assertGreaterEqual(self.mod.contrast(secondary, surface), self.mod.BODY_MIN,
+                                    f'{mode} 的次要文字未达正文阈值')
+            self.assertGreaterEqual(self.mod.contrast(disabled, surface), self.mod.BODY_MIN,
+                                    f'{mode} 的禁用文字未达正文阈值')
+
+    def test_broken_brand_text_token_is_blocked(self):
+        broken = {'light': dict(self.tokens['light']), 'dark': dict(self.tokens['dark'])}
+        broken['dark']['--sw-primary-text'] = '#c2455c'
+        findings = self.mod.token_level_findings(broken)
+        self.assertTrue(findings)
+        self.assertTrue(any('--sw-primary-text' in item['issue'] for item in findings))
+
+    def test_broken_muted_token_is_blocked(self):
+        broken = {'light': dict(self.tokens['light']), 'dark': dict(self.tokens['dark'])}
+        broken['light']['--sw-text-muted'] = '#8b949e'
+        findings = self.mod.token_level_findings(broken)
+        self.assertTrue(findings)
+        self.assertTrue(any('--sw-text-muted' in item['issue'] for item in findings))
+
+    def test_broken_placeholder_token_is_blocked(self):
+        broken = {'light': dict(self.tokens['light']), 'dark': dict(self.tokens['dark'])}
+        broken['light']['--el-text-color-placeholder'] = '#a8abb2'
+        findings = self.mod.token_level_findings(broken)
+        self.assertTrue(findings)
+        self.assertTrue(any('占位符' in item['issue'] for item in findings))
+
+    def test_unmet_text_contrast_is_blocking_not_observation(self):
+        for role in ('品牌色文字', '弱化文字', '次要文字', '其他令牌', '字面量色值'):
+            self.assertEqual(self.mod.verdict(3.2, 4.5), 'blocking',
+                             f'{role} 不达标必须是阻断项')
+        self.assertEqual(self.mod.verdict(4.6, 4.5), 'pass')
+        self.assertEqual(self.mod.verdict(3.2, 4.0), 'blocking',
+                         '占位符不达标必须是阻断项')
+
+    def test_only_photo_background_stays_observation(self):
+        self.assertEqual(self.mod.verdict(3.2, 4.5, over_image=True), 'observation')
+
 
 class WalkthroughServerTests(unittest.TestCase):
     """走查静态服务的部署前缀处理。"""

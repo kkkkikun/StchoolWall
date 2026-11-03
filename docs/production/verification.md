@@ -437,7 +437,105 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 4. **告警真实到达并被确认**：未演练（无真实告警通道，也没有值班人确认记录）。
 5. **真实发布窗口**：演练用的是本地构建的镜像标签，**不是 `ghcr.io` 的不可变 digest 制品**；`scripts/rollout.sh`（要求 manifest 里的 ghcr digest + `shared/release-gates.json` 的 `production_approved` 审批）与 GitHub production environment 的 required reviewers 都没走到。因此 `openspec/changes/production-multiplatform/tasks.md` 第 29 行「真实发布/回滚/完整恢复，证明RPO/RTO」**保持未勾选**。
 6. **相同制品预发布**：本次是同一份代码在隔离环境「部署 → 回滚」，未做「相同 digest 制品在预发布与生产各跑一遍并比对」的比对。
-7. **第 24 行「目标环境杀worker、审核中断、Redis/DB故障演练」**：本工单未执行（G3 容量演练已留证 worker 租约过期重新领取与死信路径，但杀 worker、审核中断、Redis/DB 故障演练未做），**保持未勾选**。
+7. **第 24 行「目标环境杀worker、审核中断、Redis/DB故障演练」**：本工单未执行（G3 容量演练已留证 worker 租约过期重新领取与死信路径，但杀 worker、审核中断、Redis/DB 故障演练未做），**保持未勾选**。**该行已于 2026-11-03 的故障注入演练中取得隔离环境证据，见下一节「G2 可靠性：隔离环境故障注入演练」；但演练环境仍是隔离环境而非目标环境，真实告警送达与人工确认仍属人工安排，故该行按既有口径保持未勾选。**
+
+本工单未改后端代码、迁移与 API 契约；后端全量用例、迁移链与 API 契约由 **Production CI** 判定。
+
+
+## G2 可靠性：隔离环境故障注入演练（2026-11-03，专用隔离环境）
+
+本节是**发布门禁 G2「故障恢复」项的故障注入取证**。环境为仓库外的专用隔离目录（容器化 PostgreSQL 15.14 / Redis 7.4.7，即 k6 压测所用的同一套实例），**未接触生产域名、生产实例、开发库、生产 Redis 或真实学生数据**；演练数据全部是合成的。
+
+演练范围：**杀后台 worker → 任务租约过期后被重新领取 → 连续失败 5 次进入死信 dead**、**审核供应商中断（超时/失败）→ 内容保持待审、旧决定不被覆盖、重试按退避生效**、**Redis 与 PostgreSQL 故障 → `/health/ready` 返回 503、写入不产生半成品数据、恢复后自动回到可用**。**不包含**真实告警送达与人工确认、真实目标环境演练、审核供应商真实额度/费用验证（这些需要真实基础设施与人工安排，见本节末「剩余缺口」）。
+
+隔离守卫：演练数据落在**独立库 `schoolwall_drill_loadtest`**（库名带 `_loadtest` 后缀，仓库自带 `scripts/load/seed.py` 的 `validate_target` 只允许向 `*_loadtest` 库播种）与**独立 Redis 逻辑库 15**；k6 压测用的 `schoolwall_loadtest` 库与 Redis 逻辑库 13 **全程未被写入**。演练脚本在仓库外隔离目录 `/home/kikun/loadenv2/drill/failure`，不进仓库。
+
+### 环境
+
+| 项 | 值 |
+|---|---|
+| 数据库 | PostgreSQL 15.14 容器 `swload-pg`（宿主端口 55433），演练库 `schoolwall_drill_loadtest` |
+| 缓存 | Redis 7.4.7 容器 `swload-redis`（宿主端口 6399），演练逻辑库 15 |
+| 演练应用 | 独立容器 `drill-api`（`127.0.0.1:8011`，2 个 uvicorn worker）与 `drill-worker`（`python -m app.worker`），与 k6 压测容器 `swload-api`/`swload-worker` 并存但库与 Redis 逻辑库互不重叠 |
+| 镜像 | `schoolwall-loadtest:local`（由仓库 `backend/Dockerfile` 构建，代码与本工单 HEAD 的 `backend/` 逐文件一致，已用 `diff -rq` 核对） |
+| 数据集 | 合成数据：20 用户 / 100 帖（`scripts/load/seed.py`，带 `ALLOW_SYNTHETIC_LOAD_SEED=YES_ISOLATED_DATABASE` 守卫） |
+| 审核供应商隔离 | 演练容器注入一对**占位用的假审核凭证**（`TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY`，值只存在于隔离目录的环境变量里，不入库不入日志），并用 `--add-host` 把 `tms.tencentcloudapi.com` 与 `ims.tencentcloudapi.com` 指向 RFC5737 黑洞地址 `192.0.2.1` —— **任何审核调用都不出网、不触达真实供应商**，只会在本机超时失败 |
+| 演练脚本位置 | 仓库外隔离目录 `/home/kikun/loadenv2/drill/failure`（不进仓库）；下文给出命令原文，可原样复现 |
+
+### 1）杀后台 worker → 租约过期后被重新领取 → 连续失败 5 次进入死信 `dead`
+
+方法：先停掉 worker 让审核任务停在 `pending`，再启动 worker 并**在任务被领取的瞬间 `SIGKILL` 容器**（`docker kill --signal=KILL`，容器退出码 **137**），随后重启 worker，观察租约（`LEASE_SECONDS = 180`）过期后任务被重新领取。
+
+| 项 | 实测值 |
+|---|---|
+| 任务被领取时刻 | `2026-11-03T23:11:25Z`（`attempts=1`，`lease_until=2026-11-03 23:14:25.515029+00`） |
+| worker 被强杀时刻 | `2026-11-03T23:11:25Z`（`docker kill --signal=KILL drill-worker`，容器 `Exited (137)`） |
+| 杀 worker 后任务状态 | 仍为 `running` / `attempts=1`，**租约未过期，任务不丢**（`db_now=2026-11-03 23:11:25.871271`） |
+| worker 恢复时刻 | `2026-11-03T23:11:25Z`（`docker start drill-worker`） |
+| **租约过期后被重新领取时刻** | `2026-11-03T23:14:26.141Z`，`attempts` **1 → 2**，新 `lease_until=23:17:25.962934+00` |
+| **租约重新领取耗时** | **0.626 秒**（租约到期 `23:14:25.515029Z` → 重新领取 `23:14:26.141Z`；worker 主循环每轮空闲等待 1 秒，领取在下一轮即发生） |
+| 连续失败后进入死信 | `attempts` 依次 1→2→3→4→**5**，`status=dead`，`last_error=ModerationRetry`（`2026-11-03T23:09:39Z` 那条任务与 `23:17:22Z` 那条任务同样走到 `dead`） |
+| 死信条数（演练结束） | `jobs` 表 `status=dead` 共 **4 条**（均为审核供应商不可达导致的 `ModerationRetry`，`attempts=5/5`） |
+
+退避实测（同一任务的相邻两次失败间隔，`available_at - 上次失败时刻`）：**2 秒 → 4 秒 → 8 秒 → 16 秒**，与 `services/jobs.py` 的 `2 ** attempts`（上限 300 秒）一致。
+
+演练期间内容**始终保持待审**：被强杀与被重试的帖子 `posts.status` 全程为 **0**，从未被误放行为公开内容。
+
+### 2）审核中断（供应商超时/失败）→ 内容保持待审、旧决定不被覆盖、重试按退避生效
+
+方法：审核供应商在演练容器内被指向黑洞地址（见上表），因此每次审核调用都会**超时约 15 秒**后失败（容器内实测 `provider error: ModerationProviderError after 15.09 s`，`check_text` 返回 `verdict=error reason=provider_unavailable`）。容器环境确认 `MODERATION_FAIL_OPEN=false`。
+
+| 项 | 实测值 |
+|---|---|
+| 单次审核调用失败耗时 | **15.09 秒**（SDK `reqTimeout=15` 到点抛 `ModerationProviderError`） |
+| 任务重试轨迹 | `attempts` 0→1→2→3→4→**5**，`last_error=ModerationRetry`，`2026-11-03T23:17:22.643Z` 进入 `dead` |
+| **退避间隔实测** | **2 秒 → 4 秒 → 8 秒 → 16 秒**（`available_at` 依次 `23:15:40.209208` → `23:16:13.287780` → `23:16:36.330334` → `23:17:07.396351`） |
+| **内容保持待审** | 供应商全程不可达的帖子 `posts.status` 始终为 **0**；`visible_in_public_feed`（`status=1` 才公开）计数为 **0** —— 故障期间内容**不公开** |
+| 审核记录不写脏数据 | `moderation_records` 表在供应商连续失败的整个窗口内**新增 0 行**（失败路径只落 `jobs.last_error`，不写审核判定） |
+| 旧决定不被覆盖（人工先决定） | 隔离演练账号经**真实管理台接口** `PUT /api/v1/admin/posts/{id}/status?status=1` 把待审帖（`post_id=106`）过审为 `status=1`（此时该帖的机器审核记录数为 **0**）；随后恢复 worker，它领取该帖的任务并按本地硬敏感词给出 `reject` 判定 —— **帖子 `status` 仍为 1**（`updated_at` 未变），`moderation_records` 里**没有补写与人工决定冲突的判定行**，任务记为 `succeeded`。**RESULT: PASS** |
+| 人工决定留痕 | 管理台审计日志 `GET /api/v1/admin/logs` 记录 `action=post.status target_type=post target_id=106 detail={'new_status': 1}` |
+| 旧决定不被覆盖（机器先决定后人工改判） | 已过审帖（`post_id=2`）被补投一个审核任务，worker 处理后帖子 `status` 仍为 **1**，任务 `succeeded` |
+
+### 3）Redis 与 PostgreSQL 故障 → `/health/ready` 返回 503、写入不产生半成品数据、恢复后自动回到可用
+
+方法：直接停止与 k6 压测同一套专用实例的容器（`docker stop swload-redis` / `docker stop swload-pg`），观察就绪探针与写路径，再启动容器观察自动恢复。
+
+| 项 | Redis 故障 | PostgreSQL 故障 |
+|---|---|---|
+| 故障注入时刻 | `2026-11-03T23:18:25Z` | `2026-11-03T23:18:28Z` |
+| **`/health/ready` 状态码** | **503**（耗时 0.013633 秒，body `{"status":"unavailable","revision":"development"}`） | **503**（耗时 0.005658 秒，body 同上） |
+| `/health/live` 状态码 | **200**（存活探针与就绪探针分离正确） | **200** |
+| 故障期间写路径 | **HTTP 503**，body `{"code":503,"message":"安全校验服务暂时不可用，请稍后重试",...}`（Redis 限流依赖不可达，命中 `redis_error` 处理器） | **HTTP 500**，body `{"code":500,"message":"服务暂时不可用",...}` |
+| **故障期间是否出现半成品数据** | **否**：`posts/jobs/comments/media_assets/moderation_records` 计数 `103\|4\|0\|0\|0` 与故障前**逐项一致** | **否**：写路径在连接层就失败，未落任何行；恢复后计数 `104\|5\|0\|0\|0`，增量恰为恢复后正常写入的 1 帖 + 1 任务 |
+| 恢复时刻 | `2026-11-03T23:18:28Z`（`docker start swload-redis`） | `2026-11-03T23:18:32Z`（`docker start swload-pg`） |
+| **恢复时间（故障注入 → 就绪恢复 200）** | **3.88 秒** | **4.45 秒** |
+| worker 侧表现 | — | 容器日志连续记录 `ERROR:__main__:worker iteration failed error=ConnectionRefusedError` —— **任务不丢、不误判成功**，恢复后继续处理 |
+
+**诚实记录的观察到的异常**：PostgreSQL 完全不可达时，写路径返回的是 **500**（`{"code":500,"message":"服务暂时不可用"}`，API 日志 `event=unhandled_error`）而不是与 Redis 故障一致的 **503**。根因已定位：连接被拒时抛出的 `ConnectionRefusedError` 是 `OSError` 子类，**不是 `SQLAlchemyError`**，因此 `app/main.py` 的 `database_error` 处理器（返回 503「数据服务暂时不可用」）没有接住它，最终落到兜底的 `unhandled_error` 500 分支。就绪探针不受影响（`/health/ready` 仍正确返回 503），写入也仍未产生半成品数据，因此**不构成数据正确性问题**，但**错误码语义不一致（依赖不可用报 500 而非 503）**，且 500 会被计入 5xx 错误预算。该项属**新发现的代码缺陷**，按仓库既有约定不擅自改动生产代码，已如实记录在此并留待人工决定是否修复（见下方「剩余缺口」第 8 条）。演练期间未修改任何后端代码。
+
+### 汇总数值
+
+| 项 | 实测值 | 口径与限制 |
+|---|---|---|
+| 杀 worker 后租约重新领取耗时 | **0.626 秒** | 租约 `LEASE_SECONDS=180` 到期后由恢复的 worker 在下一轮主循环领取，`attempts` 1→2 |
+| 连续失败进入死信 | **5 次**（`attempts=5/5`，`status=dead`，`last_error=ModerationRetry`） | 死信条数（演练结束）4 条，全部为审核供应商不可达所致 |
+| 重试退避间隔 | **2 / 4 / 8 / 16 秒** | 与 `2 ** attempts`（上限 300 秒）一致，两次独立观测一致 |
+| 审核供应商单次调用失败耗时 | **15.09 秒** | SDK `reqTimeout=15`；供应商为演练黑洞地址，未触达真实供应商 |
+| 供应商故障期间内容可见性 | **不公开**（`posts.status` 全程 0，公开信息流计数 0） | `MODERATION_FAIL_OPEN=false` |
+| 旧决定被覆盖 | **未发生**（人工先决定 → 机器重试后 `status` 仍为 1；机器先决定 → 人工改判后机器不改写） | 走真实管理台接口 + 真实 worker |
+| Redis 故障 `/health/ready` | **503**（0.013633 秒），`/health/live` **200** | 写路径 **503** |
+| PostgreSQL 故障 `/health/ready` | **503**（0.005658 秒），`/health/live` **200** | 写路径 **500**（观察到的异常，见上文诚实记录） |
+| 故障期间半成品数据 | **0**（两张表的计数逐项比对一致） | |
+| Redis 恢复时间 | **3.88 秒** | 故障注入 → `/health/ready` 回到 200 |
+| PostgreSQL 恢复时间 | **4.45 秒** | 故障注入 → `/health/ready` 回到 200 |
+
+### 剩余缺口（未取得 → 门禁与任务行保持未通过 / 未勾选）
+
+1. **真实告警送达并被确认**：未演练（隔离环境没有真实告警通道，也没有值班人确认记录）。
+2. **目标环境演练**：本次是隔离环境（专用容器化实例 + 合成数据），**不是生产目标环境**；生产实例的 worker 进程管理方式、审核供应商真实额度/费用、真实网络分区表现仍需在目标环境复测。因此 `openspec/changes/production-multiplatform/tasks.md` 第 24 行「目标环境杀worker、审核中断、Redis/DB故障演练」**按既有口径保持未勾选**，只在备注中记录本节隔离环境已取得的证据与剩余缺口。
+3. **审核供应商真实调用未触达**：演练用的是黑洞地址 + 假凭证，**真实腾讯云审核接口的响应形态、额度扣减、费用与真实 SLA 未验证**（需人工提供真实凭证与额度）。
+4. **PostgreSQL 不可达时写路径返回 500 而非 503**：本节 3）诚实记录的新发现缺陷，**未擅自修改生产代码**；是否修复属人工决定。
+5. **异机备份、备份加密、WAL 归档 / PITR、真实发布窗口、相同制品预发布比对**：见上一节「G2 可靠性：隔离环境备份 / 恢复 / 应用回滚演练」的剩余缺口，同样未取得。
 
 本工单未改后端代码、迁移与 API 契约；后端全量用例、迁移链与 API 契约由 **Production CI** 判定。
 
@@ -453,7 +551,7 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 - 实际主体/备案/社区类目与商店准入、正式隐私政策、SDK清单和可响应的支持渠道。
 - 目标PostgreSQL15/Redis7完整CI，真实镜像与密钥扫描，独立越权/隐私数据流复核。
 - 本次新增的媒体顺序后端用例与迁移 `b7e2c4a91d30` 尚未在真实隔离PostgreSQL上执行；需在测试库跑通后再勾选。
-- 私有COS访问与所有副本删除、腾讯审核故障/额度/费用、进程杀死和真实依赖故障演练。
+- 私有COS访问与所有副本删除、腾讯审核真实额度/费用、**进程杀死和 Redis/DB 依赖故障演练已于 2026-11-03 在专用隔离环境完成实测**（杀 worker 后租约 **0.626 秒**被重新领取、连续失败 **5 次**进入死信 `dead`、退避 **2/4/8/16 秒**、供应商故障期间内容保持待审不公开、人工决定不被旧 worker 覆盖、Redis/DB 故障时 `/health/ready` 返回 **503**、故障期间**半成品数据 0**、恢复时间 **3.88 / 4.45 秒**，见「G2 可靠性：隔离环境故障注入演练」小节）；**仍未取得**：真实告警送达与人工确认、目标环境复测、真实腾讯云审核接口的额度/费用/SLA。
 - 同一制品预发布、异机备份、备份加密、WAL 归档/PITR 和真实告警确认仍未取得（**应用回滚与完整恢复已在 2026-11-03 的隔离环境实测通过**，见上文「G2 可靠性：隔离环境备份 / 恢复 / 应用回滚演练」小节）；RPO≤1小时、RTO≤4小时仍是目标 —— 隔离环境实测的 RPO 6.457 秒只是纯逻辑备份口径，不是 PITR 承诺。
 - 1万用户/10万帖/50万评论下100req/s30分钟、200req/s5分钟及8小时长稳，p95与5xx验收；当前不声称承载500在线。
 - 正式HTTPS域名的浏览器多标签与跨端联调，微信真机、Android签名包/安装升级/Keystore及SDK隐私行为。

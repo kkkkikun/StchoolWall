@@ -347,7 +347,7 @@ gunzip -c backups/ey_wall_2026-11-03_220306.sql.gz \
 | post_hot_score_state | 1 | 1 | 是 | **否** |
 | restore_drill_marks（RPO 标记表） | 8 | 2 | **否** | **否** |
 
-- 共 36 张表，除下述两类外**逐表行数与内容校验和完全相同**。
+- 共 38 张表：除 `post_hot_scores` / `post_hot_score_state`（演练期间 worker 刷新榜单）与 `restore_drill_marks`（RPO 标记表）外，**逐表行数与内容校验和完全相同**。
 - `post_hot_scores` / `post_hot_score_state` 行数相同但内容不同：演练期间后台 worker 每约 60 秒重算一次推荐流榜单，源库在快照之后又刷新过一次 —— 这是**应用继续写入**造成的差异，不是恢复丢失。
 - `restore_drill_marks` 的差异是**演练刻意制造的写入缺口**，即下面的 RPO 取证对象。
 
@@ -424,7 +424,7 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 | 逻辑备份耗时 | **4.536 秒** | 同一台隔离宿主，10000 用户 / 10 万帖 / 58.2 万评论合成数据集，pg_dump + gzip |
 | 备份文件 | 43,929,696 字节，sha256 `5c94f000…` | `gzip --test` 通过 |
 | 恢复耗时（RTO 数据恢复段） | **8.145 秒** | 新建隔离恢复库，`ON_ERROR_STOP=1` |
-| 恢复后一致性 | 36 张表逐表行数 + 内容 md5 一致（2 张被应用并发写入的榜单表除外） | 另经 `scripts/check_restore.py` PASS |
+| 恢复后一致性 | 38 张表逐表行数 + 内容 md5 一致（2 张被应用并发写入的榜单表与 1 张 RPO 标记表除外） | 另经 `scripts/check_restore.py` PASS |
 | **RPO（恢复点相对最后一次写入的丢失窗口）** | **6.457 秒**（1 秒节拍的标记写入丢了 6 条） | **纯逻辑备份、无 WAL 归档口径，不是 PITR 承诺** |
 | **应用回滚耗时** | **3.650 秒** | 仓库脚本 `scripts/rollback-release.sh`，含 revision + readiness 双重健康门禁 |
 | 回滚后状态 | revision 切回上一版制品、schema 保留未降级、上一版制品在恢复库上正常服务数据 | |

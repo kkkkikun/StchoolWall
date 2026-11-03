@@ -13,6 +13,7 @@ from app.utils.query import escape_like
 from app.services.jobs import enqueue_job
 from app.services.blocks import visible_author
 from app.services.media import bind_media, media_url
+from app.services.view_counters import current_view_count, record_post_view
 
 # 微号披露允许的帖型：交易/拼车联系刚需，其余帖型不向其他学生返回 contact_wechat
 TRADE_POST_TYPES = {"second_hand", "carpool"}
@@ -202,17 +203,16 @@ async def get_post_detail(
     if post.status != 1 and not is_privileged:
         return None
 
-    # 认证用户：浏览数 +1 并记录足迹（游客不计）
+    # 认证用户：浏览数异步聚合（只写 post_view_counters，不锁 posts 行）+ 记录足迹（游客不计）
+    view_count = post.view_count or 0
     if viewer:
-        await db.execute(
-            update(Post).where(Post.id == post_id).values(view_count=Post.view_count + 1)
-        )
+        await record_post_view(db, post_id)
         await db.execute(
             pg_insert(Footprint).values(user_id=viewer.id, post_id=post_id)
             .on_conflict_do_update(constraint="uq_footprints_user_post", set_={"viewed_at": func.now()})
         )
         await db.commit()
-        await db.refresh(post)
+        view_count = await current_view_count(db, post_id)
 
     # 隐私隔离逻辑
     data = {
@@ -232,7 +232,7 @@ async def get_post_detail(
         "is_following": False,
         "like_count": post.like_count or 0,
         "comment_count": post.comment_count or 0,
-        "view_count": post.view_count or 0,
+        "view_count": view_count,
     }
 
     # 当前用户是否关注了作者

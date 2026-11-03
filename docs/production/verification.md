@@ -188,6 +188,48 @@ soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superage
 5. **仍需人工/专用环境**：专用压测服务器（独占内存与磁盘）、生产等价 PostgreSQL 15 + Redis 7 拓扑、8 小时长稳在无冻结环境复跑、以及本文档列出的补充场景。
 6. **soak 中止的处置**：该轮 7h22m30s 的数值已按上文写进 `docs/production/capacity.md` 作为部分实测参考，但**不作为正式 8 小时长稳报告**。复跑时须保证压测进程与宿主上的常驻服务进程树解耦（例如把压测环境与 agent 服务分机部署，或让 agent 不持有压测进程的后台作业），避免再出现「停服务连带终止压测」的情况。
 
+## G3 容量复测（2026-11-03，专用隔离环境，热点帖单行写锁修复后）
+
+本节记录**消除热点帖单行写锁瓶颈后的复测**。环境为仓库外的隔离目录（专用 KVM 虚拟机 + 容器化 PostgreSQL 15 / Redis 7），**未接触生产域名、真实学生数据、开发库或生产 Redis**。原始数值与环境见[容量基线与压测](capacity.md)。
+
+### 环境与命令
+
+| 项 | 值 |
+|---|---|
+| 代码版本 | commit `2757118`（分支 `agent/fix-post-row-lock-1e6521eb2722`） |
+| 镜像 digest | `schoolwall-loadtest@sha256:0bd2b931870eac06094c139b0241fea417c6972384b24985300c95c69959ce67`（由 `backend/Dockerfile` 构建；基础镜像与 pip 均走镜像站，Dockerfile 与 CI 同源） |
+| 宿主 | KVM 虚拟机 / Ubuntu 24.04.5 LTS，128 vCPU、295 GB 内存、根盘 991 GB；**专用环境，无宿主冻结、无进程树干扰** |
+| 数据库 / 缓存 | PostgreSQL 15.14（容器，端口 55433，专用库 `schoolwall_loadtest`）/ Redis 7.4.7（容器，端口 6399，逻辑库 13） |
+| 压测工具 | k6 v0.57.0（源码构建，Go 1.22.2），脚本 `scripts/load/campus.js` |
+| 应用 | 镜像内 Python 3.11 + `backend/requirements.txt` 锁定依赖；uvicorn 4 worker + 后台 worker 1 进程；`DB_POOL_SIZE=10`、`DB_MAX_OVERFLOW=5`（连接预算 75 < `max_connections=100`） |
+| 建库与播种 | `DROP DATABASE` 重建 → `python -m alembic upgrade head` → `ALLOW_SYNTHETIC_LOAD_SEED=YES_ISOLATED_DATABASE python ../scripts/load/seed.py --users 10000 --posts 100000 --comments 500000`（10000 合成用户 / 100000 帖 / 500000 评论） |
+| 发压命令 | `ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http://127.0.0.1:8000 PROFILE=burst RATE=200 DURATION=5m k6 run scripts/load/campus.js`；soak 同形换 `PROFILE=soak RATE=100 DURATION=8h`，并以 `setsid` 脱离会话进程组启动（避免会话结束连带终止压测） |
+
+### 修复与本地验证
+
+- 修复：详情页浏览数改异步聚合（`post_view_counters` 缓冲表 + worker 每 10 秒逐帖小事务折叠回 `posts.view_count`）；点赞/取消赞/评论/收藏去掉 `SELECT ... FOR UPDATE`，计数改原子自增且不依赖 `posts.status`。迁移 `c1d2e3f4a5b6`。
+- 本地已验（隔离 PostgreSQL 15 + Redis 7 容器、Python 3.11、锁定依赖）：后端全量 pytest **563 passed**；迁移链 `alembic upgrade head` 通过（新迁移在链尾）、`downgrade` → 再 `upgrade` 通过；新增后端用例 `tests/test_hot_post_counters.py` 8 项全绿（含「外部事务锁住热点帖行时详情请求不被阻塞」回归）；`openspec validate --specs` **7/7 通过**；静态守卫 `scripts/check_api_contract.py`、`scripts/check_migrations.py` 通过。
+- 负向验证：把详情页改回同步写 `posts.view_count` 后，回归用例在 10 秒内超时失败（详情请求被 `posts` 行锁挡住），恢复后通过。
+
+### 判定
+
+| 场景 | 结果 |
+|---|---|
+| burst 200req/s × 5 分钟 | 实际 **199.69 req/s**、读 p50/p95/p99 = 9.79ms / **340.16ms** / 383.88ms、写 p50/p95/p99 = 9.16ms / **20.11ms** / 40.10ms、业务成功率 **100.00%**、5xx **0 次**、429 **0 次**、dropped iterations **0** —— **通过**（修复前读 p95 2743.72ms / 写 p95 4063.85ms / dropped 9624 / 实际 167.36 req/s） |
+| soak 100req/s × 8 小时 | `2026-11-03T05:56:35Z` 启动，**尚未跑满 8 小时**，未按正式长稳报告记账 |
+
+压测窗口内 PostgreSQL 侧：`log_lock_waits=on` 记录到的行锁等待 **0 次**；`log_min_duration_statement=500ms` 在压测窗口内 **0 条**慢语句（修复前同一根因下慢语句集中在 `UPDATE posts SET view_count=...`）。
+
+**G3 仍未通过**：burst 已通过，但 8 小时长稳尚未跑满，按既定口径「未满 8 小时的 soak 不得按正式报告记账」，`docs/production/release-gates.md` 的 G3 行不改写为已通过。
+
+### 已知限制
+
+1. **同机发压**：k6、API、PostgreSQL、Redis 跑在同一台 128 vCPU / 295 GB 内存的专用虚拟机上，存在资源竞争；本轮数值仍只能作为**同机基线**，不是生产容量承诺。
+2. **补齐场景有限**：本文档列出的补充场景（真实认证→会话刷新、上传→隔离→审核→发帖、组局最后名额竞争、重复请求、停 worker 重启、DB/Redis 超时与断网恢复）本轮只覆盖主流量脚本与 worker 计数折叠；组局名额不超售与任务恢复由后端用例（`tests/test_party.py` 等）与本轮任务队列观测覆盖，未做专项并发压测。
+3. **第三方边界**：仍只测本地可观测处理能力，未消耗真实审核额度、未验证真实供应商吞吐。
+4. **待人工**：soak 跑满后的结果复核、专用压测服务器与生产等价拓扑、真实 COS/审核联调仍需人工安排。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

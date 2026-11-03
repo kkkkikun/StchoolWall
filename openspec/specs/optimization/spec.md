@@ -125,3 +125,11 @@
   - 连带修掉的两处既有缺陷：① 首页轮播位的暗化层按「最亮底色」也压不到白字 4.5:1（实测 2.35:1），已把渐变暗化层调整为 `rgb(0 0 0 / 60%) → rgb(0 0 0 / 90%)`；② 品牌浅底 `--sw-primary-soft` 压品牌主色只有 4.34:1（Element Plus 的 plain 按钮与 plain 标签都落在这个底色上），已压到 #fdf6f7（4.58:1）。
   - 负向验证：把 `--sw-text-muted` 改回 #8b949e → 对比度门禁 exit 1 并逐条指出「弱化文字 / 占位符未达标」；恢复后 exit 0。走查仍 19/19 PASS、控制台错误 0 条，体积基线按改后实际产物重定（CSS +1743 B raw / +272 B gzip，来自新增的令牌与覆写规则，JS 体积不变）。
 
+
+- **[优先级: 高] [已完成 2026-11-03]** 热点帖单行写锁瓶颈（详情页浏览数自增 + 点赞 `SELECT ... FOR UPDATE` 争同一 tuple）
+
+  - 当前影响：`docs/production/capacity.md` 的 2026-11-02 实测里，burst（200 req/s × 5 分钟）未通过 —— 读 p95 2743.72ms / 写 p95 4063.85ms、dropped iterations 9624、实际只有 167.36 req/s；PostgreSQL 日志（`log_lock_waits=on`）记录到同一 tuple 上最长 **38 个进程**的锁等待队列，慢语句集中在 `UPDATE posts SET view_count=...`（详情页浏览数自增），而场景本身要求 80% 详情集中在单热点帖 —— 于是热点帖的 `posts` 行成了全局串行点。
+  - 建议方案（本文档「报告与优化」一节已列明的「异步浏览聚合」）：浏览数改为写入独立的聚合缓冲表、由 worker 周期性折叠回 `posts.view_count`；互动路径去掉对 `posts` 行的 `SELECT ... FOR UPDATE`，计数改原子自增。
+  - 已完成（2026-11-03）：① 新增 `post_view_counters` 表（Alembic `c1d2e3f4a5b6`），详情页只写缓冲表（`INSERT ... ON CONFLICT DO UPDATE` 原子自增），后台 worker 每 10 秒逐帖一个小事务折叠回 `posts.view_count`，详情接口返回「已折叠值 + 待折叠增量」（同一条语句的一致快照）；② 点赞/取消赞/评论/收藏去掉 `SELECT ... FOR UPDATE`，计数改原子自增并 `RETURNING`，计数语句不再依赖 `posts.status`（帖子被隐藏时计数不漂移）；③ 新增后端用例 `backend/tests/test_hot_post_counters.py`（8 项），含「外部事务锁住热点帖行时详情请求不被阻塞」的回归。
+  - 验证方式：隔离环境（专用 KVM 虚拟机 + 容器化 PostgreSQL 15 / Redis 7，1 万用户 / 10 万帖 / 50 万评论合成数据）按 `docs/production/capacity.md` 的同一脚本复测 —— burst 由**未通过转为通过**：实际 199.69 req/s、读 p95 340.16ms、写 p95 20.11ms、dropped iterations 0、5xx 0、429 0；压测窗口内 `log_lock_waits` 记录 0 次行锁等待、0 条 >500ms 慢语句。soak（100 req/s × 8 小时）于 2026-11-03T05:56:35Z 在该环境重启，**跑满前不按正式长稳报告记账**，G3 保持未通过。
+  - 踩坑（务必留意）：计数缓冲表**不能加到 `posts.id` 的外键** —— 外键检查会对父行取 KEY SHARE 锁，与 `FOR UPDATE` 互斥；一旦加上，详情页浏览会重新被热点帖行锁挡住，串行点原样回来（本次已实测确认：`FOR UPDATE` 持锁时 `INSERT INTO footprints` 会被外键检查挂住，`FOR NO KEY UPDATE` / `FOR SHARE` 则不冲突）。同理，计数语句不要依赖 `posts.status`，否则帖子被隐藏时计数会与 `likes` / `comments` 表漂移。

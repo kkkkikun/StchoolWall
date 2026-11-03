@@ -180,3 +180,58 @@ PostgreSQL 日志把「尾部变慢」定位到了语句级：
 - 剩余差距：需在**无宿主冻结、无进程树干扰**的专用环境重跑满 8 小时，并在解决热点帖单行写锁瓶颈后重测 burst 与 soak。
 
 
+## 2026-11-03 隔离环境复测（G3：热点帖单行写锁修复后）
+
+本节记录消除热点帖单行写锁瓶颈后的复测。**burst 已通过；soak 尚未跑满 8 小时，G3 仍为未通过**，结论见本节末尾与[验证记录](verification.md)。
+
+### 瓶颈修复做了什么
+
+- 详情页浏览数不再同步写 `posts` 行：改写入 `post_view_counters` 聚合缓冲（`INSERT ... ON CONFLICT DO UPDATE` 原子自增），由后台 worker 每 10 秒逐帖一个小事务折叠回 `posts.view_count`；详情接口返回「已折叠值 + 待折叠增量」（同一条语句的一致快照）。
+- 点赞/取消赞/评论/收藏去掉 `SELECT ... FOR UPDATE`；计数改为原子自增并 `RETURNING`，计数语句不再依赖 `posts.status`（帖子被隐藏时计数不漂移）。
+- `post_view_counters` **刻意不加到 `posts.id` 的外键**：外键检查会对父行取 KEY SHARE 锁，与 `FOR UPDATE` 互斥，会把刚拆掉的串行点重新引回来（详见 `openspec/specs/learned/spec.md`）。
+
+### 隔离边界与环境
+
+| 项 | 实际取值 |
+|---|---|
+| 宿主 | KVM 虚拟机 / Ubuntu 24.04.5 LTS（6.8.0-147-generic x86_64），128 vCPU、295 GB 内存、根盘 991 GB（用量 109 GB）；**专用隔离环境，无宿主冻结、无进程树干扰**（k6 以 `setsid` 脱离会话进程组启动） |
+| 代码版本 | commit `2757118`（分支 `agent/fix-post-row-lock-1e6521eb2722`） |
+| 镜像 digest | `schoolwall-loadtest@sha256:0bd2b931870eac06094c139b0241fea417c6972384b24985300c95c69959ce67`（由 `backend/Dockerfile` 构建；基础镜像 `python:3.11-slim` 经镜像站拉取，pip 走镜像站 index，与 CI 同源 Dockerfile） |
+| 数据库 | PostgreSQL 15.14（`postgres:15-alpine` 容器，端口 55433，专用库 `schoolwall_loadtest`） |
+| 缓存 | Redis 7.4.7（`redis:7-alpine` 容器，端口 6399，逻辑库 13；未复用任何开发或生产 Redis） |
+| 压测工具 | k6 v0.57.0（源码构建，Go 1.22.2）；脚本 `scripts/load/campus.js`，参数与本文上方一致 |
+| 应用运行时 | Python 3.11（镜像内 3.11.x）+ `backend/requirements.txt` 锁定依赖；uvicorn **4 个 worker 进程**（127.0.0.1:8000）+ 后台 worker **1 个进程**；`DB_POOL_SIZE=10`、`DB_MAX_OVERFLOW=5`，连接预算 4×15+15=75 < `max_connections=100` |
+| PG 关键配置 | `shared_buffers=512MB`、`effective_cache_size=2GB`、`work_mem=16MB`、`maintenance_work_mem=256MB`、`max_connections=100`、`log_min_duration_statement=500ms`、`log_lock_waits=on`、`track_io_timing=on`、`jit=on`、`synchronous_commit=on` |
+| 数据 | `scripts/load/seed.py` 生成的纯合成数据：10000 用户 / 100000 帖（95000 可见 + 5000 待审）/ 500000 评论；**无真实学生数据、无真实昵称学号证件** |
+| 种子守卫 | 未放宽：`ALLOW_SYNTHETIC_LOAD_SEED=YES_ISOLATED_DATABASE` + `ENVIRONMENT=test` + `*_loadtest` 库名三重限制，以及「拒绝已有帖子的数据库」保护原样生效（正式取证前先 `DROP DATABASE` 重建库再播种） |
+| 凭证处置 | `accounts.json`（含 9 小时测试 token）只写在隔离运行目录，**未入库、未进 CI 制品、未写日志**；报告只记录数量与签发方式，不记录 token 原文 |
+| 发压守卫 | `ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION` + `ALLOWED_LOAD_HOST=127.0.0.1` + `BASE_URL` 必须匹配该 host |
+
+### 场景一：burst（200 req/s × 5 分钟）—— 通过
+
+窗口 `05:51:14Z → 05:56:14Z`（5 分钟整，无冻结、无宿主干扰）。k6 实际发出 **60001** 次请求、平均 **199.69 req/s**。
+
+| 指标 | 实测 | 接受条件 | 判定 |
+|---|---|---|---|
+| 读 p50 / p95 / p99 | 9.79ms / **340.16ms** / 383.88ms（最大 483.08ms） | p95 ≤ 500ms | **通过** |
+| 写 p50 / p95 / p99 | 9.16ms / **20.11ms** / 40.10ms（最大 213.84ms） | p95 ≤ 800ms | **通过** |
+| 业务成功率（checks） | **100.00%**（60001/60001） | > 99% | 通过 |
+| 5xx | **0.00%**（0 次） | < 0.1% | 通过 |
+| HTTP 失败率 | 0.00% | < 1% | 通过 |
+| 429（`expected_rate_rejections`） | **0 次** | 单列、不计成功吞吐 | 无触发 |
+| dropped iterations | **0** | 0 | **通过** |
+| 实际速率 | **199.69 req/s** | 200 req/s | 通过 |
+| 并发（VU） | 均值 26，峰值 32（上限 100） | — | — |
+
+与修复前同口径对比（2026-11-02 那轮 burst）：读 p95 **2743.72ms → 340.16ms**、写 p95 **4063.85ms → 20.11ms**、dropped iterations **9624 → 0**、实际速率 **167.36 → 199.69 req/s**。压测期间 PostgreSQL `log_lock_waits=on` 记录到的行锁等待 **0 次**，`log_min_duration_statement=500ms` 在压测窗口内 **0 条**慢语句（修复前同一根因下慢语句集中在 `UPDATE posts SET view_count=...`）。
+
+### 场景二：soak（100 req/s × 8 小时）—— 进行中，未记账
+
+- 启动：`2026-11-03T05:56:35Z`，k6 以 `setsid` 脱离会话进程组运行，**目标 8 小时**（预计 `13:56:35Z` 结束），种子签发的 9 小时测试 token 覆盖全程（session 10 小时）。
+- 本节**不预先记账**：按本文档既定口径，未满 8 小时的 soak 不得按正式报告记账；本轮跑满并复核后另行补记结果（业务成功率、5xx、429、内存曲线、DB 连接/锁等待/慢 SQL、任务最旧年龄与死信、计数一致性、任务恢复）。
+- 取证材料留在隔离运行目录（`soak-summary.json`、`soak-k6.txt`、资源采样 CSV、PostgreSQL 容器日志），**不入库**。
+
+### 判定
+
+- **burst：已通过**（修复前未通过）。
+- **soak：未完成**，因此 **G3 仍未通过** —— `docs/production/release-gates.md` 的 G3 行不改写为已通过；剩余差距为「满 8 小时长稳 + 计数/名额一致性与任务恢复报告」。

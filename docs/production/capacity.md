@@ -178,11 +178,12 @@ PostgreSQL 日志把「尾部变慢」定位到了语句级：
 - `docs/production/release-gates.md` 的 G3 行**不改写为已通过**，G3 保持未通过；
 - 上表数值作为**部分实测参考**留档：说明该系统在 100 req/s 持续 7 小时以上时，全部请求时延仍在 p95 ≤ 500ms 量级，但「无 dropped iterations」与「8 小时时长」两项接受条件均未达成；
 - 剩余差距：需在**无宿主冻结、无进程树干扰**的专用环境重跑满 8 小时，并在解决热点帖单行写锁瓶颈后重测 burst 与 soak。
+- 后续：该轮的两项差距已在 2026-11-03 的专用隔离环境复测中补齐（见下一节）；本节保留为 2026-11-02 那轮的历史记录，其「G3 保持未通过」的结论以下一节为准。
 
 
 ## 2026-11-03 隔离环境复测（G3：热点帖单行写锁修复后）
 
-本节记录消除热点帖单行写锁瓶颈后的复测。**burst 已通过；soak 尚未跑满 8 小时，G3 仍为未通过**，结论见本节末尾与[验证记录](verification.md)。
+本节记录消除热点帖单行写锁瓶颈后的复测。**burst 已通过；soak 已于 2026-11-03T13:56:35Z 跑满 8 小时并记账**；steady（100 req/s × 30 分钟）在同一构建上补跑，结论见本节末尾与[验证记录](verification.md)。
 
 ### 瓶颈修复做了什么
 
@@ -225,13 +226,112 @@ PostgreSQL 日志把「尾部变慢」定位到了语句级：
 
 与修复前同口径对比（2026-11-02 那轮 burst）：读 p95 **2743.72ms → 340.16ms**、写 p95 **4063.85ms → 20.11ms**、dropped iterations **9624 → 0**、实际速率 **167.36 → 199.69 req/s**。压测期间 PostgreSQL `log_lock_waits=on` 记录到的行锁等待 **0 次**，`log_min_duration_statement=500ms` 在压测窗口内 **0 条**慢语句（修复前同一根因下慢语句集中在 `UPDATE posts SET view_count=...`）。
 
-### 场景二：soak（100 req/s × 8 小时）—— 进行中，未记账
+### 场景二：soak（100 req/s × 8 小时）—— 通过（2026-11-03T13:56:35Z 跑满）
 
-- 启动：`2026-11-03T05:56:35Z`，k6 以 `setsid` 脱离会话进程组运行，**目标 8 小时**（预计 `13:56:35Z` 结束），种子签发的 9 小时测试 token 覆盖全程（session 10 小时）。
-- 本节**不预先记账**：按本文档既定口径，未满 8 小时的 soak 不得按正式报告记账；本轮跑满并复核后另行补记结果（业务成功率、5xx、429、内存曲线、DB 连接/锁等待/慢 SQL、任务最旧年龄与死信、计数一致性、任务恢复）。
-- 取证材料留在隔离运行目录（`soak-summary.json`、`soak-k6.txt`、资源采样 CSV、PostgreSQL 容器日志），**不入库**。
+启动 `2026-11-03T05:56:35Z`，k6 以 `setsid` 脱离会话进程组运行（宿主不再冻结、进程树不牵连），结束 `2026-11-03T13:56:35Z` —— **8 小时 00 分 03 秒，满量结束**。种子签发的 9 小时测试 token 覆盖全程（session 10 小时），无 401、无重认证。k6 实际发出 **2,880,000** 次迭代（100/s × 28,800s 的满量），平均 **99.999 req/s**。
+
+| 指标 | 实测 | 接受条件 | 判定 |
+|---|---|---|---|
+| 时长 / 迭代数 | 8h00m03s / **2,880,000** | 满 8 小时 | **通过** |
+| 实际速率 | **99.999 req/s** | 100 req/s | 通过 |
+| 读 p50 / p95 / p99 | 9.28ms / **345.78ms** / 402.07ms（最大 587.53ms） | p95 ≤ 500ms | **通过** |
+| 写 p50 / p95 / p99 | 7.89ms / **15.54ms** / 22.11ms（最大 264.91ms） | p95 ≤ 800ms | **通过** |
+| 业务成功率（429 单列后） | **100.00%**（2,830,914 / 2,830,914） | > 99% | **通过** |
+| 429（`expected_rate_rejections`） | **49,086 次（1.70%）** | 单列、不计成功吞吐 | 已单列 |
+| 5xx | **0.00%**（0 次） | < 0.1% | **通过** |
+| HTTP 失败率 | 0.00% | < 1% | 通过 |
+| dropped iterations | **0** | 0 | **通过** |
+| 并发（VU） | 均值 16，峰值 24（上限 100） | — | — |
+
+> **429 与成功吞吐的口径**：k6 脚本把 429 计入 `successful business response` 检查，所以脚本内建阈值 `checks: rate>0.99` 实测为 **98.30%** 并被跨越（`thresholds on metrics 'checks' have been crossed`）。本文档既定口径是「429 独立累计 `expected_rate_rejections`，禁止将限流响应视为成功业务吞吐」，故成功吞吐按 **2,830,914 / (2,880,000 − 49,086) = 100.00%** 记。两个数字都如实记录，不做取舍隐藏；49,086 次全部是 429（`expected_rate_rejections` 与检查失败数完全相等，且 `server_errors=0`、`http_req_failed=0`），没有混入其他非 2xx 响应。
+>
+> **429 的来源已定位**：全部来自「每用户 10 分钟 30 条评论」的限流（`backend/app/utils/rate_limit.py` 的 `RATE_COMMENT = (30, 600)`，键 `rl:u:<user_id>:comments`），不是应用异常、也不是 IP 层限流。压测脚本按 `sequence % 100` 固定请求类型、按 `sequence % 10000` 固定账号，少量账号因此反复发评论并触发限流：soak 窗口内的评论尝试为 4% × 2,880,000 = **115,200** 次，而数据库实际入库评论 **66,106** 条，差额 **49,094** 与 429 次数 **49,086** 基本一致（窗口边界差 8 条）。也就是说这 1.70% 的拒绝是限流按设计生效，**与「合理用户被校园 NAT 误伤」无关**（限流键是用户维度，不按 IP）。
+
+#### 长稳期间的数据库证据
+
+| 项 | 实测 |
+|---|---|
+| 行锁等待 | `log_lock_waits=on`，`05:56:35Z` 之后 **0 条** `still waiting for ...`；采样 CSV 的 `lock_not_granted` / `lock_wait_sessions` 全程 **0**（修复前同一 tuple 上曾排到 38 个进程） |
+| 慢 SQL（>500ms） | 窗口内 **57 条**：53 条是帖子列表/详情共用的 `SELECT posts.*, users.* ...` 查询（PostgreSQL 日志按 `track_activity_query_size` 截断到 1024 字节，看不到 WHERE/ORDER BY 部分），最长 1475.9ms；另 4 条是取证用的全库计数核对 SQL（`SELECT count(*) FROM posts p WHERE p.like_count <> (...)`），属人工核对而非线上流量。**慢语句与行锁无关**（同窗口行锁等待 0 次），来源见下方执行计划 |
+| 连接数 | 稳定 **35**（预算 4×15+15=75 < `max_connections=100`），活跃连接峰值 **11** |
+| 任务最旧年龄 | pending 峰值 **4**，**最旧待审任务年龄峰值 1 秒** |
+| 死信 | **0**（压测窗口内没有任何 `status='dead'` 的任务；采样 CSV 的 `jobs_failed` 列查的是 `status='failed'` —— 该状态在实现里并不存在，真正的死信口径是 `status='dead'`，两者在本轮均为 0）。soak 结束后即时核对：`jobs` 仅剩 `review=68,530`（人工复核终态），`pending`/`running`/`dead` 均为 0 |
+
+#### 内存曲线与恢复耗时（无持续资源增长）
+
+| 采样 | API RSS | worker 内存 | PostgreSQL 内存 | API CPU | 待折叠浏览量 |
+|---|---|---|---|---|---|
+| 第 1 小时均值 | 482.9 MB | 71.2 MiB | 0.384 GiB | 70.7% | 126 |
+| 第 4 小时均值 | 483.0 MB | 72.8 MiB | 0.431 GiB | 71.6% | 77 |
+| 第 8 小时均值 | 483.1 MB | 73.1 MiB | 0.481 GiB | 65.5% | 123 |
+| 压测停止后 | 483.2 MB | 73.4 MiB | 0.482 GiB（平台期） | **0.7%** | 0 |
+
+- API 进程 RSS 全程 **483 MB 几乎不变**（8 小时 +0.06%），worker 67.6→73.4MiB，PostgreSQL 0.374→0.482GiB（共享缓冲填充）后**进入平台期不再增长** —— 无持续资源增长。
+- **恢复耗时**：压测于 `13:56:35Z` 结束后，**6 秒内**（首个采样 `13:56:41Z`）API CPU 由 73.7% 回落到 **0.7%**、连接数回到基线 35、待折叠浏览量归零；**无需重启进程，内存无回收需求**。
+
+#### 计数 / 名额一致性
+
+- 热点帖（id=100000）：`like_count` **298** = `likes` 行数 **298**；`comment_count` **1** = 公开评论 **1**；`view_count` **589,156** 且待折叠增量 **0**；足迹 2,500 行。
+- **全库**：`like_count` 与 `likes` 表不一致的帖子 **0** 个；`comment_count` 与公开评论不一致的帖子 **0** 个。
+- 组局名额：压测脚本未覆盖组局，单独场景见下节。
+
+#### 任务恢复演练（故障后任务可恢复）
+
+1. **租约过期恢复**：构造一条「worker 带着未过期租约崩溃」的任务（`status=running`、`lease_until` 已过期、attempts=1），运行中的 worker **≤2.1 秒**内重新领取并完成（attempts 1→2，终态 `review`）—— 崩溃残留的任务不会永久卡住。
+2. **死信路径**：连续失败的任务按 `2^attempts` 退避重试（2s/4s/8s/16s），第 5 次失败后进入死信 `dead`（`last_error=ValueError`），从入队到死信约 **35 秒** —— 失败任务不会无限重试掩盖问题。两条演练任务的 `dedupe_key` 均以 `loadtest-` 开头，可与压测流量数据区分。
+
+#### SQL 执行计划（`EXPLAIN (ANALYZE, BUFFERS)`，长稳后同一数据集，1 万用户 / 10 万帖 / 50 万评论）
+
+| 语句 | 计划 | 耗时 |
+|---|---|---|
+| 热点帖详情（`posts` JOIN `users` 走主键，含 `visible_author` 反连接） | Nested Loop + 2 次 Index Scan（`posts_pkey` / `users_pkey`），反连接走 `user_blocks` 索引 | 0.258ms |
+| 浏览计数合并（`posts` LEFT JOIN `post_view_counters`） | Nested Loop Left Join + `post_view_counters_pkey` Index Scan | 0.065ms |
+| 最新流 feed（`order=time`，limit 21） | Index Scan Backward（`posts_pkey`）+ Memoize | 0.575ms |
+| 热帖榜 `/api/v1/posts/hot`（近 7 天 + 加权排序） | Bitmap Index Scan（`ix_posts_created_at`，7 天内 7,238 行）→ Bitmap Heap Scan → Hash Join → top-N Sort | 15.733ms |
+| 搜索 `/api/v1/posts/search?q=course`（`content ILIKE '%course%'`） | **Parallel Seq Scan（posts 31,667 行）** → Hash Join → Sort | **74.961ms** |
+| 推荐流 `/api/v1/posts`（无 `order`，按热度分排序） | **Parallel Seq Scan（posts 31,667 行）** → Hash Join → Sort | **662.276ms** |
+| 浏览计数写入（`ON CONFLICT` 原子自增） | Insert on `post_view_counters` → Conflict Resolution: UPDATE | 0.088ms |
+| 点赞计数原子自增（`RETURNING`） | Update on `posts` → Index Scan `posts_pkey` | 0.385ms |
+| 浏览计数折叠（worker 每 10 秒的 UPDATE） | Update on `posts` → Index Scan `posts_pkey` | 0.084ms |
+
+对比修复前：慢语句集中在 `UPDATE posts SET view_count=...`（同一 tuple 串行），现在计数写入落在独立的 `post_view_counters` 行上、折叠每 10 秒一次、每次只锁一行且持锁毫秒级。
+
+**剩余的长尾与行锁无关，来自帖子列表类查询的扫描面**：热帖榜靠 `ix_posts_created_at` 把候选集收窄到 7 天（15.7ms），但**搜索的 `ILIKE '%q%'` 与推荐流的热度分排序都要扫全表**（74.961ms / 662.276ms；热度分含 `now()`，无法用表达式索引直接排序）。k6 脚本只打 `order=time` 的最新流，因此推荐流这条最慢的路径不在本轮压测流量里，但它是学生端默认首屏（推荐位）。两条全表扫描已记入 `openspec/specs/optimization/spec.md` 作为下一条待办（搜索走 trigram/全文索引、推荐流走榜单预计算）。
+
+### 场景三：steady（100 req/s × 30 分钟）—— 修复后补跑，通过
+
+2026-11-02 那轮 steady 的 dropped iterations 为 16（未达标），且承载那一轮的宿主随后被冻结中止，按口径需在修复后的构建上补跑。本轮于 `2026-11-03T19:46:28Z` 在同一专用环境以同一脚本补跑（`setsid` 脱离会话进程组、目标 100 req/s × 30 分钟）；种子的 9 小时测试 token 已在 soak 结束后过期，补跑前按 `scripts/load/seed.py` 同一签发方式在隔离库内重新签发（新建 `user_sessions` + `create_access_token`，9 小时有效期），凭证只写隔离运行目录的私有文件。
+
+| 指标 | 实测 | 接受条件 | 判定 |
+|---|---|---|---|
+| 实际速率 | **99.98 req/s**（180001 次迭代，30 分钟满量） | 100 req/s | 通过 |
+| 读 p50 / p95 / p99 | 9.63ms / **354.72ms** / 403.42ms | p95 ≤ 500ms | **通过** |
+| 写 p50 / p95 / p99 | 9.36ms / **16.31ms** / 23.40ms | p95 ≤ 800ms | **通过** |
+| 业务成功率（429 单列后） | **100.00%** | > 99% | **通过** |
+| 429（`expected_rate_rejections`） | **229 次** | 单列、不计成功吞吐 | 已单列 |
+| 5xx | **0.00%**（0 次） | < 0.1% | **通过** |
+| HTTP 失败率 | 0.00% | < 1% | 通过 |
+| dropped iterations | **0** | 0 | **通过** |
+
+与 2026-11-02 那轮 steady 相比：dropped iterations **16 → 0**（从「未达标」转为达标），读 p95 与写 p95 同步回落，且本轮全程无宿主冻结、无行锁等待。
+
+### 场景四：组局最后名额竞争（名额一致性）
+
+压测脚本未覆盖组局，用合成账号在隔离环境补跑「N 个用户并发抢最后几个名额」（组局由学生创建后先待审 `status=0`，隔离库里直接置为招募中 `status=1` 再开抢；抢名单位于 `parties` 行锁内的 check-then-increment，与帖子互动路径的去锁改造无关，此处刻意保留行锁）。
+
+| 组局名额 | 并发报名人数 | 报名成功 | 「已满」拒绝 | `parties.joined_count` | `party_members` 行数 | 组局状态 | 判定 |
+|---|---|---|---|---|---|---|---|
+| 1 | 32 | **1** | 31 | **1** | **1** | 2（满额自动关闭） | 不超售 |
+| 5 | 32 | **5** | 27 | **5** | **5** | 2（满额自动关闭） | 不超售 |
+
+`join_party` 走 `SELECT ... FOR UPDATE` 串行化 check-then-increment（`backend/app/services/party.py`），并发抢名额时**恰好等于名额数的人报名成功、多一个都没有**，数据库计数与成员行数一致。
 
 ### 判定
 
-- **burst：已通过**（修复前未通过）。
-- **soak：未完成**，因此 **G3 仍未通过** —— `docs/production/release-gates.md` 的 G3 行不改写为已通过；剩余差距为「满 8 小时长稳 + 计数/名额一致性与任务恢复报告」。
+- **burst：通过**（修复前未通过）。
+- **soak：通过**（满 8 小时、延迟达标、5xx 0、dropped 0、无持续资源增长、锁等待 0 次、任务可恢复）。
+- **steady：通过**（100 req/s × 30 分钟，dropped 0、延迟达标、业务成功率达标）。
+- **组局名额竞争：通过**（32 抢 1 与 32 抢 5 均不超售）。
+- **计数一致性与任务恢复报告：通过**（全库不一致帖数 0；租约过期 ≤2.1 秒被重新领取；连续失败 5 次进入死信）。
+- **G3**：三个场景全部达标、必需证据齐备 —— `docs/production/release-gates.md` 的 G3 行据实更新为通过；同机基线不是生产容量承诺，生产等价拓扑与成本核算仍需人工安排。
+

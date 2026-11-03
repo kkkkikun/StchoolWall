@@ -271,6 +271,177 @@ soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superage
 - `openspec validate --specs` 由 Production CI 判定（本机未安装 openspec CLI）；本工单只改了 `openspec/specs/optimization/spec.md` 里与推荐流压测口径、G3 状态相关的**记录性文字**，未增删需求条目、未改任何 requirement。
 
 
+## G2 可靠性：隔离环境备份 / 恢复 / 应用回滚演练（2026-11-03，专用隔离环境）
+
+本节是**发布门禁 G2 的第一次真实演练取证**。环境为仓库外的专用隔离目录（专用 KVM 虚拟机 + 容器化 PostgreSQL 15.14 / Redis 7.4.7，即 k6 压测所用的同一套实例），**未接触生产域名、生产实例、开发库、生产 Redis 或真实学生数据**；演练数据全部是合成的压测数据集。
+
+演练范围：**逻辑备份 → 新建隔离恢复库恢复 → 恢复后一致性校验 → 应用回滚**。**不包含**异机备份、备份加密、WAL 归档 / PITR、告警送达与人工确认、以不可变 digest 制品走真实发布窗口（这些需要真实基础设施与人工安排，见本节末「剩余缺口」）。
+
+隔离守卫：恢复目标库 `schoolwall_restore_migration` 在恢复前**不存在**（脚本查到已存在即拒绝执行），库名带隔离后缀 `_migration`；仓库自带的 `scripts/check_restore.py` 另需 `ENVIRONMENT=test` + 显式 `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE`；**全程没有对任何已有数据的库做过写入或删除**。
+
+### 环境
+
+| 项 | 值 |
+|---|---|
+| 宿主 | 专用 KVM 虚拟机 / Ubuntu 24.04.5（与 2026-11-03 G3 容量复测同一台） |
+| 数据库 | PostgreSQL 15.14 容器 `swload-pg`（宿主端口 55433，专用库 `schoolwall_loadtest`） |
+| 缓存 | Redis 7.4.7 容器 `swload-redis`（宿主端口 6399，逻辑库 13） |
+| 数据集 | 合成压测数据：10000 用户 / 100000 帖 / 582233 评论 / 167760 足迹 / 82240 任务 / 95000 榜单行；`alembic_version = d7e8f9a0b123` |
+| 演练脚本位置 | 仓库外隔离目录 `/home/kikun/loadenv2/drill`（不进仓库）；下文给出命令原文，可原样复现 |
+
+### 1）逻辑备份（与 `deploy/backup.sh` 同形）
+
+`deploy/backup.sh` 本身走 `docker compose ... exec db`（面向生产 compose 项目托管的 db），隔离实例不是 compose 托管，因此按**同一形态**用等价命令执行：同样的 `umask 077` → `.partial` → `gzip --test` → `mv` → `deploy/backup_retention.py` → sha256 步骤，未改脚本本身。
+
+```bash
+docker exec swload-pg pg_dump -h 127.0.0.1 -p 55433 -U loaduser -d schoolwall_loadtest \
+  | gzip > backups/ey_wall_2026-11-03_220306.sql.gz.partial
+gzip --test backups/ey_wall_2026-11-03_220306.sql.gz.partial
+mv -- backups/ey_wall_2026-11-03_220306.sql.gz.partial backups/ey_wall_2026-11-03_220306.sql.gz
+python3 deploy/backup_retention.py backups 14
+sha256sum backups/ey_wall_2026-11-03_220306.sql.gz
+```
+
+| 项 | 实测值 |
+|---|---|
+| 备份耗时 | **4.536 秒**（`2026-11-03T22:03:06Z` → `22:03:10Z`） |
+| 备份文件 | `ey_wall_2026-11-03_220306.sql.gz`，**43,929,696 字节**（41.9 MiB） |
+| 完整性校验 | `gzip --test` **通过** |
+| sha256 | `5c94f0004bca36e008bc064f5a1168b8559ea092efb711cc8c4859a5dd1ea29d` |
+
+### 2）恢复到新建的隔离恢复库
+
+```bash
+# 守卫：目标库必须不存在，且库名带隔离后缀
+docker exec swload-pg psql -h 127.0.0.1 -p 55433 -U loaduser -d postgres \
+  -qtAc "SELECT 1 FROM pg_database WHERE datname='schoolwall_restore_migration'"   # 空 → 可创建
+docker exec swload-pg psql -h 127.0.0.1 -p 55433 -U loaduser -d postgres \
+  -qc 'CREATE DATABASE "schoolwall_restore_migration" OWNER loaduser'
+gunzip -c backups/ey_wall_2026-11-03_220306.sql.gz \
+  | docker exec -i swload-pg psql -h 127.0.0.1 -p 55433 -U loaduser -d schoolwall_restore_migration \
+      -v ON_ERROR_STOP=1 -q
+```
+
+**恢复耗时（RTO 的数据恢复段）= 8.145 秒**（`2026-11-03T22:03:14Z` → `22:03:22Z`，`ON_ERROR_STOP=1`，无错误输出）。
+
+### 3）恢复后数据一致性
+
+逐表比对源库 `schoolwall_loadtest` 与恢复库 `schoolwall_restore_migration` 的**行数**与**内容校验和**（`md5(每行文本)` 排序后再聚合）：
+
+| 表 | 源库行数 | 恢复库行数 | 行数一致 | 内容 md5 一致 |
+|---|---|---|---|---|
+| users | 10000 | 10000 | 是 | 是 |
+| posts | 100000 | 100000 | 是 | 是 |
+| comments | 582233 | 582233 | 是 | 是 |
+| footprints | 167760 | 167760 | 是 | 是 |
+| jobs | 82240 | 82240 | 是 | 是 |
+| moderation_records | 164467 | 164467 | 是 | 是 |
+| notifications | 85553 | 85553 | 是 | 是 |
+| likes | 20788 | 20788 | 是 | 是 |
+| user_sessions | 30000 | 30000 | 是 | 是 |
+| parties / party_members | 4 / 6 | 4 / 6 | 是 | 是 |
+| post_view_counters | 1000 | 1000 | 是 | 是 |
+| sensitive_words | 20 | 20 | 是 | 是 |
+| alembic_version | `d7e8f9a0b123` | `d7e8f9a0b123` | 是 | 是 |
+| post_hot_scores | 95000 | 95000 | 是 | **否** |
+| post_hot_score_state | 1 | 1 | 是 | **否** |
+| restore_drill_marks（RPO 标记表） | 8 | 2 | **否** | **否** |
+
+- 共 36 张表，除下述两类外**逐表行数与内容校验和完全相同**。
+- `post_hot_scores` / `post_hot_score_state` 行数相同但内容不同：演练期间后台 worker 每约 60 秒重算一次推荐流榜单，源库在快照之后又刷新过一次 —— 这是**应用继续写入**造成的差异，不是恢复丢失。
+- `restore_drill_marks` 的差异是**演练刻意制造的写入缺口**，即下面的 RPO 取证对象。
+
+仓库自带的 `scripts/check_restore.py`（带隔离库守卫）再在**恢复库**上跑一次：
+
+```bash
+ENVIRONMENT=test MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE \
+DATABASE_URL=postgresql://loaduser:loadpass@127.0.0.1:55433/schoolwall_restore_migration \
+PG_BIN_DIR=<指向隔离实例 pg_dump/pg_restore 的包装目录> \
+python3 scripts/check_restore.py
+# → Synthetic logical restore matched rows, identities and schema version:
+#   {'users': 10000, 'login_identities': 0, 'posts': 100000, 'footprints': 167760,
+#    'jobs': 82240, 'student_verifications': 0}
+# → Logical restore smoke PASS; this is not off-host PITR/RPO/RTO evidence
+```
+
+耗时 13.988 秒，退出码 0。
+
+### 4）RPO 实测（恢复点相对最后一次写入的丢失窗口）
+
+方法：演练期间以**固定 1 次/秒**的节拍向隔离库写入合成标记行（表 `restore_drill_marks`，`marker_at` 取 `clock_timestamp()` 的真实写入时刻），**备份与写入并发进行**；RPO = 恢复点（恢复库里最后一条被快照包含的标记）与最后一次写入（源库最后一条标记）之间的丢失窗口。
+
+| 项 | 实测值 |
+|---|---|
+| 源库最后写入 | `2026-11-03T22:03:12.303848+00:00`（累计 8 行） |
+| 恢复点（恢复库内最后一条标记） | `2026-11-03T22:03:05.846472+00:00`（恢复库内 2 行） |
+| **RPO 实测** | **6.457 秒** |
+| 丢失的标记写入 | **6 行**（1 秒节拍） |
+
+口径说明：这是**纯逻辑备份（无 WAL 归档）**下的丢失窗口，量级 ≈ 备份耗时（4.536 秒）+ 写入间隔（1 秒）+ 取整误差。**它不是 PITR 口径的 RPO**：开启 WAL 归档（`archive_timeout`）后 RPO 必须另测。
+
+### 5）应用回滚演练（`scripts/rollback-release.sh`）
+
+隔离发布根目录 `/home/kikun/loadenv2/release-root`，结构与仓库发布约定一致：`releases/<revision>/{deploy/docker-compose.prod.yml, release.env}`、`shared/.env`、`current` / `previous` 符号链接。
+
+两份制品都用仓库的 `backend/Dockerfile` 构建：**本次制品 = `703ed0f`（本工单 HEAD）**，**上一版制品 = `7e4b490`（PR #32 的后端代码）**。隔离环境访问不到 Docker Hub，构建时去掉了 `# syntax=docker/dockerfile:1` 一行（取不到 dockerfile 前端镜像）并把 pip 源指向镜像站，**其余内容逐行未改**（CI 仍用仓库原文件）。两份制品确实不同：上一版镜像内 `grep -rl post_hot_scores /app/app` 无命中，本次镜像命中 `app/models/hot_score.py`、`app/services/post.py`、`app/services/hot_scores.py` 三个文件。
+
+部署本次制品（等价于 `scripts/rollout.sh` 的 compose 步骤；`rollout.sh` 本身要求 manifest 里的 `ghcr.io` 不可变 digest 与 `shared/release-gates.json` 的 `production_approved` 审批，隔离环境两者都拿不到，故按同一 compose 契约手工执行）：
+
+```bash
+docker compose --project-name schoolwall --env-file shared/.env \
+  --env-file releases/$REVB/release.env -f releases/$REVB/deploy/docker-compose.prod.yml up -d db redis
+docker compose ... --profile tools run --rm migrate
+docker compose ... up -d --no-build backend worker
+```
+
+部署后健康检查：`/health/live` 与 `/health/ready` 均返回 `revision = 703ed0f34ee1b96688c4593ca84b67bb1df3f765`（= 本次制品），`alembic_version = d7e8f9a0b123`。
+
+回滚（**仓库自带脚本**，只回退应用、不动数据）：
+
+```bash
+bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
+  /home/kikun/loadenv2/release-root/releases/7e4b490b88df87a86e1ffb523b0ee932ad9ae312
+# → application rollback ready; database schema retained
+```
+
+| 项 | 实测值 |
+|---|---|
+| **回滚耗时** | **3.650 秒** |
+| 回滚后 `/health/live` | `{"status":"ok","revision":"7e4b490b88df87a86e1ffb523b0ee932ad9ae312"}`（= 上一版制品） |
+| 回滚后 `/health/ready` | `{"status":"ok","revision":"7e4b490b88df87a86e1ffb523b0ee932ad9ae312"}` |
+| backend / worker 镜像 | 切回上一版制品镜像 |
+| 数据库 schema | **仍为 `d7e8f9a0b123`（未降级）** |
+| `current` 符号链接 | 切到上一版 release 目录 |
+
+诚实备注：脚本的健康轮询里第一次 `curl` 出现过一次 `curl: (56) Recv failure: Connection reset by peer`（容器刚重建、端口尚未就绪），脚本按既有设计重试后通过；**未对脚本做任何修改**。
+
+回滚后的上一版制品在**恢复出来的隔离库**上继续正常服务数据：单独起上一版镜像指向 `schoolwall_restore_migration`，`/health/live`、`/health/ready` 均 ok，`GET /api/v1/posts` 返回 **HTTP 200**、20 条，恢复库核心行数不变（users=10000 / posts=100000 / comments=582233，`schema=d7e8f9a0b123`）。
+
+### 汇总数值
+
+| 项 | 实测值 | 口径与限制 |
+|---|---|---|
+| 逻辑备份耗时 | **4.536 秒** | 同一台隔离宿主，10000 用户 / 10 万帖 / 58.2 万评论合成数据集，pg_dump + gzip |
+| 备份文件 | 43,929,696 字节，sha256 `5c94f000…` | `gzip --test` 通过 |
+| 恢复耗时（RTO 数据恢复段） | **8.145 秒** | 新建隔离恢复库，`ON_ERROR_STOP=1` |
+| 恢复后一致性 | 36 张表逐表行数 + 内容 md5 一致（2 张被应用并发写入的榜单表除外） | 另经 `scripts/check_restore.py` PASS |
+| **RPO（恢复点相对最后一次写入的丢失窗口）** | **6.457 秒**（1 秒节拍的标记写入丢了 6 条） | **纯逻辑备份、无 WAL 归档口径，不是 PITR 承诺** |
+| **应用回滚耗时** | **3.650 秒** | 仓库脚本 `scripts/rollback-release.sh`，含 revision + readiness 双重健康门禁 |
+| 回滚后状态 | revision 切回上一版制品、schema 保留未降级、上一版制品在恢复库上正常服务数据 | |
+
+### 剩余缺口（未取得 → 门禁与任务行保持未通过 / 未勾选）
+
+1. **异机备份**：备份文件仍落在演练宿主的本地目录，未复制到第二台机器或对象存储，也未验证异机恢复。
+2. **加密**：备份未加密；`deploy/backup/` 只有 pgBackRest 配置样例与手册，没有实际启用加密（需人工在真实环境配置密钥）。
+3. **WAL 归档 / PITR**：本演练没有 `archive_timeout` 与归档链路，**RPO 实测值只代表逻辑备份口径**；目标 RPO≤1 小时、RTO≤4 小时必须在开启 WAL 归档的真实环境重测。
+4. **告警真实到达并被确认**：未演练（无真实告警通道，也没有值班人确认记录）。
+5. **真实发布窗口**：演练用的是本地构建的镜像标签，**不是 `ghcr.io` 的不可变 digest 制品**；`scripts/rollout.sh`（要求 manifest 里的 ghcr digest + `shared/release-gates.json` 的 `production_approved` 审批）与 GitHub production environment 的 required reviewers 都没走到。因此 `openspec/changes/production-multiplatform/tasks.md` 第 29 行「真实发布/回滚/完整恢复，证明RPO/RTO」**保持未勾选**。
+6. **相同制品预发布**：本次是同一份代码在隔离环境「部署 → 回滚」，未做「相同 digest 制品在预发布与生产各跑一遍并比对」的比对。
+7. **第 24 行「目标环境杀worker、审核中断、Redis/DB故障演练」**：本工单未执行（G3 容量演练已留证 worker 租约过期重新领取与死信路径，但杀 worker、审核中断、Redis/DB 故障演练未做），**保持未勾选**。
+
+本工单未改后端代码、迁移与 API 契约；后端全量用例、迁移链与 API 契约由 **Production CI** 判定。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

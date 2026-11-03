@@ -179,6 +179,8 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 
 soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superagent 服务被停止时终止了自己的子进程树，把仍在运行的 k6 一并带走，该轮在 7 小时 22 分 30 秒（92%）被 SIGTERM 终止。中止前的数值可作为部分实测参考留档，但按「未达 8 小时的 soak 不得按正式报告记账」的口径不计入正式验收，**G3 仍未通过**。
 
+> 本节保留为 2026-11-02 那轮的历史记录。热点帖单行写锁瓶颈消除后的复测（burst、soak 跑满 8 小时、steady 补跑、名额竞争与任务恢复）见下一节「G3 容量复测（2026-11-03，专用隔离环境，热点帖单行写锁修复后）」，G3 的当前判定以该节与 `docs/production/release-gates.md` 的 G3 行为准。
+
 ### 已知限制与剩余人工前置条件
 
 1. **runner 限制**：宿主是共享的 WSL2 笔记本，11.6 GB 内存且 swap 已占满、另有无关进程共跑；压测期间虚拟机曾被整体冻结 70.2 分钟（采样时间轴 `04:01:55Z → 05:12:10Z`）。k6 场景计时随虚拟机停摆，故各场景**有效负载时长**成立，但墙钟被消耗、9 小时 token 会提前到期，冻结瞬间的在途请求会产生 503 与极端耗时。跨冻结窗口的那一轮 steady **不作为正式记账**。
@@ -187,6 +189,53 @@ soak 一轮的中止与该瓶颈无关：承载压测的宿主上，dsh-superage
 4. **第三方边界**：本次只测可观测的本地处理能力；审核供应商与 COS 使用可控 stub，**未消耗真实审核额度、未验证真实供应商吞吐**；`docs/production/capacity.md` 要求的「真实认证→会话刷新、上传→隔离→审核→发帖、组局最后名额竞争、重复请求、发布期间流量、停worker重启、DB/Redis/审核超时与断网恢复」等补充场景只覆盖了「停 worker 重启」一项，其余未执行。
 5. **仍需人工/专用环境**：专用压测服务器（独占内存与磁盘）、生产等价 PostgreSQL 15 + Redis 7 拓扑、8 小时长稳在无冻结环境复跑、以及本文档列出的补充场景。
 6. **soak 中止的处置**：该轮 7h22m30s 的数值已按上文写进 `docs/production/capacity.md` 作为部分实测参考，但**不作为正式 8 小时长稳报告**。复跑时须保证压测进程与宿主上的常驻服务进程树解耦（例如把压测环境与 agent 服务分机部署，或让 agent 不持有压测进程的后台作业），避免再出现「停服务连带终止压测」的情况。
+
+## G3 容量复测（2026-11-03，专用隔离环境，热点帖单行写锁修复后）
+
+本节记录**消除热点帖单行写锁瓶颈后的复测**。环境为仓库外的隔离目录（专用 KVM 虚拟机 + 容器化 PostgreSQL 15 / Redis 7），**未接触生产域名、真实学生数据、开发库或生产 Redis**。原始数值与环境见[容量基线与压测](capacity.md)。
+
+### 环境与命令
+
+| 项 | 值 |
+|---|---|
+| 代码版本 | commit `2757118`（分支 `agent/fix-post-row-lock-1e6521eb2722`） |
+| 镜像 digest | `schoolwall-loadtest@sha256:0bd2b931870eac06094c139b0241fea417c6972384b24985300c95c69959ce67`（由 `backend/Dockerfile` 构建；基础镜像与 pip 均走镜像站，Dockerfile 与 CI 同源） |
+| 宿主 | KVM 虚拟机 / Ubuntu 24.04.5 LTS，128 vCPU、295 GB 内存、根盘 991 GB；**专用环境，无宿主冻结、无进程树干扰** |
+| 数据库 / 缓存 | PostgreSQL 15.14（容器，端口 55433，专用库 `schoolwall_loadtest`）/ Redis 7.4.7（容器，端口 6399，逻辑库 13） |
+| 压测工具 | k6 v0.57.0（源码构建，Go 1.22.2），脚本 `scripts/load/campus.js` |
+| 应用 | 镜像内 Python 3.11 + `backend/requirements.txt` 锁定依赖；uvicorn 4 worker + 后台 worker 1 进程；`DB_POOL_SIZE=10`、`DB_MAX_OVERFLOW=5`（连接预算 75 < `max_connections=100`） |
+| 建库与播种 | `DROP DATABASE` 重建 → `python -m alembic upgrade head` → `ALLOW_SYNTHETIC_LOAD_SEED=YES_ISOLATED_DATABASE python ../scripts/load/seed.py --users 10000 --posts 100000 --comments 500000`（10000 合成用户 / 100000 帖 / 500000 评论） |
+| 发压命令 | `ALLOW_ISOLATED_LOAD=YES_NONPRODUCTION ALLOWED_LOAD_HOST=127.0.0.1 BASE_URL=http://127.0.0.1:8000 PROFILE=burst RATE=200 DURATION=5m k6 run scripts/load/campus.js`；soak 同形换 `PROFILE=soak RATE=100 DURATION=8h`，并以 `setsid` 脱离会话进程组启动（避免会话结束连带终止压测）；steady 补跑为 `PROFILE=steady RATE=100 DURATION=30m`，同样 `setsid` 启动 |
+| 凭证续签 | 种子的 9 小时测试 token 在 soak 结束后已过期；steady 补跑前按 `scripts/load/seed.py` 同一签发方式（新建 `user_sessions` + `create_access_token`，9 小时有效期）在隔离库内重新签发，写入隔离运行目录的私有文件，**不入库、不进 CI 制品、不写日志** |
+| 恢复演练命令 | ① 租约过期恢复：向 `jobs` 插入一条 `status='running'`、`lease_until` 已过期、`attempts=1` 的合成任务，观察运行中的 worker 重新领取（≤2.1 秒）并完成；② 死信路径：插入 `kind='moderate_post'` 且 payload 非法（`post_id` 非整数）的任务，观察按 `2^attempts` 退避重试、第 5 次失败后进入 `dead`。两条演练任务均在隔离库内，`dedupe_key` 以 `loadtest-` 开头，不影响压测数据 |
+
+### 修复与本地验证
+
+- 修复：详情页浏览数改异步聚合（`post_view_counters` 缓冲表 + worker 每 10 秒逐帖小事务折叠回 `posts.view_count`）；点赞/取消赞/评论/收藏去掉 `SELECT ... FOR UPDATE`，计数改原子自增且不依赖 `posts.status`。迁移 `c1d2e3f4a5b6`。
+- 本地已验（隔离 PostgreSQL 15 + Redis 7 容器、Python 3.11、锁定依赖）：后端全量 pytest **563 passed**；迁移链 `alembic upgrade head` 通过（新迁移在链尾）、`downgrade` → 再 `upgrade` 通过；新增后端用例 `tests/test_hot_post_counters.py` 8 项全绿（含「外部事务锁住热点帖行时详情请求不被阻塞」回归）；`openspec validate --specs` **7/7 通过**；静态守卫 `scripts/check_api_contract.py`、`scripts/check_migrations.py` 通过。
+- 负向验证：把详情页改回同步写 `posts.view_count` 后，回归用例在 10 秒内超时失败（详情请求被 `posts` 行锁挡住），恢复后通过。
+
+### 判定
+
+| 场景 | 结果 |
+|---|---|
+| burst 200req/s × 5 分钟 | 实际 **199.69 req/s**、读 p50/p95/p99 = 9.79ms / **340.16ms** / 383.88ms、写 p50/p95/p99 = 9.16ms / **20.11ms** / 40.10ms、业务成功率 **100.00%**、5xx **0 次**、429 **0 次**、dropped iterations **0** —— **通过**（修复前读 p95 2743.72ms / 写 p95 4063.85ms / dropped 9624 / 实际 167.36 req/s） |
+| soak 100req/s × 8 小时 | `2026-11-03T05:56:35Z → 13:56:35Z` **跑满 8 小时整**（2,880,000 次迭代、99.999 req/s）、读 p50/p95/p99 = 9.28ms / **345.78ms** / 402.07ms、写 p50/p95/p99 = 7.89ms / **15.54ms** / 22.11ms、业务成功率 **100.00%**（429 单列后）、5xx **0 次**、429 **49,086 次**（1.70%，单列；全部来自每用户 10 分钟 30 条评论的限流 `RATE_COMMENT = (30, 600)`，压测脚本固定请求类型与账号导致少量账号反复评论；soak 窗口内评论尝试 115,200 次、入库 66,106 条，差额 49,094 与之吻合；限流键是用户维度，不按 IP，与校园 NAT 误伤无关）、dropped iterations **0** —— **通过** |
+| steady 100req/s × 30 分钟 | `2026-11-03T19:46:28Z → 20:16:31Z` 在修复后的构建上补跑、实际 **99.98 req/s**（180,001 次迭代）、读 p50/p95/p99 = 9.63ms / **354.72ms** / 403.42ms、写 p50/p95/p99 = 9.36ms / **16.31ms** / 23.40ms、业务成功率 **100.00%**（429 **229 次**单列后）、5xx **0 次**、dropped iterations **0**（2026-11-02 那轮为 16，未达标） —— **通过** |
+
+压测窗口内 PostgreSQL 侧：`log_lock_waits=on` 记录到的行锁等待 **0 次**（`05:56:35Z` 之后无一条 `still waiting for ...`，采样 CSV 的 `lock_not_granted` / `lock_wait_sessions` 全程为 0）；`log_min_duration_statement=500ms` 在长稳窗口内记录 **57 条**慢语句（53 条是帖子列表/详情共用的 `posts JOIN users` 投影，最长 1475.9ms；另 4 条是取证用的全库计数核对 SQL，非线上流量）。**慢语句与行锁无关** —— 逐条 `EXPLAIN (ANALYZE, BUFFERS)` 定位到搜索的 `ILIKE` 全表扫描（74.961ms）与推荐流的热度分排序全表扫描（662.276ms，热度分含 `now()` 无法用表达式索引），已记入 `openspec/specs/optimization/spec.md`（修复前同一根因下慢语句集中在 `UPDATE posts SET view_count=...`）。
+
+长稳期间的其它实测：DB 连接数稳定 35、活跃连接峰值 11；待审任务最旧年龄峰值 **1 秒**、失败 0、死信 **0**；API 进程 RSS 全程 483MB 几乎不变、PostgreSQL 内存进入平台期（**无持续资源增长**）；压测停止后 **6 秒内** CPU 由 73.7% 回落到 0.7%（**恢复耗时 < 1 分钟**）；计数一致性：全库 `like_count` / `comment_count` 不一致帖数均为 **0**；任务恢复演练：租约过期后 **≤2.1 秒**被重新领取并完成，连续失败 5 次后进入死信 `dead`。执行计划（`EXPLAIN (ANALYZE, BUFFERS)`）见 `docs/production/capacity.md`。
+
+**G3 判定**：见 `docs/production/release-gates.md` 的 G3 行（以三个场景全部达标 + 计数/名额一致性与任务恢复报告齐备为准；未达接受条件一律保持未通过）。
+
+### 已知限制
+
+1. **同机发压**：k6、API、PostgreSQL、Redis 跑在同一台 128 vCPU / 295 GB 内存的专用虚拟机上，存在资源竞争；本轮数值仍只能作为**同机基线**，不是生产容量承诺。
+2. **补齐场景有限**：本文档列出的补充场景（真实认证→会话刷新、上传→隔离→审核→发帖、重复请求、DB/Redis 超时与断网恢复）本轮未执行；「组局最后名额竞争」与「停 worker 重启（任务恢复）」两项已在隔离环境补跑并留证，数值见 `docs/production/capacity.md`。
+3. **第三方边界**：仍只测本地可观测处理能力，未消耗真实审核额度、未验证真实供应商吞吐。
+4. **待人工**：专用压测服务器与生产等价拓扑、真实 COS/审核联调、真实成本核算仍需人工安排；推荐流的全表扫描长尾（`openspec/specs/optimization/spec.md` 已记为下一条待办）需人工决定「榜单预计算」的落地形态。
+
 
 ## 已知发布阻断
 

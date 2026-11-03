@@ -20,7 +20,11 @@ from app.services.notification import create_notification
 
 
 async def _get_post(db: AsyncSession, post_id: int, for_update: bool = False, actor_id=None, viewer: User | None = None) -> Post | None:
-    """互动目标帖：必须存在且 status==1（封禁/待审帖不可被点赞评论收藏）。"""
+    """互动目标帖：必须存在且 status==1（封禁/待审帖不可被点赞评论收藏）。
+
+    互动路径一律不锁 posts 行（for_update 只留给审核等低频路径）：计数用原子
+    自增语句维护，行锁只持续到该语句结束，不再把热点帖变成串行点。
+    """
     statement = select(Post).where(Post.id == post_id, Post.status == 1, visible_author(Post.user_id, viewer))
     if for_update:
         statement = statement.with_for_update()
@@ -31,11 +35,28 @@ async def _get_post(db: AsyncSession, post_id: int, for_update: bool = False, ac
     return post
 
 
+async def _bump_like_count(db: AsyncSession, post_id: int, delta: int) -> int:
+    """原子调整 posts.like_count 并返回新值（不越界、不丢更新）。
+
+    不带 status 条件：计数必须与 likes 表一致，帖子被隐藏也不应让计数漂移。
+    """
+    stmt = (
+        update(Post)
+        .where(Post.id == post_id)
+        .values(like_count=func.greatest(func.coalesce(Post.like_count, 0) + delta, 0))
+        .returning(Post.like_count)
+    )
+    value = (await db.execute(stmt)).scalar_one_or_none()
+    if value is None:
+        value = (await db.execute(select(Post.like_count).where(Post.id == post_id))).scalar_one_or_none()
+    return int(value or 0)
+
+
 # ---- 点赞（幂等） ----
 
 
 async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
+    post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
         return None
 
@@ -50,23 +71,20 @@ async def like_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
 
     if inserted:
         # 原子自增，避免 read-modify-write 并发丢更新
-        await db.execute(
-            update(Post)
-            .where(Post.id == post_id, Post.status == 1)
-            .values(like_count=func.coalesce(Post.like_count, 0) + 1)
-        )
+        like_count = await _bump_like_count(db, post_id, 1)
         if post.user_id != user.id:
             db.add(Notification(user_id=post.user_id, actor_id=user.id, type="like", post_id=post_id))
         await db.commit()
-        await db.refresh(post)
     else:
         await db.commit()
-        await db.refresh(post)
-    return {"liked": True, "like_count": post.like_count}
+        like_count = int(
+            (await db.execute(select(Post.like_count).where(Post.id == post_id))).scalar_one_or_none() or 0
+        )
+    return {"liked": True, "like_count": like_count}
 
 
 async def unlike_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
+    post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
         return None
 
@@ -78,18 +96,13 @@ async def unlike_post(db: AsyncSession, user: User, post_id: int) -> dict | None
 
     if deleted:
         # 原子自减且不越过 0
-        await db.execute(
-            update(Post)
-            .where(
-                Post.id == post_id,
-                Post.status == 1,
-                func.coalesce(Post.like_count, 0) > 0,
-            )
-            .values(like_count=func.coalesce(Post.like_count, 0) - 1)
+        like_count = await _bump_like_count(db, post_id, -1)
+    else:
+        like_count = int(
+            (await db.execute(select(Post.like_count).where(Post.id == post_id))).scalar_one_or_none() or 0
         )
     await db.commit()
-    await db.refresh(post)
-    return {"liked": False, "like_count": post.like_count}
+    return {"liked": False, "like_count": like_count}
 
 
 # ---- 评论 ----
@@ -118,7 +131,7 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
     - gray：status=0 待审——不计数不通知，过审（admin）时补计数与通知
     - clean：status=1 即见，计数 + 通知帖子作者（不通知自己）
     """
-    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
+    post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
         return None
 
@@ -140,8 +153,9 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
     if status == 0:
         await enqueue_job(db, "moderate_comment", {"comment_id": c.id}, f"comment:{c.id}")
     else:
+        # 原子自增，不带 status 条件：计数必须与 comments 表一致
         await db.execute(
-            update(Post).where(Post.id == post_id, Post.status == 1)
+            update(Post).where(Post.id == post_id)
             .values(comment_count=func.coalesce(Post.comment_count, 0) + 1)
         )
         if post.user_id != user.id:
@@ -189,7 +203,6 @@ async def delete_comment(db: AsyncSession, user: User, comment_id: int) -> bool 
             update(Post)
             .where(
                 Post.id == c.post_id,
-                Post.status == 1,
                 func.coalesce(Post.comment_count, 0) > 0,
             )
             .values(comment_count=func.coalesce(Post.comment_count, 0) - 1)
@@ -202,7 +215,7 @@ async def delete_comment(db: AsyncSession, user: User, comment_id: int) -> bool 
 
 
 async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
+    post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
         return None
 
@@ -222,7 +235,7 @@ async def favorite_post(db: AsyncSession, user: User, post_id: int) -> dict | No
 
 
 async def unfavorite_post(db: AsyncSession, user: User, post_id: int) -> dict | None:
-    post = await _get_post(db, post_id, for_update=True, actor_id=user.id)
+    post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
         return None
     await db.execute(

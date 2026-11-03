@@ -35,6 +35,11 @@
 - **WHEN** 测试中出现 asyncpg "another operation in progress" 或事件循环相关错误
 - **THEN** 根因：asyncpg 连接绑定到首个事件循环，跨循环复用报错；解法：测试引擎使用 `NullPool`（每 SQL 操作用完即释放），见 `backend/tests/conftest.py`；预防：不要在测试 fixture 中跨函数复用同一引擎到不同循环
 
+#### Scenario: 外键检查会锁住热点父行（计数缓冲表不能加外键）
+
+- **WHEN** 给热点帖的写路径做性能改造，把浏览计数从 `posts` 行挪到独立计数表，却发现详情请求仍被热点帖行锁挡住
+- **THEN** 根因：子表对 `posts.id` 的**外键检查**会对父行取 `FOR KEY SHARE` 锁，而 `FOR KEY SHARE` 与 `FOR UPDATE` **互斥**（与 `FOR NO KEY UPDATE` / `FOR SHARE` 不冲突）—— 加了外键等于把读路径重新绑回热点行；解法：计数缓冲表**不加外键**（孤儿行无害，折叠时 `UPDATE ... WHERE id=?` 影响 0 行），并用回归用例锁住「外部事务持锁时详情请求不被阻塞」；预防：任何"把热点行写挪走"的改造，都要确认新表**没有**指向热点表的外键，否则串行点原样回来
+
 #### Scenario: mp-weixin 不支持内联 SVG
 
 - **WHEN** 前端图标方案选 "内联 `<svg>`" 或 `<image src="*.svg">`

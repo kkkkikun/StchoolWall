@@ -26,6 +26,30 @@ TBD - created by archiving change backend-social-layer. Update Purpose after arc
 - **WHEN** 取消一个未赞的帖子
 - **THEN** like_count 保持 0，不为负
 
+#### Scenario: 帖子被隐藏后计数不漂移
+
+- **WHEN** 帖子在互动后被置为不可见状态
+- **THEN** like_count 与 likes 表实际记录数保持一致（计数不因可见状态变化而丢失）
+
+### Requirement: 浏览计数异步聚合
+
+浏览计数 MUST NOT 在详情页读路径同步写 `posts` 行：详情页只把浏览增量写入浏览计数缓冲表，由后台 worker 周期性折叠回 `posts.view_count`；详情接口返回的浏览数 MUST 为「已折叠值 + 待折叠增量」。互动路径 MUST NOT 对 `posts` 行持有 `SELECT ... FOR UPDATE` 行锁，计数 MUST 由原子自增语句维护。
+
+#### Scenario: 详情页不阻塞热点帖行锁
+
+- **WHEN** 另一个事务持有热点帖 `posts` 行的共享行锁
+- **THEN** 详情页请求不被阻塞，浏览数照常累加
+
+#### Scenario: 浏览计数折叠
+
+- **WHEN** 详情页被浏览若干次后后台 worker 执行折叠
+- **THEN** `posts.view_count` 增加对应增量，缓冲表对应计数归零，两者之和等于实际浏览次数
+
+#### Scenario: 点赞与浏览不争同一行
+
+- **WHEN** 详情浏览与点赞并发发生在同一热点帖
+- **THEN** 两者不因 `posts` 行的长事务行锁互相排队，计数仍保持一致
+
 ### Requirement: 评论权限与删除
 
 发评论 MUST 需已认证；用户 MUST 只能删除自己的评论。

@@ -12,10 +12,12 @@ from app.services.moderation import (
     check_comment_moderation, check_media_moderation, check_party_moderation,
     check_post_moderation, check_profile_moderation, ManualReviewRequired, ContentRejected,
 )
+from app.services.view_counters import flush_post_view_counters
 
 logger = logging.getLogger(__name__)
 JOB_TIMEOUT_SECONDS = 120
 CLEANUP_INTERVAL_SECONDS = 60
+VIEW_FLUSH_INTERVAL_SECONDS = 10
 
 
 async def dispatch_job(job) -> None:
@@ -81,6 +83,7 @@ async def run(once: bool = False) -> None:
     for signum in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(signum, stop.set)
     last_cleanup = 0.0
+    last_view_flush = 0.0
     while not stop.is_set():
         try:
             if time.monotonic() - last_cleanup >= CLEANUP_INTERVAL_SECONDS:
@@ -89,6 +92,15 @@ async def run(once: bool = False) -> None:
                 except Exception as exc:
                     logger.error("cleanup failed error=%s", type(exc).__name__)
                 last_cleanup = time.monotonic()
+            if time.monotonic() - last_view_flush >= VIEW_FLUSH_INTERVAL_SECONDS:
+                try:
+                    async with async_session() as db:
+                        folded = await flush_post_view_counters(db)
+                    if folded:
+                        logger.info("view counters folded posts=%s", folded)
+                except Exception as exc:
+                    logger.error("view counter flush failed error=%s", type(exc).__name__)
+                last_view_flush = time.monotonic()
             worked = await run_once()
         except Exception as exc:
             logger.error("worker iteration failed error=%s", type(exc).__name__)

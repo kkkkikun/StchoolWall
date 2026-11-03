@@ -108,6 +108,45 @@ Trivy 明细（均为 HIGH，无 CRITICAL）：
 
 **未取得 / 未完成**：本机没有 Docker，本地无法构建镜像或执行 Trivy；`image` 作业只在 main 分支运行，因此「python-pkg 层 0 HIGH」的权威证据须由**合并后 main 分支的 Production CI image 作业**给出（Trivy 报告里 `Python (python-pkg)` 一节应为 `Total: 0`），且该次运行仍会因 OS 层 46 条 HIGH 退出码 1 —— 那是 Debian 13 尚无修复版本所致，属预期而非本次改动引入的回归。OS 层 46 条 HIGH 需等 Debian 上游发布安全更新后重建镜像，或改用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族（属基础镜像族级变更，须走 `openspec/changes/` 提案与人工决策，本次未擅自更换）。据此 `openspec/changes/backend-python-311/tasks.md` 第 9 行**保持未勾选**。
 
+> **2026-11-03 补记**：上述「python-pkg 层 0 HIGH」的权威证据**已取得** —— 见下节「Production CI image 作业 Trivy 复跑取证（2026-11-03）」：运行 `41578409185` 的 Trivy 报告里 65 个 `python-pkg` 目标逐条为 0，全表 `Total: 45 (HIGH: 45, CRITICAL: 0)` 全部来自 `debian 13.7` 的 OS 层。第 9 行仍**保持未勾选**，因为 OS 层的无修复版本 HIGH 仍在、Trivy 退出码 1。
+
+## Production CI image 作业 Trivy 复跑取证（2026-11-03）
+
+本节是 **上一节「python-pkg 层 0 HIGH」权威证据缺口**的实测结果：main 分支 `image` 作业在合并 `backend/Dockerfile` 的 setuptools/wheel 清理之后复跑，取回了该次运行的**原始日志**，据此逐条核实导入冒烟与 Trivy 报告。
+
+### 运行来源
+
+| 项 | 值 |
+|---|---|
+| 运行 | `41578409185`（push 到 main，提交 `e5047094b58b3d6d14f35c407c7323f79c41051c`，2026-11-03 04:29 UTC 起）→ <https://github.com/kkkkikun/StchoolWall/actions/runs/41578409185> |
+| image 作业 | job id `125732883940`，`2026-11-03T04:47:45Z → 04:49:09Z`，**结论 failure**，原始日志 1671 行 |
+| 扫描对象 | `schoolwall-ci:e5047094b58b3d6d14f35c407c7323f79c41051c`（`debian 13.7`） |
+| 扫描配置 | `aquasecurity/trivy-action@v0.36.0`（`ed142fd0`），`severity=CRITICAL,HIGH`、`exit-code=1`、`ignore-unfixed=false` —— **与 2026-11-02 完全一致，未豁免、未降门禁** |
+
+取日志的命令与本机限制：执行环境只放通了 GitHub 的 API 与代码托管域名，Actions 日志所在的 blob 存储域名在本机 TLS 握手超时（`gh run view <run> --log`、`gh api repos/…/actions/jobs/<id>/logs` 均无法落地），因此由 GitHub 自己的 runner 取回该作业日志并把原始片段贴到 PR #30 评论；本节引用的行号即该评论中带行号的原始日志行。
+
+### image 作业步骤结论（GitHub API）
+
+| # | 步骤 | 结论 |
+|---|---|---|
+| 4 | Use the exact tested Python dependency constraints | success |
+| 8 | Build once | success |
+| 9 | Smoke exact built image before push | **success** |
+| 10 | Scan exact production image before push（Trivy） | **failure** |
+| 11 | Push verified image and resolve immutable digest | skipped（扫描失败即中止，镜像未推送） |
+
+### 三项核实结果
+
+1. **导入冒烟仍打印契约行** —— 原始日志第 `2026-11-03T04:48:29.3409646Z` 行：`built image imports and exports contract`（步骤 `Smoke exact built image before push` 结论 success）。
+2. **python-pkg 层 0 条** —— Trivy `Report Summary` 表里，唯一的 `debian` 目标记 **45**，而 **65 个 `python-pkg` 目标逐条记 0**（`SQLAlchemy`、`alembic`、`boto3`、`cryptography`、`fastapi`、`httpx`、`pydantic`、`requests`、`urllib3`、`uvicorn` 等站点包全部为 `0`），全表合计 `Total: 45 (HIGH: 45, CRITICAL: 0)`，与 `debian` 那一行的 45 相等 ⇒ **python-pkg 层 HIGH 0 条 / CRITICAL 0 条**。2026-11-02 报出的 `setuptools/_vendor` 内置副本两条（`jaraco.context 5.3.0` → `CVE-2026-23949`、`wheel 0.45.1` → `CVE-2026-24049`）在本次报告中**不再出现**；整份日志里 `setuptools`/`wheel`/`jaraco`/`_vendor` 只出现在 Dockerfile 的构建命令行本身，没有任何一条扫描命中。
+3. **OS 层的无修复版本 HIGH 仍在** —— `debian 13.7` 目标仍有 **45 条 HIGH、0 CRITICAL**（较 2026-11-02 记录的 46 条少 1 条：本次报告里不再出现 `libsqlite3-0` 的 `CVE-2026-119586`，`CVE-2026-119373` 仍在）。明细表可见 44 行、17 个库（`util-linux` 家族 9 个库 × 4 条 `CVE-2026-76642/78408/78409/78410`、`libacl1` `CVE-2026-54369`、`libncursesw6`/`libtinfo6`/`ncurses-base` `CVE-2025-69720`、`libsqlite3-0` `CVE-2026-119373`、`libsystemd0`/`libudev1` `CVE-2026-16742`、`perl-base` `CVE-2026-9538`），**Fixed Version 列全部为空**（状态 `affected` / `fix_deferred`，即 Debian 13 当前没有可用修复版本）；控制台表格中 `ncurses-bin` 一行的单元格为空，故明细可见 44 条而汇总为 45 条。Trivy 步骤因此以 `##[error]Process completed with exit code 1.` 结束。
+
+### 结论与未解除项
+
+- **仓库自控部分已达成**：镜像内 python-pkg 层 HIGH 清零，原始证据为运行 `41578409185` 的 Trivy `Report Summary`（65 个 python-pkg 目标全为 0）。
+- **门禁仍未解除**：OS 层 45 条无修复版本 HIGH 使 Trivy 退出码 1，`image` 作业失败、带高危的镜像未推送，`openspec/changes/backend-python-311/tasks.md` 第 9 行**保持未勾选**，发布门禁 **G1 未解除**。
+- **未做的动作**：没有加 `.trivyignore`、没有改 severity、没有把 `ignore-unfixed` 改成 true、没有改 `backend/requirements.txt` 与业务代码、没有换基础镜像族（属人工决策）。解除 OS 层 HIGH 仍只有两条路：等 Debian 上游发布安全更新后重建镜像（可自主重跑验证），或走 `openspec/changes/` 提案换用不含 `util-linux`/`ncurses`/`perl-base`/`libsystemd0` 的镜像族（须人工决策）。
+
 ## G3 容量实测（2026-11-02，隔离环境）
 
 本节是 **发布门禁 G3 的第一次真实数值取证**，环境为仓库外的隔离目录，**未接触生产域名、真实学生数据、开发库或生产 Redis**。原始数值、命令与环境见[容量基线与压测](capacity.md)；本节只记录验证口径、判定与未完成项。

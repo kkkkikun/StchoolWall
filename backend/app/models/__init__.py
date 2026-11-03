@@ -1,5 +1,6 @@
 from app.models.user import User
 from app.models.post import Post
+from app.models.view_counter import PostViewCounter
 from app.models.tag import Tag, PostTag
 from app.models.report import Report
 from app.models.interaction import Comment, Like, Favorite, Footprint

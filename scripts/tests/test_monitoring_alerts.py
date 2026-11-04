@@ -59,6 +59,14 @@ CAPACITY_METRICS = (
     "node_memory_MemTotal_bytes",
 )
 
+# DB 锁等待信号（postgres_exporter）：会话数（按 wait_event_type 维度）、死锁计数
+# 与锁总数。
+POSTGRES_METRICS = (
+    "pg_stat_activity_count",
+    "pg_stat_database_deadlocks",
+    "pg_locks_count",
+)
+
 
 def runbook_row(prefix: str) -> str:
     text = (ROOT / "docs/production/runbook.md").read_text(encoding="utf-8")
@@ -82,6 +90,20 @@ def runbook_backup_row() -> str:
 
 def runbook_capacity_row() -> str:
     return runbook_row("容量/证书")
+
+
+def runbook_lock_wait_thresholds() -> tuple[int, int]:
+    """runbook 的 DB/Redis 行里收敛后的两个锁等待阈值。
+
+    该行原本只写「锁等待上升」，没有数值；收敛后的口径是「锁等待会话>0」与
+    「死锁增长>0」，两个数字都必须能从表里读出来，规则才允许照抄。
+    """
+    row = runbook_db_redis_row()
+    waits = re.search(r"锁等待会话>(\d+)", row)
+    deadlocks = re.search(r"死锁增长>(\d+)", row)
+    assert waits is not None, "runbook 的 DB/Redis 行必须写明锁等待会话阈值"
+    assert deadlocks is not None, "runbook 的 DB/Redis 行必须写明死锁增长阈值"
+    return int(waits.group(1)), int(deadlocks.group(1))
 
 
 class MonitoringAlertsGuardTests(unittest.TestCase):
@@ -396,6 +418,113 @@ class MonitoringAlertsGuardTests(unittest.TestCase):
             result = self.run_guard(alerts)
         self.assertNotEqual(result.returncode, 0, "引用了没人暴露的指标必须立刻失败")
         self.assertIn("node_filesystem_never_exposed_bytes", result.stdout + result.stderr)
+
+    def test_postgres_lock_metrics_are_registered_exporter_metrics(self):
+        """锁等待指标必须在守卫里显式登记为 postgres_exporter 暴露的指标。"""
+        registered = guard.EXPORTER_SOURCES["postgres"]["metrics"]
+        for metric in POSTGRES_METRICS:
+            self.assertIn(metric, registered, f"{metric} 必须登记为 postgres_exporter 指标")
+            self.assertIn(metric, guard.EXPORTER_METRICS)
+
+    def test_db_lock_wait_rules_match_the_runbook_alert_targets(self):
+        """锁等待规则的阈值必须照抄 runbook 的 DB/Redis 行。
+
+        该行原本只写「锁等待上升」、没有数值；收敛后的口径是「锁等待会话>0」与
+        「死锁增长>0」。表内没给持续时长，按仓库既有做法立即触发。
+        """
+        wait_threshold, deadlock_threshold = runbook_lock_wait_thresholds()
+        rules = {rule.get("alert"): rule for rule in guard.load_rules(guard.DEFAULT_ALERTS)}
+
+        self.assertIn("SchoolWallDbLockWaitRising", rules)
+        self.assertEqual(
+            rules["SchoolWallDbLockWaitRising"]["expr"],
+            'sum(pg_stat_activity_count{wait_event_type="Lock"}) > '
+            f"{wait_threshold}",
+        )
+        self.assertEqual(str(rules["SchoolWallDbLockWaitRising"]["for"]), "0m")
+
+        self.assertIn("SchoolWallDbDeadlockRising", rules)
+        self.assertEqual(
+            rules["SchoolWallDbDeadlockRising"]["expr"],
+            f"increase(pg_stat_database_deadlocks[5m]) > {deadlock_threshold}",
+        )
+        self.assertEqual(str(rules["SchoolWallDbDeadlockRising"]["for"]), "0m")
+
+    def test_db_lock_wait_rules_only_use_postgres_exporter_metrics(self):
+        """锁等待规则引用的指标必须来自 postgres_exporter，不是应用 /metrics。"""
+        registered = guard.EXPORTER_SOURCES["postgres"]["metrics"]
+        rules = {rule.get("alert"): rule for rule in guard.load_rules(guard.DEFAULT_ALERTS)}
+        for alert in ("SchoolWallDbLockWaitRising", "SchoolWallDbDeadlockRising"):
+            referenced = guard.metric_names_in(str(rules[alert]["expr"]))
+            self.assertTrue(referenced, f"{alert} 必须引用指标")
+            for metric in referenced:
+                self.assertIn(metric, registered,
+                              f"{alert} 引用的 {metric} 必须由 postgres_exporter 暴露")
+
+    def test_postgres_exporter_is_wired_into_the_monitoring_stack(self):
+        """exporter 必须真的接进监控栈：compose 里有服务、prometheus.yml 里有抓取作业。"""
+        compose = yaml.safe_load(
+            guard.DEFAULT_COMPOSE.read_text(encoding="utf-8")) or {}
+        services = compose.get("services") or {}
+        self.assertIn("postgres-exporter", services, "监控栈里必须有 postgres-exporter 服务")
+        service = services["postgres-exporter"]
+        self.assertIn("postgres-exporter", str(service.get("image", "")))
+        command = " ".join(str(part) for part in service.get("command") or [])
+        self.assertIn("--web.listen-address=127.0.0.1:9187", command,
+                      "exporter 只能监听回环地址")
+
+        prometheus = yaml.safe_load(
+            guard.DEFAULT_PROMETHEUS.read_text(encoding="utf-8")) or {}
+        jobs = {job.get("job_name"): job
+                for job in prometheus.get("scrape_configs") or []}
+        self.assertIn("postgres-exporter", jobs, "prometheus.yml 必须有 postgres-exporter 抓取作业")
+        targets = [
+            target
+            for entry in jobs["postgres-exporter"].get("static_configs") or []
+            for target in entry.get("targets") or []
+        ]
+        self.assertIn("127.0.0.1:9187", targets)
+
+        rules = guard.load_rules(guard.DEFAULT_ALERTS)
+        self.assertEqual(guard.check_exporter_wiring(rules), {},
+                         "仓库当前的规则不得引用没接线的 exporter")
+
+    def test_monitoring_config_keeps_database_credentials_out_of_the_repository(self):
+        """连接串与口令只走只读的运行时配置，仓库里不得出现口令。"""
+        compose = guard.DEFAULT_COMPOSE.read_text(encoding="utf-8")
+        self.assertIn("DATA_SOURCE_USER_FILE", compose,
+                      "用户名必须来自只读挂载的运行时文件")
+        self.assertIn("DATA_SOURCE_PASS_FILE", compose,
+                      "口令必须来自只读挂载的运行时文件")
+        self.assertNotIn("DATA_SOURCE_PASS=", compose, "仓库里不得写入口令")
+        self.assertNotIn("DATA_SOURCE_USER=", compose, "仓库里不得写入监控账号")
+        self.assertIsNone(
+            re.search(r"postgresql://[^\s\"']*:[^\s\"'@]*@", compose),
+            "连接串里不得带口令",
+        )
+        services = (yaml.safe_load(compose) or {}).get("services") or {}
+        mounts = [str(mount) for mount in services["postgres-exporter"].get("volumes") or []]
+        credential_mounts = [mount for mount in mounts if "/etc/postgres-exporter" in mount]
+        self.assertTrue(credential_mounts, "凭据目录必须挂进容器")
+        for mount in credential_mounts:
+            self.assertTrue(mount.endswith(":ro"), "凭据目录只能以只读方式挂载")
+
+    def test_rule_referencing_an_unregistered_postgres_metric_is_rejected(self):
+        """postgres_exporter 上不存在的指标名同样必须被拦下。"""
+        with tempfile.TemporaryDirectory() as directory:
+            alerts = Path(directory) / "alerts.yml"
+            alerts.write_text(
+                "groups:\n"
+                "  - name: schoolwall\n"
+                "    rules:\n"
+                "      - alert: SchoolWallDbLockWaitRising\n"
+                "        expr: pg_stat_activity_never_exposed_count > 0\n"
+                "        for: 0m\n",
+                encoding="utf-8",
+            )
+            result = self.run_guard(alerts)
+        self.assertNotEqual(result.returncode, 0, "引用了没人暴露的指标必须立刻失败")
+        self.assertIn("pg_stat_activity_never_exposed_count", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

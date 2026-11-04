@@ -38,8 +38,8 @@ JOBS_METRICS_COLLECTION_OK = Gauge("schoolwall_jobs_metrics_collection_ok",
                                     "1 when the last job metric collection succeeded, 0 otherwise")
 
 # DB/Redis 的应用侧信号：连接池用了几条连接、占了连接预算的多少（比率），
-# 以及 Redis 调用失败了几次（计数）。锁等待、主机容量一类信号需要
-# postgres_exporter / node_exporter，不在这里冒充已覆盖。
+# 以及 Redis 调用失败了几次（计数）。锁等待与主机容量一类信号不由本进程采集，
+# 分别来自 postgres_exporter / node_exporter（见 deploy/monitoring/），不在这里冒充已覆盖。
 DB_POOL_USED = Gauge("schoolwall_db_pool_used_connections",
                       "Database connections currently in use by this process")
 DB_POOL_OVERFLOW = Gauge("schoolwall_db_pool_overflow_connections",

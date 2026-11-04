@@ -10,7 +10,8 @@
     渲染的是同一个 registry；
   * 既定 exporter 暴露的指标 —— blackbox_exporter（deploy/monitoring/blackbox.yml
     的 http_2xx 模块）、node_exporter（deploy/monitoring/compose.monitoring.yml 的
-    node-exporter 服务，磁盘与内存信号）与 Prometheus 自带的 up。
+    node-exporter 服务，磁盘与内存信号）、postgres_exporter（同文件的
+    postgres-exporter 服务，锁与会话等待信号）与 Prometheus 自带的 up。
 
 反过来，表达式里一个指标都没引用（例如 `1 > 0`）的规则同样要拦下：这种规则
 要么恒真、要么恒假，与告警目标无关。
@@ -47,6 +48,8 @@ DEFAULT_PROMETHEUS = ROOT / "deploy/monitoring/prometheus.yml"
 #   blackbox  —— blackbox_exporter 的 http_2xx 模块（deploy/monitoring/blackbox.yml）
 #   node      —— node_exporter（deploy/monitoring/compose.monitoring.yml 的
 #                node-exporter 服务），提供磁盘可用空间与内存使用率
+#   postgres  —— postgres_exporter（同文件的 postgres-exporter 服务），
+#                提供锁与会话等待信号
 # 登记的是「这个 exporter 真实会暴露的指标名」：规则引用了没人暴露的指标就是空转。
 # 每个 exporter 还登记它必须被接线的地方：指标名登记了、exporter 却没部署或没被抓取，
 # 规则仍然是空转，所以那两处也对齐检查。
@@ -73,6 +76,22 @@ EXPORTER_SOURCES = {
             "node_filesystem_size_bytes",
             "node_memory_MemAvailable_bytes",
             "node_memory_MemTotal_bytes",
+        }),
+    },
+    # postgres_exporter 的锁与会话等待信号（指标名取自 exporter 自身的 collector）：
+    #   pg_stat_activity_count   —— stat_activity collector，按 wait_event_type
+    #                                等维度统计的会话数（wait_event_type="Lock"
+    #                                即正在等锁的会话）
+    #   pg_stat_database_deadlocks —— stat_database collector 的死锁计数（counter）
+    #   pg_locks_count           —— locks collector 的锁总数（已授予与未授予都算，
+    #                                分不出等待与持有，故规则不用它判定锁等待）
+    "postgres": {
+        "compose_service": "postgres-exporter",
+        "prometheus_job": "postgres-exporter",
+        "metrics": frozenset({
+            "pg_stat_activity_count",
+            "pg_stat_database_deadlocks",
+            "pg_locks_count",
         }),
     },
 }

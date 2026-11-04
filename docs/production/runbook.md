@@ -24,6 +24,8 @@ FROM jobs WHERE status IN ('pending','running','dead') GROUP BY status;
 ```
 只输出聚合，禁止把payload、证件、token或用户内容发到告警渠道。每月按30天99.5%目标计算216分钟错误预算；消耗过半暂停功能发布，耗尽后只做安全/恢复性变更直到复盘确认恢复。
 
+任务的四个队列信号已由应用 `/metrics` 暴露（`schoolwall_jobs_pending`、`schoolwall_jobs_oldest_pending_age_seconds`、`schoolwall_jobs_dead`、`schoolwall_jobs_running_lease_expired`，另有 `schoolwall_jobs_metrics_collection_ok` 表示最近一次采集是否成功），并按上表 jobs 行的阈值接上告警规则（`SchoolWallJobsBacklog` / `SchoolWallJobsDeadLetters` / `SchoolWallJobsLeaseExpired`）。最老待处理任务的等待秒数按**入队时间**算：退避重排只推迟下一次可执行时间，并不会让积压从视野里消失。主机、DB、备份三类信号仍需对应 exporter（node_exporter / postgres_exporter 等），保持为缺口；上表其余目标与「真实告警到达并被确认」仍属人工安排 —— 规则存在不等于告警已送达。
+
 首发恢复验收目标为RPO≤1小时、RTO≤4小时；告警留出恢复处理余量，不能把归档配置当作已满足RPO。
 
 ## 故障处置

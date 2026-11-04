@@ -42,12 +42,11 @@ app.add_middleware(CORSMiddleware,
     expose_headers=["X-Request-ID"])
 
 try:
-    from prometheus_client import Counter, Histogram, CONTENT_TYPE_LATEST, generate_latest
-    REQUESTS = Counter("schoolwall_http_requests_total", "API requests", ["method", "route", "status"])
-    LATENCY = Histogram("schoolwall_http_duration_seconds", "API latency", ["method", "route"],
-                        buckets=(.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10))
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+    from app.metrics import HTTP_LATENCY as LATENCY, HTTP_REQUESTS as REQUESTS, refresh_job_metrics
 except ImportError:
     REQUESTS = LATENCY = None
+    refresh_job_metrics = None
 
 
 @app.middleware("http")
@@ -174,4 +173,6 @@ async def ready():
 async def metrics():
     if REQUESTS is None:
         raise HTTPException(503, "Metrics unavailable")
+    # 抓取时顺带刷新任务队列信号；采集失败不会让 /metrics 失败（见 app.metrics）。
+    await refresh_job_metrics()
     return Response(generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})

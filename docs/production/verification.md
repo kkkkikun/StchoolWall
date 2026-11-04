@@ -29,7 +29,7 @@
 | 图标注册表成为唯一来源（2026-10-31） | `frontend-ui` 规范要求「不得手写路径」，实测有 91 个路径（183 处引用、22 个文件）直接写死 `/static/icons/...`。已全部改写为 `ICONS[...]` / `ICON_TONES[...][...]`，并新增 `frontend/scripts/icon-consistency-check.py` 断言磁盘 SVG ↔ 注册表一一对应（207 ↔ 207、208 个语义名）且源码不再出现手写路径，已做两条负向验证（改回手写路径、删掉一个 SVG 均 exit 1）。**说明**：原清单记的「103 个零引用 SVG」经实测不成立 —— 零引用为 0，真实缺口只是「引用没走注册表」。 |
 | H5 第三方外呼清零（2026-10-31） | 定位到一个真实缺陷：uni-app H5 框架 CSS 注入 `body:after` 隐藏伪元素，**延迟 3 秒从 dcloud 公网 CDN（cdn.dcloud.net.cn）拉导航阴影图** —— 每次打开页面多一次外网请求，CDN 不可达时控制台报 `net::ERR_CONNECTION_CLOSED`，导致全页面走查随机 FAIL（实测 8 次里偶发 1~2 次，此前一直被当成脚本不稳定）。已用 `html body::after { content: none; animation: none; }` 关掉（比框架的 `body:after` 多一层 html，不依赖样式加载顺序），并新增 `frontend/scripts/external-request-check.py` 断言打开主要页面时无第三方外呼（自家 `/api/v1/**` 后端调用除外）。实测外网请求 **1 条 → 0 条**，已做负向验证（塞一个第三方资源即 exit 1），已接入 CI。 |
 | 前后端缺陷修复 | ① 夜间模式 `.theme-dark` 只覆写背景令牌、未覆写字色，`verify`/`appeals` 继承亮色近黑字在纯黑底上不可见；② 输入占位符使用 uni 默认 `#808080`（3.95:1）与 `--text-4`（2.64:1）；③ 管理台沿用 Element Plus 默认语义色，标签文字对比度仅2.0~3.1:1。三处均已修复，并由新增对比度断言长期守护。 |
-| 图片顺序缺陷 | 发布页并发上传时 `media_ids` 的签发顺序 ≠ 用户选择顺序；后端 `bind_media` 用 `WHERE id IN (...)` 取数、`entity_media` 按 `created_at, id` 排序，用户排好的图片顺序在入库与发布环节丢失。已加 `media_assets.position` 列（迁移 `b7e2c4a91d30`）、`bind_media` 按传入顺序重排并落 position、`entity_media` 按 position 排序，并补后端回归测试与发布页 `data-media-id` 契约断言。**后端用例与迁移需 PostgreSQL 环境执行，本次未在本机运行。** |
+| 图片顺序缺陷 | 发布页并发上传时 `media_ids` 的签发顺序 ≠ 用户选择顺序；后端 `bind_media` 用 `WHERE id IN (...)` 取数、`entity_media` 按 `created_at, id` 排序，用户排好的图片顺序在入库与发布环节丢失。已加 `media_assets.position` 列（迁移 `b7e2c4a91d30`）、`bind_media` 按传入顺序重排并落 position、`entity_media` 按 position 排序，并补后端回归测试与发布页 `data-media-id` 契约断言。**该迁移链与媒体顺序后端用例已于 2026-11-04 在专用隔离环境（容器化 PostgreSQL 15.14 / Redis 7.4.7）实测通过**，见下文「迁移链：隔离环境执行迁移 `b7e2c4a91d30` 的完整迁移链与媒体顺序后端用例」小节。 |
 | 发布配置 | 两份GitHub workflow通过actionlint1.7.7；生产、备份、监控Compose静态配置校验通过；镜像manifest模板远端只读校验通过。未在本机Docker构建/扫描/启动；Gitleaks与Trivy均未在本地执行，CI保留硬门禁。 |
 | 主分支平台化移植（2026-10-31） | 从主题分支把**非 UI 的实现质量**整体移植回主分支：① 后端生产化 31 个新文件 + 全部模型/路由/服务/配置改造 + 迁移 `529bf8becb3f`、`b7e2c4a91d30`（迁移图单根单头、链长21）；② 依赖高危清零（主前端 0 high/0 critical、管理台 0 vulnerabilities）；③ 浏览器级走查体系（全页面/全视图 + 6 套专项）与两个永久审计脚本（`ui-contrast-audit.py`、`ui-perf-audit.py`）；④ 本地预览服务 `scripts/preview.py`（含管理台登录 mock）；⑤ 学生端统一图标体系（183 SVG / 97 语义名，emoji 清零）与语义化设计令牌；⑥ 白天/夜晚双模式主题机制；⑦ 管理台补齐申诉处理/审核任务/学生证认证三视图。**配色沿用主分支自己的玫瑰红品牌**（`--primary: #c2455c`，白字 4.88:1），未引入 X 蓝。**复验**：客观缺陷扫描 25 页 × 亮/暗 —— 对比度 0、点击区 0、小字号 0、横向裁切 0、源码静态守卫 0、**品牌既定例外 0**；全页面走查 57/57、桌面平板 16/16、发布 6/6、图片上传 10/10、登录守卫 11/11、详情互动 33/33、管理台全视图 34/34 + 管理台自身 ui-walkthrough 8/8 全部 PASS；前端单测 55/55、管理台 12/12；type-check 0 错；H5/微信小程序/Android 三端构建通过。**未执行**：后端 pytest 与迁移 upgrade/downgrade（本机无 PostgreSQL/Redis/Docker）、微信开发者工具与真机实测。 |
 | 移植过程中发现并修复的既有缺陷 | ① 底栏图标写死 `/static/tabbar/*.svg`，而该目录已随统一图标体系删除 → 底栏 5 个图标全部 404 不显示（页面级断言不覆盖全局组件，肉眼易漏）；改为统一走 `utils/icons.ts` 注册表，并加「源码引用/注册表/磁盘文件」三者一一对应的交叉核对。② 走查脚本把具体色值写死进断言，换品牌即假失败；改为读取令牌计算值判定，与「断言对比度而非色值」的既有规范一致。③ 静态守卫按品牌色名判定、换品牌即失效；改为解析 App.vue 令牌实际色值再算对比度，并新增令牌完整性检查。④ webview 页引用不存在的 `common/link.svg` 导致 404；修正为 `settings/link.svg` 并纳入生成器登记。⑤ 本地未跟踪的 `backend/.env` 仍是旧的 7 天 JWT，与生产化后的短会话契约（≤15 分钟）冲突导致后端无法导入；已同步本地环境文件（不入库）。 |
@@ -574,17 +574,56 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 | 未改动 | 未改发布门禁口径、未改接口契约、未改业务语义、未接触生产域名 / 生产实例 / 真实学生数据 |
 
 
+## 迁移链：隔离环境执行迁移 `b7e2c4a91d30` 的完整迁移链与媒体顺序后端用例（2026-11-04，专用隔离环境）
+
+本节关闭 `openspec/changes/production-multiplatform/tasks.md` 第 45 行「新增迁移与媒体顺序后端用例需在真实隔离PostgreSQL上执行（当前环境无Docker/PostgreSQL/Redis，尚未运行）」的缺口。此前该迁移只做过 revision 图的静态校验（单头、链长 21、无悬挂引用），**从未在真实 PostgreSQL 上执行过 upgrade/downgrade**，媒体顺序后端用例也未运行。
+
+### 环境与边界
+
+| 项 | 值 |
+|---|---|
+| 隔离环境 | 专用隔离环境（与 k6 压测同一套实例）：容器化 **PostgreSQL 15.14 / Redis 7.4.7**，演练脚本写在仓库外 `/home/kikun/loadenv2/run`（不进仓库） |
+| 目标库 | **独立隔离库 `schoolwall_position_migration`**（库名带 `_migration` 后缀，符合仓库自带 `scripts/check_migrations.py` 的隔离守卫：`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE` + 库名后缀 `_migration`/`_migration_test` + 目标库必须为空） |
+| 未触碰 | **未在非隔离库上执行任何 upgrade/downgrade**；`schoolwall_loadtest`（k6 数据集）、`schoolwall_drill_loadtest`（演练库）、`schoolwall_test`（用例库）之外无写入；未接触生产域名、生产实例与真实学生数据 |
+| 未改动 | 未改后端代码、迁移脚本、API 契约与发布门禁口径；本节只记录实测结果 |
+
+### 迁移链实测（`alembic` 逐条执行）
+
+链上位置：`529bf8becb3f` → **`b7e2c4a91d30`** → `d4e6f8a1b357` → `c1d2e3f4a5b6` → `d7e8f9a0b123`（head）。
+
+| 步骤 | 命令 | 实测结果 |
+|---|---|---|
+| 1 | `alembic upgrade head` | 通过；`alembic_version` = `d7e8f9a0b123`；`media_assets.position` 存在（`integer`、可空） |
+| 2 | `alembic downgrade 529bf8becb3f` | 通过；**真正回滚 `position` 列**（`d7e8f9a0b123`→`c1d2e3f4a5b6`→`d4e6f8a1b357`→`b7e2c4a91d30`→`529bf8becb3f` 逐版回退）；`alembic_version` = `529bf8becb3f`；`information_schema.columns` 里 `media_assets.position` **计数 = 0**（列确已删除） |
+| 3 | `alembic upgrade head` | 通过；`alembic_version` 回到 `d7e8f9a0b123`；`media_assets.position` **恢复**（`integer`、可空） |
+| 4 | `alembic check` | 通过：`No new upgrade operations detected.`（模型与迁移无差异） |
+
+仓库自带的隔离守卫脚本同样在**空隔离库** `schoolwall_migration_test`（`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE`）上跑通：`scripts/check_migrations.py` → `No new upgrade operations detected.` + `legacy UUID/password identities preserved; old verification/PII invalidated; newest footprint retained` + `Migration cutover, rollback/re-upgrade and metadata consistency: PASS`。
+
+### 媒体顺序后端用例与后端全量用例
+
+| 项 | 结果 |
+|---|---|
+| 媒体顺序用例 | `backend/tests/test_production_pipeline.py` **20 passed**（3.52 秒），其中 `test_bound_media_keeps_the_order_the_author_chose` **PASSED** —— 用户选择的图片先后顺序贯穿绑定（`bind_media` 按传入顺序落 `position` 0/1/2）、读取（`entity_media` 按 `position` 排序）与发布（`publish_entity_media` 返回顺序与选择顺序一致） |
+| 后端全量 pytest | **575 passed / 3 skipped（122.45 秒）**，在隔离环境（容器化 PostgreSQL 15.14 / Redis 7.4.7，测试库 `schoolwall_test`、Redis 逻辑库 13）实跑 |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **54 tests OK** |
+| API 契约 | `scripts/check_api_contract.py --output` → `contract validated: 132 paths`（接口面未变，与入库的 `release/openapi.json` 一致） |
+| 未改动 | 未改后端代码、迁移脚本、API 契约与发布门禁口径；未接触生产域名 / 生产实例 / 真实学生数据 |
+
+**仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本次改动只含文档，接口面与迁移链未变，CI 复跑用于确认同一提交在 CI 环境同样通过。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。
 
-新增迁移 `b7e2c4a91d30`（media_assets 加 position）已校验 revision 图为单头、链长21、无悬挂引用；**未在真实库执行 upgrade/downgrade**，新增的媒体顺序后端用例也未执行（当前环境无 Docker / PostgreSQL / Redis）。
+新增迁移 `b7e2c4a91d30`（media_assets 加 position）已校验 revision 图为单头、链长21、无悬挂引用，并**已于 2026-11-04 在专用隔离环境（容器化 PostgreSQL 15.14 / Redis 7.4.7）的独立隔离库 `schoolwall_position_migration` 上执行完整迁移链实测**：`upgrade head` → `downgrade 529bf8becb3f`（`position` 列确已删除，列计数 0）→ `upgrade head`（列恢复）→ `alembic check`（`No new upgrade operations detected.`）；仓库自带 `scripts/check_migrations.py` 隔离守卫同样 PASS；媒体顺序后端用例 `backend/tests/test_production_pipeline.py` **20 passed**（含 `test_bound_media_keeps_the_order_the_author_chose`），后端全量 pytest **575 passed / 3 skipped**。命令原文与数值见上文「迁移链：隔离环境执行迁移 `b7e2c4a91d30` 的完整迁移链与媒体顺序后端用例」小节。
 
 此外尚未取得：
 
 - 实际主体/备案/社区类目与商店准入、正式隐私政策、SDK清单和可响应的支持渠道。
 - 目标PostgreSQL15/Redis7完整CI，真实镜像与密钥扫描，独立越权/隐私数据流复核。
-- 本次新增的媒体顺序后端用例与迁移 `b7e2c4a91d30` 尚未在真实隔离PostgreSQL上执行；需在测试库跑通后再勾选。
+- ~~本次新增的媒体顺序后端用例与迁移 `b7e2c4a91d30` 尚未在真实隔离PostgreSQL上执行~~ —— **已于 2026-11-04 在专用隔离环境实测通过**（隔离库 `schoolwall_position_migration`：`upgrade head` → `downgrade 529bf8becb3f`（`position` 列确已删除）→ `upgrade head` → `alembic check` 无差异；`scripts/check_migrations.py` 守卫 PASS；`backend/tests/test_production_pipeline.py` 20 passed；后端全量 pytest 575 passed / 3 skipped），命令原文与数值见上文「迁移链：隔离环境执行迁移 `b7e2c4a91d30` 的完整迁移链与媒体顺序后端用例」小节。
 - 私有COS访问与所有副本删除、腾讯审核真实额度/费用、**进程杀死和 Redis/DB 依赖故障演练已于 2026-11-03 在专用隔离环境完成实测**（杀 worker 后租约 **0.626 秒**被重新领取、连续失败 **5 次**进入死信 `dead`、退避 **2/4/8/16 秒**、供应商故障期间内容保持待审不公开、人工决定不被旧 worker 覆盖、Redis/DB 故障时 `/health/ready` 返回 **503**、故障期间**半成品数据 0**、恢复时间 **3.88 / 4.45 秒**，见「G2 可靠性：隔离环境故障注入演练」小节；其中「PostgreSQL 不可达时写路径返回 500 而非 503」的缺陷**已于 2026-11-04 修复并复测**（写路径 **500 → 503**，恢复 **5.32 秒**，恢复后写入成功且无半成品数据，见「G2 可靠性：PostgreSQL 不可达时写路径错误码修复复测」小节））；**仍未取得**：真实告警送达与人工确认、目标环境复测、真实腾讯云审核接口的额度/费用/SLA。
 - 同一制品预发布、异机备份、备份加密、WAL 归档/PITR 和真实告警确认仍未取得（**应用回滚与完整恢复已在 2026-11-03 的隔离环境实测通过**，见上文「G2 可靠性：隔离环境备份 / 恢复 / 应用回滚演练」小节）；RPO≤1小时、RTO≤4小时仍是目标 —— 隔离环境实测的 RPO 6.457 秒只是纯逻辑备份口径，不是 PITR 承诺。
 - 1万用户/10万帖/50万评论下100req/s30分钟、200req/s5分钟及8小时长稳，p95与5xx验收；当前不声称承载500在线。

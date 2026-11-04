@@ -42,4 +42,4 @@
 - [x] 浏览器级全量走查：学生端26页面×亮/暗双模式53/53、管理台17路由×桌面/窄屏34/34，并新增横向溢出/文字裁切/WCAG对比度断言
 - [x] 夜间模式文字色令牌缺陷、输入占位符对比度、管理台Element Plus语义色对比度修复
 - [x] 图片展示顺序缺陷：新增media_assets.position列（迁移b7e2c4a91d30）、bind_media按传入顺序重排、entity_media按position排序，补后端回归测试
-- [ ] 新增迁移与媒体顺序后端用例需在真实隔离PostgreSQL上执行（当前环境无Docker/PostgreSQL/Redis，尚未运行）
+- [x] 新增迁移与媒体顺序后端用例需在真实隔离PostgreSQL上执行（2026-11-04：已在专用隔离环境（容器化 PostgreSQL 15.14 / Redis 7.4.7，与 k6 压测同一套实例）的独立隔离库 `schoolwall_position_migration` 上执行完整迁移链 —— `alembic upgrade head` → `alembic downgrade 529bf8becb3f`（`media_assets.position` 列确已删除，列计数 0）→ `alembic upgrade head`（列恢复）→ `alembic check`（`No new upgrade operations detected.`）；仓库自带 `scripts/check_migrations.py` 隔离守卫（`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE` + 库名 `_migration` 后缀 + 空库）同样 PASS；媒体顺序后端用例 `backend/tests/test_production_pipeline.py` 20 passed（含 `test_bound_media_keeps_the_order_the_author_chose`），后端全量 pytest 575 passed / 3 skipped，API 契约 132 paths 不变。命令原文与数值见 `docs/production/verification.md`）

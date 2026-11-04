@@ -1,11 +1,14 @@
 """告警规则的可抓取性守卫回归。
 
-`docs/production/runbook.md` 的「首发告警目标」表把 jobs、DB/Redis 与备份列为
-首发告警目标，但规则文件里如果引用了没人暴露的指标，规则就永远不触发（空转）：
-值班人以为「已配置」，实际收不到信号。本用例既跑真实守卫脚本锁住仓库当前的
-`deploy/monitoring/alerts.yml`，也用临时文件证明「引用了不可抓取指标的规则」
-与「一个指标都没引用的规则」确实会被拦下，并锁住 jobs、DB/Redis 与备份规则的
-阈值与持续时长仍然照抄 runbook 的表。
+`docs/production/runbook.md` 的「首发告警目标」表把 jobs、DB/Redis、备份与
+容量/证书列为首发告警目标，但规则文件里如果引用了没人暴露的指标，规则就永远
+不触发（空转）：值班人以为「已配置」，实际收不到信号。本用例既跑真实守卫脚本
+锁住仓库当前的 `deploy/monitoring/alerts.yml`，也用临时文件证明「引用了不可抓取
+指标的规则」与「一个指标都没引用的规则」确实会被拦下，并锁住 jobs、DB/Redis、
+备份与容量规则的阈值与持续时长仍然照抄 runbook 的表。
+
+容量信号由 node_exporter 提供：指标名在守卫里显式登记，exporter 还必须接进监控栈
+（compose 里有服务、prometheus.yml 里有抓取作业），否则规则照样是空转。
 """
 
 import re
@@ -14,6 +17,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/check_monitoring_alerts.py"
@@ -46,6 +51,14 @@ BACKUP_METRICS = (
     "schoolwall_backup_status_collection_ok",
 )
 
+# 主机容量信号（node_exporter）：根文件系统的可用与总容量、可用与总内存。
+CAPACITY_METRICS = (
+    "node_filesystem_avail_bytes",
+    "node_filesystem_size_bytes",
+    "node_memory_MemAvailable_bytes",
+    "node_memory_MemTotal_bytes",
+)
+
 
 def runbook_row(prefix: str) -> str:
     text = (ROOT / "docs/production/runbook.md").read_text(encoding="utf-8")
@@ -65,6 +78,10 @@ def runbook_db_redis_row() -> str:
 
 def runbook_backup_row() -> str:
     return runbook_row("备份")
+
+
+def runbook_capacity_row() -> str:
+    return runbook_row("容量/证书")
 
 
 class MonitoringAlertsGuardTests(unittest.TestCase):
@@ -265,6 +282,120 @@ class MonitoringAlertsGuardTests(unittest.TestCase):
                     marker, text,
                     f"{rule.get('alert')} 不得冒充已覆盖 WAL 归档（{marker}）",
                 )
+
+    def test_capacity_metrics_are_registered_exporter_metrics(self):
+        """容量指标必须在守卫里显式登记为 node_exporter 暴露的指标。"""
+        registered = guard.EXPORTER_SOURCES["node"]["metrics"]
+        for metric in CAPACITY_METRICS:
+            self.assertIn(metric, registered, f"{metric} 必须登记为 node_exporter 指标")
+            self.assertIn(metric, guard.EXPORTER_METRICS)
+
+    def test_capacity_rules_match_the_runbook_alert_targets(self):
+        """容量规则的阈值与持续时长必须照抄 runbook 的容量/证书行。
+
+        容量行写的是「磁盘<20%、内存>85% 10分钟、证书<14天」：磁盘与内存的阈值
+        取自该行，10 分钟是内存那一项的持续时长；磁盘行表内没给持续时长，按仓库
+        既有做法（jobs 行与备份行同样没给的项）立即触发。
+        """
+        row = runbook_capacity_row()
+        percents = re.findall(r"(\d+)%", row)
+        minutes = re.findall(r"(\d+)\s*分钟", row)
+        self.assertGreaterEqual(len(percents), 2, "runbook 的容量行必须写明磁盘与内存阈值")
+        self.assertTrue(minutes, "runbook 的容量行必须写明内存的持续时长")
+        disk_threshold = int(percents[0]) / 100
+        memory_threshold = int(percents[1]) / 100
+        duration_minutes = int(minutes[0])
+
+        rules = {rule.get("alert"): rule for rule in guard.load_rules(guard.DEFAULT_ALERTS)}
+        self.assertIn("SchoolWallHostDiskSpaceLow", rules)
+        disk_expr = str(rules["SchoolWallHostDiskSpaceLow"]["expr"])
+        self.assertIn("node_filesystem_avail_bytes", disk_expr)
+        self.assertIn("node_filesystem_size_bytes", disk_expr)
+        self.assertIn(f"< {disk_threshold}", disk_expr)
+        self.assertEqual(str(rules["SchoolWallHostDiskSpaceLow"]["for"]), "0m")
+
+        self.assertIn("SchoolWallHostMemoryUsageHigh", rules)
+        memory_expr = str(rules["SchoolWallHostMemoryUsageHigh"]["expr"])
+        self.assertIn("node_memory_MemAvailable_bytes", memory_expr)
+        self.assertIn("node_memory_MemTotal_bytes", memory_expr)
+        self.assertIn(f"> {memory_threshold}", memory_expr)
+        self.assertEqual(str(rules["SchoolWallHostMemoryUsageHigh"]["for"]),
+                         f"{duration_minutes}m")
+
+    def test_capacity_rules_only_use_node_exporter_metrics(self):
+        """容量规则引用的指标必须来自 node_exporter，不是应用 /metrics 也不是别的。"""
+        registered = guard.EXPORTER_SOURCES["node"]["metrics"]
+        rules = {rule.get("alert"): rule for rule in guard.load_rules(guard.DEFAULT_ALERTS)}
+        for alert in ("SchoolWallHostDiskSpaceLow", "SchoolWallHostMemoryUsageHigh"):
+            referenced = guard.metric_names_in(str(rules[alert]["expr"]))
+            self.assertTrue(referenced, f"{alert} 必须引用指标")
+            for metric in referenced:
+                self.assertIn(metric, registered,
+                              f"{alert} 引用的 {metric} 必须由 node_exporter 暴露")
+
+    def test_node_exporter_is_wired_into_the_monitoring_stack(self):
+        """exporter 必须真的接进监控栈：compose 里有服务、prometheus.yml 里有抓取作业。"""
+        compose = yaml.safe_load(
+            guard.DEFAULT_COMPOSE.read_text(encoding="utf-8")) or {}
+        services = compose.get("services") or {}
+        self.assertIn("node-exporter", services, "监控栈里必须有 node-exporter 服务")
+        service = services["node-exporter"]
+        self.assertTrue(str(service.get("image", "")).startswith("prom/node-exporter:"))
+        command = " ".join(str(part) for part in service.get("command") or [])
+        self.assertIn("--web.listen-address=127.0.0.1:9100", command,
+                      "exporter 只能监听回环地址")
+        self.assertIn("--path.rootfs=/host", command,
+                      "exporter 必须指向宿主机的根目录才能采到真实磁盘与内存")
+
+        prometheus = yaml.safe_load(
+            guard.DEFAULT_PROMETHEUS.read_text(encoding="utf-8")) or {}
+        jobs = {job.get("job_name"): job
+                for job in prometheus.get("scrape_configs") or []}
+        self.assertIn("node-exporter", jobs, "prometheus.yml 必须有 node-exporter 抓取作业")
+        targets = [
+            target
+            for entry in jobs["node-exporter"].get("static_configs") or []
+            for target in entry.get("targets") or []
+        ]
+        self.assertIn("127.0.0.1:9100", targets)
+
+        rules = guard.load_rules(guard.DEFAULT_ALERTS)
+        self.assertEqual(guard.check_exporter_wiring(rules), {},
+                         "仓库当前的规则不得引用没接线的 exporter")
+
+    def test_exporter_wiring_problem_is_reported(self):
+        """exporter 没接线时守卫必须指出问题，而不是默默放过。"""
+        rules = guard.load_rules(guard.DEFAULT_ALERTS)
+        with tempfile.TemporaryDirectory() as directory:
+            compose = Path(directory) / "compose.monitoring.yml"
+            compose.write_text("services:\n  prometheus: {}\n", encoding="utf-8")
+            prometheus = Path(directory) / "prometheus.yml"
+            prometheus.write_text(
+                "scrape_configs:\n"
+                "  - job_name: prometheus\n"
+                "    static_configs: [{targets: [\"127.0.0.1:9090\"]}]\n",
+                encoding="utf-8",
+            )
+            problems = guard.check_exporter_wiring(rules, compose, prometheus)
+        self.assertIn("node", problems, "node_exporter 没接线必须被点名")
+        self.assertTrue(any("node-exporter" in item for item in problems["node"]))
+
+    def test_rule_referencing_an_unregistered_node_metric_is_rejected(self):
+        """node_exporter 上不存在的指标名同样必须被拦下。"""
+        with tempfile.TemporaryDirectory() as directory:
+            alerts = Path(directory) / "alerts.yml"
+            alerts.write_text(
+                "groups:\n"
+                "  - name: schoolwall\n"
+                "    rules:\n"
+                "      - alert: SchoolWallHostDiskSpaceLow\n"
+                "        expr: node_filesystem_never_exposed_bytes > 0\n"
+                "        for: 0m\n",
+                encoding="utf-8",
+            )
+            result = self.run_guard(alerts)
+        self.assertNotEqual(result.returncode, 0, "引用了没人暴露的指标必须立刻失败")
+        self.assertIn("node_filesystem_never_exposed_bytes", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

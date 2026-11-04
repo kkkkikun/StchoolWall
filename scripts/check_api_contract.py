@@ -60,9 +60,12 @@ def read_snapshot() -> dict:
     if not SNAPSHOT_PATH.exists():
         raise SystemExit(f"committed contract snapshot missing: {SNAPSHOT_PATH}")
     try:
-        return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        snapshot = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         raise SystemExit(f"committed contract snapshot is not valid JSON: {SNAPSHOT_PATH} ({error})")
+    if "paths" not in snapshot:
+        raise SystemExit(f"committed contract snapshot has no paths: {SNAPSHOT_PATH}")
+    return snapshot
 
 
 def compare_with_snapshot(exported: dict, snapshot: dict) -> None:

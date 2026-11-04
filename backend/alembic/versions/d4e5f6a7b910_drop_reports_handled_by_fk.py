@@ -21,6 +21,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 回滚前需确保 handled_by 无 users 表之外的值
-    op.execute("DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT id::text FROM users)")
+    # 回滚前需确保 handled_by 无 users 表之外的值。
+    # handled_by 的类型会随链上的 529bf8becb3f 在 UUID 与 varchar(36) 之间来回切换，
+    # 比较时统一转文本，否则整链回退到这条迁移时会报「operator does not exist: uuid = text」。
+    op.execute("DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by::text NOT IN (SELECT id::text FROM users)")
     op.create_foreign_key('fk_reports_handled_by_users', 'reports', 'users', ['handled_by'], ['id'])

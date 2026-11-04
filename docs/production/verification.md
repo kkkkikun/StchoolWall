@@ -569,7 +569,8 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 |---|---|
 | 后端新增用例 | `backend/tests/test_db_unavailable.py`（3 项）：写路径数据库连接失败返回 **503**、就绪探针 503 / 存活探针 200、与依赖无关的 `OSError` 仍为 500 |
 | 后端全量 pytest | **本地在隔离环境（容器化 PostgreSQL 15.14 / Redis 7.4.7，测试库 `schoolwall_test`、Redis 逻辑库 13）实跑：578 passed / 0 failed（128.73 秒）**。本机不跑生产数据库，**Production CI 仍是后端套件、迁移链与 API 契约的权威判定** |
-| 迁移链 | 本次**无新增迁移**，接口面未变；`scripts/check_migrations.py` 与 `scripts/check_api_contract.py` 由 CI 复跑 |
+| 迁移链 | 本次**无新增迁移**，接口面未变；本地在隔离库 `schoolwall_migration_test`（`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE`）跑 `scripts/check_migrations.py` → `No new upgrade operations detected` / `Migration cutover, rollback/re-upgrade and metadata consistency: PASS` |
+| API 契约 | 本地跑 `scripts/check_api_contract.py --output` → `contract validated: 132 paths`，导出结果与入库的 `release/openapi.json` **逐字节一致**（接口面未变） |
 | 未改动 | 未改发布门禁口径、未改接口契约、未改业务语义、未接触生产域名 / 生产实例 / 真实学生数据 |
 
 

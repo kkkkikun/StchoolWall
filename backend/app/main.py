@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import socket
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -103,6 +104,20 @@ async def redis_error(request, exc):
 @app.exception_handler(SQLAlchemyError)
 async def database_error(request, exc):
     return _error(request, 503, "数据服务暂时不可用，请稍后重试")
+
+
+# 数据库连接被拒时，SQLAlchemy 抛出的 ConnectionRefusedError 等是 OSError 子类、
+# 不是 SQLAlchemyError，database_error 接不住，会一路落到 request_context 的兜底 500。
+# 这里把连接层异常也归为「依赖不可用」，与 Redis 不可用的错误码语义保持一致。
+_CONNECTION_LEVEL_ERRORS = (ConnectionError, TimeoutError, socket.gaierror)
+
+
+@app.exception_handler(OSError)
+async def os_error(request, exc):
+    if isinstance(exc, _CONNECTION_LEVEL_ERRORS):
+        return _error(request, 503, "数据服务暂时不可用，请稍后重试")
+    # 文件读写等与依赖无关的 OSError 仍按内部错误处理，不改写语义。
+    raise exc
 
 
 _static_dir = Path(settings.STATIC_BASE_DIR).resolve()

@@ -685,6 +685,33 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 **仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本机已跑通的是迁移链回归脚本本身与运维脚本回归，后端全量 pytest 由 CI 复跑确认。
 
 
+## API 契约门禁：导出的接口面与入库快照逐条比对（2026-11-04）
+
+### 缺口
+
+仓库文档一直把「接口面不得变化、契约 paths 数保持不变（132 paths）」当成既定不变量（`.agent/dispatch-queue.json` 每条历史都写着「API 契约 132 paths 不变」，`docs/production/release-gates.md` 的发布审核段要求「后端、Web、管理端版本组合与上一版兼容」），但**仓库里没有任何守卫在守它**：`scripts/check_api_contract.py` 原先只校验必备端点存在、路径带 `/api/v1/` 版本前缀、响应 schema 里没有密钥字段，随后就把导出的契约**写回** `release/openapi.json` —— 它覆盖了入库快照、从不与快照比对。于是后端加一条或删一条接口路径时 CI 照样全绿，接口面的静默漂移没有任何门禁能发现，前端与管理台的契约守卫（`frontend/scripts/api-contract-check.mjs`）也跟着一起漂移。
+
+### 改动（只改仓库自控的契约守卫脚本与其守卫用例）
+
+| 文件 | 改动 |
+|---|---|
+| `scripts/check_api_contract.py` | 新增与入库快照 `release/openapi.json` 的比对：导出的 **paths 集合**、**每个路径的方法集合**与**路径数**必须与快照逐条一致，任何增删或方法变化立刻失败（非零退出并逐条列出差异）；比对在写文件之前完成，失败时既不写出契约文件也不改写入库快照。后端导入改为函数内延迟导入（`load_contract()`），使守卫脚本可被单元测试直接调用。另加 `--update-snapshot`：**只有显式带上它、且 `--output` 指向入库快照时**才跳过比对并刷新快照 —— 有意变更接口面时的唯一出口。路径数不写死成常量，一律以入库快照为准。 |
+| `scripts/tests/test_api_contract_snapshot_guard.py` | 新增守卫用例 **7 项**，随 CI 运维脚本回归一起跑：在临时目录里放一个只返回给定契约的替身后端，跑**真实脚本**，锁住「比对确实存在」「打印的路径数与入库快照一致且脚本里没有写死的路径数常量」「新增路径 / 删除路径 / 方法集合变化时退出码非 0 且快照未被改写」「`--update-snapshot` 能刷新快照、且必须显式指向入库快照」。 |
+
+未改后端接口、未改 `release/openapi.json` 的内容、未改发布门禁口径、未把 paths 数写成常量。
+
+### 本地实测（专用隔离环境：容器化 Python 3.11 + 隔离环境自带 venv）
+
+| 项 | 结果 |
+|---|---|
+| 正向 | `python scripts/check_api_contract.py --output release/openapi.json` 退出码 **0**，打印 `contract validated: 132 paths`（导出接口面与入库快照逐条一致），写回后的 `release/openapi.json` 与入库版本**逐字节一致**（`git status` 无差异） |
+| 负向验证（真实后端） | 把入库快照临时改成少一条路径（131 paths）→ 脚本退出码 **1** 并报 `API contract drifted from the committed snapshot openapi.json: added paths: /api/v1/posts/hot / path count: snapshot 131, exported 132`（证明比对真的在盯接口面，而不是空跑）；验证后快照已还原 |
+| 守卫用例 | `python -m unittest discover -s scripts/tests` → **81 项全绿**（新增 7 项：比对存在、路径数与入库快照一致且无写死常量、新增/删除/方法变化三类失败均非零退出、快照未被改写、`--update-snapshot` 的两条行为） |
+| 未触碰 | 未改后端业务代码、迁移与接口契约；未改入库快照内容；未接触生产域名、生产实例与真实学生数据；发布门禁口径未变 |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与 API 契约的权威判定**；本机已跑通的是契约导出与比对本身、运维脚本回归（81 项），后端全量 pytest 与契约导出步骤由 CI 复跑确认。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

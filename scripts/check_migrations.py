@@ -2,6 +2,7 @@
 This command deliberately migrates/downgrades only its explicitly named test database.
 """
 import asyncio
+import copy
 import os
 import subprocess
 import sys
@@ -115,6 +116,76 @@ CHAIN = (
           ("index", "ix_posts_content_trgm"), ("index", "ix_posts_featured_id")),
          ()),
 )
+
+
+# 旧版夹具：插在链底 61edfd32690b 的 schema 上，只有假数据（没有真实姓名与学号）。
+LEGACY_BASE_REVISION = "61edfd32690b"
+LEGACY_TABLES = ("users", "posts", "tags", "post_tags", "reports")
+DEV_DEMO_OPENIDS = ("dev_demo_admin", "dev_demo_student")
+# 举报行被「不在 users 里的 console 管理员」处理过的旧版状态（d4e5f6a7b910 回滚时会被清理）。
+CONSOLE_ADMIN_ID = "00000000-0000-4000-8000-000000000001"
+
+LegacyUser = namedtuple("LegacyUser", "openid role is_verified status student_id real_name nickname")
+LEGACY_USERS = (
+    LegacyUser("dev_demo_student", "student", True, 1,
+               "synthetic-student-4", "synthetic-name-4", "synthetic bottom fixture"),
+    LegacyUser("legacy_bottom_wx_openid", "student", True, 1,
+               "synthetic-student-2", "synthetic-name-2", "synthetic bottom fixture"),
+    LegacyUser("mp:legacy_bottom_mp_openid", "student", True, 1,
+               "synthetic-student-3", "synthetic-name-3", "synthetic bottom fixture"),
+    LegacyUser("web:legacy_bottom_fixture", "student", True, 1,
+               "synthetic-student-1", "synthetic-name-1", "synthetic bottom fixture"),
+)
+LEGACY_TAGS = ("synthetic-bottom-tag-a", "synthetic-bottom-tag-b")
+# 帖子：post_type / content / status
+LEGACY_POST = ("general", "synthetic bottom fixture", 1)
+# 举报：reason / description / status
+LEGACY_REPORT = ("synthetic bottom reason", "synthetic bottom description", "pending")
+# 夹具只写链底已有的列（id 自增的表不写 id）。
+LEGACY_USER_COLUMNS = ("id", "openid", "nickname", "role", "is_verified",
+                        "status", "student_id", "real_name")
+LEGACY_POST_COLUMNS = ("user_id", "post_type", "content", "images", "status")
+LEGACY_TAG_COLUMNS = ("name",)
+LEGACY_POST_TAG_COLUMNS = ("post_id", "tag_id")
+LEGACY_REPORT_COLUMNS = ("post_id", "reporter_id", "reason", "description", "status")
+
+
+def cutover_effect(expected):
+    """529bf8becb3f 自己声明的语义变化：旧认证与原始姓名/学号被清理。"""
+    updated = copy.deepcopy(expected)
+    for row in updated["users"]:
+        row["is_verified"] = False
+        row["student_id"] = None
+        row["real_name"] = None
+        if row["role"] in ("student", "admin"):
+            row["role"] = "guest"
+        if row["openid"] in DEV_DEMO_OPENIDS:
+            row["status"] = -2
+    return updated
+
+
+def report_cleanup_effect(expected):
+    """d4e5f6a7b910 自己声明的语义变化：回滚前清理 handled_by 不在 users 里的举报行。"""
+    updated = copy.deepcopy(expected)
+    updated["reports"] = []
+    return updated
+
+
+# 「只允许声明过的语义变化」白名单：key = (迁移 revision, 方向)，value = (说明, 期望状态推进函数)。
+# 断言逻辑：每一步的期望状态只按白名单里声明过的变化推进；白名单之外的任何行数或字段变化都断言失败。
+SEMANTIC_CHANGES = {
+    ("529bf8becb3f", "upgrade"): (
+        "旧认证与原始姓名/学号被清理：is_verified=false、student_id/real_name=NULL、"
+        "role 降为 guest、dev 演示账号 status=-2",
+        cutover_effect),
+    ("d4e5f6a7b910", "downgrade"): (
+        "回滚前清理 handled_by 不在 users 里的举报行",
+        report_cleanup_effect),
+}
+
+# 旧版真实状态调整：在列存在且外键已解除后写入「举报行由不在 users 里的 console 管理员处理」，
+# 以真实触发 d4e5f6a7b910 回滚时那条举报行被清理（它自己声明的语义变化）。
+LEGACY_STATE_ADJUSTMENTS = {("d4e5f6a7b910", "upgrade"): "report_handled_by_console_admin"}
 
 
 def guard() -> str:
@@ -332,6 +403,152 @@ async def assert_chain_roundtrips(url, chain=CHAIN):
           f"with an identical schema snapshot: PASS")
 
 
+async def insert_legacy_fixture(url):
+    """在链底插入合成的旧版夹具（用户 / 帖子 / 标签 / 帖子标签 / 举报），只有假数据。"""
+    import asyncpg
+    connection = await asyncpg.connect(url)
+    try:
+        users = {}
+        for spec in LEGACY_USERS:
+            users[spec.openid] = await connection.fetchval(
+                f"INSERT INTO users ({', '.join(LEGACY_USER_COLUMNS)})"
+                " VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+                uuid.uuid4(), spec.openid, spec.nickname, spec.role,
+                spec.is_verified, spec.status, spec.student_id, spec.real_name)
+        tags = {}
+        for name in LEGACY_TAGS:
+            tags[name] = await connection.fetchval(
+                f"INSERT INTO tags ({', '.join(LEGACY_TAG_COLUMNS)}) VALUES ($1) RETURNING id",
+                name)
+        post_id = await connection.fetchval(
+            f"INSERT INTO posts ({', '.join(LEGACY_POST_COLUMNS)})"
+            " VALUES ($1,$2,$3,'[]'::jsonb,$4) RETURNING id",
+            users[LEGACY_USERS[0].openid], LEGACY_POST[0], LEGACY_POST[1], LEGACY_POST[2])
+        await connection.execute(
+            f"INSERT INTO post_tags ({', '.join(LEGACY_POST_TAG_COLUMNS)}) VALUES ($1,$2)",
+            post_id, tags[LEGACY_TAGS[0]])
+        report_id = await connection.fetchval(
+            f"INSERT INTO reports ({', '.join(LEGACY_REPORT_COLUMNS)})"
+            " VALUES ($1,$2,$3,$4,$5) RETURNING id",
+            post_id, users[LEGACY_USERS[0].openid],
+            LEGACY_REPORT[0], LEGACY_REPORT[1], LEGACY_REPORT[2])
+        return {"post_user_id": users[LEGACY_USERS[0].openid], "post_id": post_id,
+                "tag_id": tags[LEGACY_TAGS[0]], "reporter_id": users[LEGACY_USERS[0].openid],
+                "report_id": report_id}
+    finally:
+        await connection.close()
+
+
+def legacy_expectation(fixtures):
+    """链底夹具的期望状态：旧数据原样存在（行数与关键字段）。"""
+    return {
+        "users": [
+            {"openid": spec.openid, "nickname": spec.nickname, "role": spec.role,
+             "is_verified": spec.is_verified, "status": spec.status,
+             "student_id": spec.student_id, "real_name": spec.real_name}
+            for spec in sorted(LEGACY_USERS, key=lambda item: item.openid)],
+        "posts": [{"user_id": fixtures["post_user_id"], "post_type": LEGACY_POST[0],
+                   "content": LEGACY_POST[1], "status": LEGACY_POST[2]}],
+        "tags": [{"name": name} for name in sorted(LEGACY_TAGS)],
+        "post_tags": [{"post_id": fixtures["post_id"], "tag_id": fixtures["tag_id"]}],
+        "reports": [{"post_id": fixtures["post_id"], "reporter_id": fixtures["reporter_id"],
+                     "reason": LEGACY_REPORT[0], "description": LEGACY_REPORT[1],
+                     "status": LEGACY_REPORT[2]}],
+    }
+
+
+async def fetch_legacy_state(url):
+    """旧版夹具涉及的五张表在当前 schema 下的实际内容（只取关键字段）。"""
+    import asyncpg
+    connection = await asyncpg.connect(url)
+    try:
+        return {
+            "users": [dict(row) for row in await connection.fetch(
+                "SELECT openid, nickname, role, is_verified, status, student_id, real_name"
+                " FROM users ORDER BY openid")],
+            "posts": [dict(row) for row in await connection.fetch(
+                "SELECT user_id, post_type, content, status FROM posts ORDER BY id")],
+            "tags": [dict(row) for row in await connection.fetch(
+                "SELECT name FROM tags ORDER BY name")],
+            "post_tags": [dict(row) for row in await connection.fetch(
+                "SELECT post_id, tag_id FROM post_tags ORDER BY post_id, tag_id")],
+            "reports": [dict(row) for row in await connection.fetch(
+                "SELECT post_id, reporter_id, reason, description, status"
+                " FROM reports ORDER BY id")],
+        }
+    finally:
+        await connection.close()
+
+
+def legacy_difference(expected, actual):
+    """两份旧数据期望与实际的差异摘要（逐行比较）。"""
+    differences = []
+    for index, (left, right) in enumerate(zip(expected, actual)):
+        if left != right:
+            differences.append(f"row {index}: expected {left}, got {right}")
+    if len(expected) != len(actual):
+        differences.append(f"row count: expected {len(expected)}, got {len(actual)}")
+    return "; ".join(differences[:5]) or "no difference"
+
+
+async def assert_legacy_data(url, expected, step, direction):
+    """逐条断言旧数据：行数与关键字段必须与期望一致。
+
+    期望状态只按白名单里声明过的语义变化推进，因此任何未声明的行数或字段变化都会失败。
+    """
+    actual = await fetch_legacy_state(url)
+    for table in LEGACY_TABLES:
+        assert actual[table] == expected[table], (
+            f"legacy {table} data must stay unchanged after "
+            f"{'upgrading' if direction == 'upgrade' else 'downgrading'} {step.revision} "
+            f"except for the declared semantic changes: "
+            + legacy_difference(expected[table], actual[table]))
+
+
+def apply_semantic_change(expected, step, direction):
+    """按白名单里声明过的语义变化推进期望状态；未声明的变化一律不允许。"""
+    change = SEMANTIC_CHANGES.get((step.revision, direction))
+    return expected if change is None else change[1](expected)
+
+
+async def apply_legacy_state_adjustment(url, fixtures, step, direction):
+    """在允许的时机写入旧版真实状态（此处：举报行由不在 users 里的 console 管理员处理）。"""
+    if LEGACY_STATE_ADJUSTMENTS.get((step.revision, direction)) != "report_handled_by_console_admin":
+        return
+    import asyncpg
+    connection = await asyncpg.connect(url)
+    try:
+        await connection.execute("UPDATE reports SET handled_by = $1 WHERE id = $2",
+                                 uuid.UUID(CONSOLE_ADMIN_ID), fixtures["report_id"])
+    finally:
+        await connection.close()
+
+
+async def assert_legacy_data_survives_chain(url, chain=CHAIN):
+    """链底旧版夹具 → 整链升级到 head → 整链回退到链底，逐条断言旧数据不丢。
+
+    在链底插入合成的旧版夹具后，每条迁移执行完都断言旧数据的行数与关键字段依然成立；
+    只有迁移自己声明过的语义变化（切换迁移 529bf8becb3f 的旧认证与原始姓名/学号清理、
+    d4e5f6a7b910 回滚时的举报行清理）才允许出现。最后退回空库，供既有夹具流程继续。
+    """
+    migrate("upgrade", chain[0].revision)
+    fixtures = await insert_legacy_fixture(url)
+    expected = legacy_expectation(fixtures)
+    await assert_legacy_data(url, expected, chain[0], "upgrade")
+    for step in chain[1:]:
+        migrate("upgrade", step.revision)
+        expected = apply_semantic_change(expected, step, "upgrade")
+        await apply_legacy_state_adjustment(url, fixtures, step, "upgrade")
+        await assert_legacy_data(url, expected, step, "upgrade")
+    for step in reversed(chain[1:]):
+        migrate("downgrade", step.parent)
+        expected = apply_semantic_change(expected, step, "downgrade")
+        await assert_legacy_data(url, expected, step, "downgrade")
+    migrate("downgrade", BASE_TARGET)
+    print(f"legacy fixture rows and key fields preserved across all {len(chain)} revisions"
+          f" of the chain: PASS")
+
+
 async def assert_position_rollback(url):
     """显式回滚迁移 b7e2c4a91d30，再恢复并逐项断言。
 
@@ -419,6 +636,8 @@ if __name__ == "__main__":
     os.environ["WECHAT_MP_APP_ID"] = "migration-mp-test-app"
     # 链上每条迁移逐条 downgrade/upgrade 往返：先在空库上跑完，再进旧版夹具流程
     asyncio.run(assert_chain_roundtrips(url))
+    # 链底旧版夹具 → 整链升级 → 整链回退：逐条断言旧数据不丢
+    asyncio.run(assert_legacy_data_survives_chain(url))
     migrate("upgrade", BASE_REVISION)
     fixtures = asyncio.run(legacy_fixtures(url))
     migrate("upgrade", "head")

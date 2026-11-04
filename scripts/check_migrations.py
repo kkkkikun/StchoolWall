@@ -12,6 +12,9 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 BASE_REVISION = "a7b8c9d0e1f2"
 CUTOVER_REVISION = "529bf8becb3f"
+POSITION_REVISION = "b7e2c4a91d30"
+POSITION_TABLE = "media_assets"
+POSITION_COLUMN = "position"
 
 
 def guard() -> str:
@@ -37,6 +40,52 @@ async def ensure_empty(url):
 
 def migrate(*arguments):
     subprocess.run([sys.executable, "-m", "alembic", *arguments], cwd=ROOT / "backend", check=True)
+
+
+async def applied_revision(url):
+    import asyncpg
+    connection = await asyncpg.connect(url)
+    try:
+        return await connection.fetchval("SELECT version_num FROM alembic_version")
+    finally:
+        await connection.close()
+
+
+async def column_present(url, table, column):
+    import asyncpg
+    connection = await asyncpg.connect(url)
+    try:
+        return bool(await connection.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns"
+            " WHERE table_schema='public' AND table_name=$1 AND column_name=$2)",
+            table, column))
+    finally:
+        await connection.close()
+
+
+async def assert_position_rollback(url):
+    """显式回滚迁移 b7e2c4a91d30，再恢复并逐项断言。
+
+    `downgrade -1` 只回退链尾一条迁移，覆盖不到链中间的 b7e2c4a91d30，
+    因此这里显式回退到它的父版本，断言 position 列真的被删掉、
+    alembic_version 真的回到父版本，再 upgrade head 断言列真的恢复。
+    """
+    head = await applied_revision(url)
+    assert head, "alembic_version must be set before the explicit rollback"
+    assert await column_present(url, POSITION_TABLE, POSITION_COLUMN), \
+        f"{POSITION_TABLE}.{POSITION_COLUMN} must exist before the explicit rollback"
+    migrate("downgrade", CUTOVER_REVISION)
+    assert await applied_revision(url) == CUTOVER_REVISION, \
+        f"alembic_version must be back at {CUTOVER_REVISION} after the explicit downgrade"
+    assert not await column_present(url, POSITION_TABLE, POSITION_COLUMN), \
+        f"{POSITION_TABLE}.{POSITION_COLUMN} must be gone after downgrading to {CUTOVER_REVISION}"
+    migrate("upgrade", "head")
+    assert await applied_revision(url) == head, \
+        "alembic_version must be back at head after re-upgrading"
+    assert await column_present(url, POSITION_TABLE, POSITION_COLUMN), \
+        f"{POSITION_TABLE}.{POSITION_COLUMN} must be restored after re-upgrading to head"
+    print(f"migration {POSITION_REVISION} ({POSITION_TABLE}.{POSITION_COLUMN}) "
+          f"downgrade to {CUTOVER_REVISION} and re-upgrade to head: PASS")
 
 
 async def legacy_fixtures(url):
@@ -105,6 +154,8 @@ if __name__ == "__main__":
     asyncio.run(verify(url, fixtures))
     migrate("downgrade", "-1")
     migrate("upgrade", "head")
+    asyncio.run(verify(url, fixtures))
+    asyncio.run(assert_position_rollback(url))
     asyncio.run(verify(url, fixtures))
     migrate("check")
     print("Migration cutover, rollback/re-upgrade and metadata consistency: PASS")

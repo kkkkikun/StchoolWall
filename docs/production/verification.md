@@ -613,6 +613,35 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 **仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本次改动只含文档，接口面与迁移链未变，CI 复跑用于确认同一提交在 CI 环境同样通过。
 
 
+## 迁移链门禁：把迁移 `b7e2c4a91d30` 的显式回滚断言固化进仓库回归（2026-11-04）
+
+### 缺口
+
+仓库自带的迁移链回归 `scripts/check_migrations.py` 原先只做 `alembic downgrade -1`（从 head 回退一条，即 `d7e8f9a0b123` → `c1d2e3f4a5b6`）。链中间的 `b7e2c4a91d30`（`media_assets.position`）的 downgrade 路径（回退到 `529bf8becb3f` 时 `drop_column position`）**在 CI 与本地回归里从未被执行过** —— 上一节记录的隔离环境实测是手工逐条跑 `alembic` 命令，不在仓库回归内，回归无法阻止该回滚路径被改坏。
+
+### 改动（只改仓库自控的迁移回归脚本与其守卫用例）
+
+| 文件 | 改动 |
+|---|---|
+| `scripts/check_migrations.py` | 新增 `applied_revision()` / `column_present()` 两个只读探针与 `assert_position_rollback()`：显式 `alembic downgrade 529bf8becb3f` 后断言 `media_assets.position` **确已不存在**、`alembic_version` **确为 `529bf8becb3f`**，再 `alembic upgrade head` 断言 `alembic_version` 回到 head 且 `position` **确已恢复**；随后再跑一次既有夹具校验（数据未丢）与 `alembic check`（无差异） |
+| `scripts/tests/test_migration_downgrade_assert.py` | 新增守卫用例 **5 项**，随 CI 运维脚本回归一起跑：断言目标 revision/表名/列名与迁移 `b7e2c4a91d30` 源文件一致、回滚与再升级的调用顺序、**列未删时断言必须失败**、**`alembic_version` 未到位时断言必须失败**、主流程确实调用了这条断言 |
+
+隔离库守卫照旧生效：`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE` + 库名 `_migration`/`_migration_test` 后缀 + 目标库必须为空，**未在非隔离库上执行任何 upgrade/downgrade**。未改迁移本身、后端业务代码、API 契约与发布门禁口径。
+
+### 本地实测（专用隔离环境：容器化 PostgreSQL 15.14 / Redis 7.4.7）
+
+| 项 | 结果 |
+|---|---|
+| 目标库 | 独立空隔离库 **`schoolwall_guard_migration`**（库名带 `_migration` 后缀，走仓库自带隔离守卫） |
+| 正向 | `scripts/check_migrations.py` 退出码 0，逐条回退 `d7e8f9a0b123`→`c1d2e3f4a5b6`→`d4e6f8a1b357`→`b7e2c4a91d30`→`529bf8becb3f` 后打印 `migration b7e2c4a91d30 (media_assets.position) downgrade to 529bf8becb3f and re-upgrade to head: PASS`，末行 `Migration cutover, rollback/re-upgrade and metadata consistency: PASS` |
+| 结束后库状态 | `alembic_version` = `d7e8f9a0b123`；`media_assets` 14 列（含 `position`）——回滚与恢复成对生效，未留下半回滚状态 |
+| 负向验证 | 在仓库外的临时副本里把该迁移的 `downgrade` 改成不删列 → 脚本**退出码 1**并报 `AssertionError: media_assets.position must be gone after downgrading to 529bf8becb3f`（证明断言真的在盯列是否消失，而不是空跑） |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → 新增 5 项全绿（本机仅 `test_proxy_headers` 因缺 `uvicorn` 无法导入，与既有情况相同） |
+| 未触碰 | 未在非隔离库上执行任何 upgrade/downgrade；未接触生产域名、生产实例与真实学生数据；未改迁移、业务代码、契约与门禁口径 |
+
+**仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本次改动只落在仓库自控的迁移回归脚本与其守卫用例，接口面（契约 paths 数）与迁移本身未变，CI 复跑用于确认同一提交在 CI 环境同样通过。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

@@ -102,6 +102,26 @@ async def test_db_pool_usage_treats_a_negative_overflow_as_zero():
     assert ratio == pytest.approx(3 / budget)
 
 
+async def test_db_pool_usage_survives_a_pool_that_cannot_be_probed():
+    """连接池读不到数字时按默认值记，/metrics 不因探测失败而 500。"""
+
+    class _BrokenPool:
+        def checkedout(self):
+            raise NotImplementedError("pool does not support checkedout")
+
+        def overflow(self):
+            raise NotImplementedError("pool does not support overflow")
+
+        def size(self):
+            raise NotImplementedError("pool does not support size")
+
+    used, overflow, budget, ratio = db_pool_usage(_BrokenPool())
+    assert used == 0
+    assert overflow == 0
+    assert budget == settings.DB_POOL_SIZE + settings.DB_MAX_OVERFLOW
+    assert ratio == 0.0
+
+
 async def test_metrics_expose_the_redis_failure_counter(client: AsyncClient, monkeypatch):
     """/metrics 必须暴露 Redis 失败计数。"""
     monkeypatch.setattr(metrics_module, "async_session", TestSession)

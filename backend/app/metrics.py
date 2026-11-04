@@ -99,6 +99,18 @@ def record_redis_failure() -> None:
     REDIS_FAILURES.inc()
 
 
+def _pool_count(pool, name: str, default: int = 0) -> int:
+    """读连接池的一个计数；读不到就按默认值记，不让 /metrics 因探测失败而 500。"""
+    reader = getattr(pool, name, None)
+    if reader is None:
+        return default
+    try:
+        return int(reader())
+    except Exception as exc:
+        logger.warning("db pool metric %s unavailable error=%s", name, type(exc).__name__)
+        return default
+
+
 def db_pool_usage(pool=None) -> tuple[int, int, int, float]:
     """本进程的数据库连接池用量：(已用连接数, 溢出连接数, 连接预算, 使用率)。
 
@@ -111,11 +123,11 @@ def db_pool_usage(pool=None) -> tuple[int, int, int, float]:
     pool 参数只为用例可测：默认取应用自己的连接池。
     """
     pool = engine.pool if pool is None else pool
-    used = int(getattr(pool, "checkedout", lambda: 0)())
+    used = _pool_count(pool, "checkedout")
     # SQLAlchemy 的 overflow() 在没有溢出时是负数（最低到 -pool_size），
     # 负数表示「还没用满」，一律按 0 记。
-    overflow = max(0, int(getattr(pool, "overflow", lambda: 0)()))
-    budget = int(getattr(pool, "size", lambda: settings.DB_POOL_SIZE)()) + settings.DB_MAX_OVERFLOW
+    overflow = max(0, _pool_count(pool, "overflow"))
+    budget = _pool_count(pool, "size", settings.DB_POOL_SIZE) + settings.DB_MAX_OVERFLOW
     return used, overflow, budget, (used / budget if budget > 0 else 0.0)
 
 

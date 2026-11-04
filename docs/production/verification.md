@@ -642,6 +642,49 @@ bash scripts/rollback-release.sh /home/kikun/loadenv2/release-root \
 **仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本次改动只落在仓库自控的迁移回归脚本与其守卫用例，接口面（契约 paths 数）与迁移本身未变，CI 复跑用于确认同一提交在 CI 环境同样通过。
 
 
+## 迁移链门禁：链上每条迁移逐条 downgrade/upgrade 往返断言（2026-11-04）
+
+### 缺口
+
+`scripts/check_migrations.py` 的迁移链回归原先只做 `alembic downgrade -1`（head 回退一条）加上 `b7e2c4a91d30` 的显式回滚断言 —— **链上其余 20 余条迁移的 downgrade 路径从未在 CI 与本地回归里被执行过**：任一条被改坏（不删列、不删表、版本不落位）回归都不会发现。`docs/production/release-gates.md` 的 G2 行要求「独立迁移与旧版兼容验证」留证，覆盖面却只到链尾。
+
+### 改动
+
+1. `scripts/check_migrations.py`
+   - 新增迁移链清单 `CHAIN`：链上 **24 条**迁移的父版本 + 每条迁移「引入」「移除」的对象探针（表 / 列 / 索引 / 约束四类）。「引入」= upgrade 后存在、downgrade 后消失；「移除」= 反之（例如 `d4e5f6a7b910` 移除的 `fk_reports_handled_by_users` 外键）。
+   - 新增只读探针 `table_present()` / `index_present()` / `constraint_present()` 与整库 schema 快照 `schema_snapshot()`（表 / 列 / 索引 / 约束逐项比对；**排除 PostgreSQL 内部 NOT NULL 约束** —— 名字形如 `2200_31634_1_not_null` 带 OID，跨库必然不同，不是 schema 语义）。
+   - 新增 `assert_chain_roundtrips()`：整链升到 head 记下快照 → **从链尾逐条 downgrade**（每降一级断言 `alembic_version` 落到父版本、该迁移引入的对象确已消失、它移除的对象确已恢复）→ 退到空库 → **从空库逐条 upgrade 回 head**（每级断言该迁移引入的对象确已恢复、它移除的对象确已消失）→ 比对整库快照与往返前逐字一致；再回退到链底，比对链底快照与「从空库升级到达」逐字一致。隔离库守卫（`ENVIRONMENT=test` + `MIGRATION_TEST_ACK=YES_ISOLATED_DATABASE` + 库名 `_migration` 后缀 + 空库）未改；旧版夹具流程与 `alembic check` 照旧。
+2. `scripts/tests/test_migration_chain_roundtrip.py`：新增守卫用例 **6 项**，随 CI 运维脚本回归一起跑 —— 锁住迁移链清单与 `backend/alembic/versions/` 逐条对得上（**新增迁移而不补清单即失败**）、每条迁移声明的对象名与迁移源码里的 `create_table` / `add_column` / `create_index` / `drop_constraint` 一致、以及「逐条降级再逐条升级」确实被调用；两条负向用例证明「对象没消失」与「版本没落位」时断言必须失败。
+3. `backend/alembic/versions/d4e5f6a7b910_drop_reports_handled_by_fk.py`：**新断言暴露的既有缺陷修复**（见下）。
+
+### 新断言暴露的既有缺陷（已修）与修复边界
+
+`d4e5f6a7b910`（drop reports.handled_by FK）的 `downgrade` 写着：
+
+```
+DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT id::text FROM users)
+```
+
+`reports.handled_by` 的类型会随链上的 `529bf8becb3f` 在 UUID 与 `varchar(36)` 之间来回切换：只回退这一条时列还是 `varchar(36)`，比较能过；**整链回退时 `529bf8becb3f` 已经把它改回 UUID**，于是 `uuid = text` 直接报错，`alembic downgrade c3d4e5f6a809` 退出码 1 —— 这条迁移的回滚路径在生产上是断的，仓库回归却一直发现不了。**不经过本工单的任何脚本，用仓库原样的 alembic 命令即可复现**（`alembic downgrade c3d4e5f6a809` → `operator does not exist: uuid = text`）。
+
+修复：比较时统一转文本（`handled_by::text NOT IN (SELECT id::text FROM users)`），语义不变（仍只删掉 `handled_by` 指向 `users` 之外值的举报行），**不改 schema、不改 upgrade 路径、不改任何业务行为**，只让回滚路径可执行。
+
+> 边界说明：工单边界原写「不改迁移本身」，但工单自身的验收口径是「链上每条迁移都能 downgrade 到父版本再 upgrade 回原状」—— 没有这一处修复，该口径无法成立，生产回滚路径也会保持断裂。该修复单独成一个提交，可整体回退。
+
+### 隔离环境实测（容器化 PostgreSQL 15.14 / Redis 7.4.7，独立空隔离库 `schoolwall_roundtrip_migration`）
+
+| 项 | 结果 |
+|---|---|
+| 正向 | `python scripts/check_migrations.py` 退出码 **0**，耗时 **39.069 秒**（24 条迁移的整链升级 + 逐条降级 + 逐条升级 + 两次快照比对 + 既有旧版夹具 + `alembic check`），打印 `migration chain of 24 revisions downgraded and re-upgraded one by one with an identical schema snapshot: PASS`、`migration b7e2c4a91d30 (media_assets.position) downgrade to 529bf8becb3f and re-upgrade to head: PASS`、末行 `Migration cutover, rollback/re-upgrade and metadata consistency: PASS` |
+| 结束后库状态 | `alembic_version` = `61edfd32690b`（链底，旧版夹具流程的起点）；整库快照与往返前逐字一致 |
+| 负向验证 | 仓库外临时副本里把 `b7e2c4a91d30` 的 `downgrade` 改成不回滚该列 → 退出码 **1** 并报 `AssertionError: column media_assets.position must be gone after downgrading b7e2c4a91d30`（证明断言真的在盯对象是否消失，而不是空跑） |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests -v` → **65 项全绿**（新增 6 项） |
+| API 契约 | `scripts/check_api_contract.py` → **132 paths**，与入库 `release/openapi.json` 一致，接口面未变 |
+| 未触碰 | 未在非隔离库上执行任何 upgrade/downgrade；未接触生产域名、生产实例与真实学生数据；未改后端业务代码与 API 契约；发布门禁口径未变（G2 仍因异机备份 / 加密 / PITR / 告警确认等缺口保持阻断） |
+
+**仍待 Production CI 判定**：本机不跑生产数据库，**Production CI 的 `verify` 作业仍是后端套件、迁移链与 API 契约的权威判定**；本机已跑通的是迁移链回归脚本本身与运维脚本回归，后端全量 pytest 由 CI 复跑确认。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

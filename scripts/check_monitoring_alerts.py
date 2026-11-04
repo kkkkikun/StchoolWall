@@ -11,6 +11,9 @@
   * 既定 exporter 暴露的指标 —— blackbox_exporter（deploy/monitoring/blackbox.yml
     的 http_2xx 模块）与 Prometheus 自带的 up。
 
+反过来，表达式里一个指标都没引用（例如 `1 > 0`）的规则同样要拦下：这种规则
+要么恒真、要么恒假，与告警目标无关。
+
 用法：
     python scripts/check_monitoring_alerts.py [alerts.yml]
 
@@ -133,7 +136,11 @@ def app_metric_names() -> set[str]:
 
 
 def check_rules(rules: list[dict], known: set[str]) -> dict[str, list[str]]:
-    """返回「规则名 -> 无人暴露的指标名列表」，空字典表示全部可抓取。"""
+    """返回「规则名 -> 无人暴露的指标名列表」，空字典表示全部可抓取。
+
+    除了「引用了没人暴露的指标」，还拦一种更隐蔽的空转：表达式里根本没引用
+    任何指标（例如 `1 > 0`）—— 这种规则要么恒真、要么恒假，与告警目标无关。
+    """
     problems: dict[str, list[str]] = {}
     for index, rule in enumerate(rules):
         name = rule.get("alert") or f"<rule #{index + 1} without an alert name>"
@@ -141,7 +148,11 @@ def check_rules(rules: list[dict], known: set[str]) -> dict[str, list[str]]:
         if not expr:
             problems.setdefault(name, []).append("<rule without an expr>")
             continue
-        unknown = sorted(metric_names_in(str(expr)) - known)
+        referenced = metric_names_in(str(expr))
+        if not referenced:
+            problems.setdefault(name, []).append("<rule that references no metric>")
+            continue
+        unknown = sorted(referenced - known)
         if unknown:
             problems.setdefault(name, []).extend(unknown)
     return problems

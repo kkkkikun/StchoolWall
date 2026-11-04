@@ -17,14 +17,16 @@ deploy/monitoring 提供Prometheus+blackbox+Alertmanager配置。替换真实域
 | 备份 | WAL归档>30分钟或失败增长、最新备份>26小时 | 立即修复备份；未恢复保护前停止新增风险变更 |
 | 容量/证书 | 磁盘<20%、内存>85% 10分钟、证书<14天 | 扩容/清理受控制品、续证并检查作业 |
 
-HTTP探针与证书规则已提供；应用RED指标抓取与延迟/5xx规则已提供，仍需真实告警验证；任务、主机、DB、备份指标需要接入对应exporter或应用metrics并验证。不得把表中目标说成所有告警已经配置。jobs初期可在受控只读DB会话执行：
+HTTP探针与证书规则已提供；应用RED指标抓取与延迟/5xx规则已提供，仍需真实告警验证；任务队列与DB/Redis的应用侧信号已由应用metrics暴露并接上规则（见下），主机容量、DB锁等待与备份指标仍需接入对应exporter。不得把表中目标说成所有告警已经配置。jobs初期可在受控只读DB会话执行：
 ```sql
 SELECT status, count(*), min(available_at), min(lease_until)
 FROM jobs WHERE status IN ('pending','running','dead') GROUP BY status;
 ```
 只输出聚合，禁止把payload、证件、token或用户内容发到告警渠道。每月按30天99.5%目标计算216分钟错误预算；消耗过半暂停功能发布，耗尽后只做安全/恢复性变更直到复盘确认恢复。
 
-任务的四个队列信号已由应用 `/metrics` 暴露（`schoolwall_jobs_pending`、`schoolwall_jobs_oldest_pending_age_seconds`、`schoolwall_jobs_dead`、`schoolwall_jobs_running_lease_expired`，另有 `schoolwall_jobs_metrics_collection_ok` 表示最近一次采集是否成功），并按上表 jobs 行的阈值接上告警规则（`SchoolWallJobsBacklog` / `SchoolWallJobsDeadLetters` / `SchoolWallJobsLeaseExpired`）。最老待处理任务的等待秒数按**入队时间**算：退避重排只推迟下一次可执行时间，并不会让积压从视野里消失。主机、DB、备份三类信号仍需对应 exporter（node_exporter / postgres_exporter 等），保持为缺口；上表其余目标与「真实告警到达并被确认」仍属人工安排 —— 规则存在不等于告警已送达。
+任务的四个队列信号已由应用 `/metrics` 暴露（`schoolwall_jobs_pending`、`schoolwall_jobs_oldest_pending_age_seconds`、`schoolwall_jobs_dead`、`schoolwall_jobs_running_lease_expired`，另有 `schoolwall_jobs_metrics_collection_ok` 表示最近一次采集是否成功），并按上表 jobs 行的阈值接上告警规则（`SchoolWallJobsBacklog` / `SchoolWallJobsDeadLetters` / `SchoolWallJobsLeaseExpired`）。最老待处理任务的等待秒数按**入队时间**算：退避重排只推迟下一次可执行时间，并不会让积压从视野里消失。
+
+DB/Redis 的应用侧信号同样已由应用 `/metrics` 暴露：`schoolwall_db_pool_usage_ratio`（已用连接占**连接预算**的比率，预算 = DB_POOL_SIZE + DB_MAX_OVERFLOW，与下文「数据库连接总预算」口径一致）、`schoolwall_db_pool_used_connections`、`schoolwall_db_pool_overflow_connections`、`schoolwall_db_pool_max_connections`，以及 `schoolwall_redis_failures_total`（本进程内失败的 Redis 调用次数，只记次数，不含键名、payload、连接串或用户内容）。并按上表 DB/Redis 行的阈值接上告警规则：`SchoolWallDbPoolPressure`（使用率 >80%，持续 10 分钟）与 `SchoolWallRedisFailures`（最近 5 分钟内有过失败即触发）。Redis 失败用 `increase(schoolwall_redis_failures_total[5m]) > 0` 判定：计数只增不减，直接写 `> 0` 会让规则一直挂着、再也不恢复。连接池用量取的是进程内状态、不查库，数据库变慢或不可达时依然可读。**锁等待上升**仍需 postgres_exporter（`pg_locks` / `pg_stat_activity` 一类），主机容量与备份类信号同样仍需对应 exporter（node_exporter 等），保持为缺口；上表其余目标与「真实告警到达并被确认」仍属人工安排 —— 规则存在不等于告警已送达。
 
 首发恢复验收目标为RPO≤1小时、RTO≤4小时；告警留出恢复处理余量，不能把归档配置当作已满足RPO。
 

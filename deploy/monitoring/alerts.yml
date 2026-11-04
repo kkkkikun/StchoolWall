@@ -53,3 +53,23 @@ groups:
         for: 0m
         labels: {severity: warning}
         annotations: {summary: "SchoolWall has running jobs whose lease has expired"}
+      # DB/Redis 的应用侧信号：阈值与持续时长照抄 docs/production/runbook.md
+      # 「首发告警目标」表的 DB/Redis 行（pool使用>80% 10分钟、Redis失败>0）。
+      # 使用率是「已用连接 / 连接预算」：连接预算 = DB_POOL_SIZE + DB_MAX_OVERFLOW，
+      # 与 runbook「数据库连接总预算」的口径一致（见 backend/app/metrics.py）。
+      # Redis 失败用 increase()：计数只会递增，直接 > 0 会一直挂着不再恢复；
+      # increase() 让「最近 5 分钟内有过失败」成立、最近 5 分钟没有失败就自动恢复。
+      - alert: SchoolWallDbPoolPressure
+        expr: schoolwall_db_pool_usage_ratio > 0.8
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall database connection pool usage exceeds eighty percent"
+          runbook: "docs/production/runbook.md"
+      - alert: SchoolWallRedisFailures
+        expr: increase(schoolwall_redis_failures_total[5m]) > 0
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall Redis calls are failing"
+          runbook: "docs/production/runbook.md"

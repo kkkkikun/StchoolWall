@@ -741,6 +741,38 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 **仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest 与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 实测、后端全量 pytest（580 passed，隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归（87 项）与契约导出比对。
 
 
+## G2 可靠性：DB/Redis 应用侧信号接成可抓取的应用指标与告警规则（2026-11-04，专用隔离环境）
+
+### 缺口
+
+`docs/production/runbook.md` 的「首发告警目标」表把 DB/Redis 列为首发告警目标（pool使用>80% 持续 10 分钟、锁等待上升、Redis失败>0），处理列是「查慢SQL/连接预算，禁止盲目加worker」。但改动前：① 应用 `/metrics` 只暴露 HTTP RED 与（上一轮补的）任务队列信号，**没有连接池用量、也没有 Redis 失败计数**；② `deploy/monitoring/alerts.yml` 只有探针、HTTP RED 与 jobs 三条规则，**没有任何一条针对 DB/Redis 的规则**。与 jobs 行同样的空转：表里写了目标，既没有可抓取的指标也没有规则，值班人收不到「连接池打满 / Redis 故障」告警。
+
+### 改动（只改仓库自控的应用指标暴露面、监控配置与其守卫用例）
+
+- `backend/app/metrics.py`：新增四个连接池信号 —— `schoolwall_db_pool_used_connections`（当前借出的连接数）、`schoolwall_db_pool_overflow_connections`（超出 `DB_POOL_SIZE` 的那几条）、`schoolwall_db_pool_max_connections`（连接预算 = `DB_POOL_SIZE + DB_MAX_OVERFLOW`，与 runbook「数据库连接总预算」口径一致）、`schoolwall_db_pool_usage_ratio`（已用连接 ÷ 连接预算的比率），以及 `schoolwall_redis_failures_total`（本进程内失败的 Redis 调用次数）。**连接池状态取自进程内、不查库**：数据库变慢或不可达时这些数字依然可读（连接打满往往正是数据库变慢的先兆）；采集只输出计数、时长与比率，**不带连接串、口令、键名、payload 或任何用户内容**。
+- `backend/app/utils/redis.py`：`redis_client` 改为 `InstrumentedRedis` 代理 —— 调用失败计一次数，异常照旧向上抛（**错误码语义不变**）。redis-py 5.x 的异步命令方法是普通函数、返回协程，因此代理同时包住「同步抛出」与「协程 await 时抛出」两类失败。
+- `backend/app/main.py`：`/metrics` 在渲染前刷新连接池指标（`/metrics` 不在接口契约里，路径数不变）。
+- `backend/app/metrics.py`（补一个提交）：连接池的 `checkedout`/`overflow`/`size` 三个读数各自兜底 —— 方法不存在或读取抛异常就按默认值记（预算回落到配置的 `DB_POOL_SIZE + DB_MAX_OVERFLOW`）并在日志里记一笔；`/metrics` 是 Prometheus 的抓取入口，不能因为连接池探测失败就整个 500、把这一轮全部指标一起抹掉。
+- `deploy/monitoring/alerts.yml`：按 runbook 表的 DB/Redis 行补两条规则 —— `SchoolWallDbPoolPressure`（`schoolwall_db_pool_usage_ratio > 0.8`，`for: 10m`）、`SchoolWallRedisFailures`（`increase(schoolwall_redis_failures_total[5m]) > 0`，立即触发）。表内没给持续时长的 Redis 项按立即触发处理；Redis 失败用 `increase()` 判定 —— 计数只增不减，直接写 `> 0` 会让规则一直挂着、再也不恢复。
+- `scripts/check_monitoring_alerts.py` + `scripts/tests/test_monitoring_alerts.py`：守卫口径扩到 **10 项** —— 除「引用了没人暴露的指标」，新增「一个指标都没引用的规则」（恒真/恒假，与告警目标无关）同样拦下；并锁住 DB/Redis 规则的阈值与持续时长照抄 runbook 表、其引用的指标必须由应用自身 `/metrics` 暴露。守卫用例随 CI 运维脚本回归一起跑。
+- 未改发布门禁口径、未改告警接收端（receiver 与值班人确认属人工安排）；**DB 锁等待上升**仍需 postgres_exporter（`pg_locks` / `pg_stat_activity` 一类），主机容量与备份类信号同样仍需对应 exporter（node_exporter 等），**保持为已记录的缺口**，不得说成已配置。
+
+### 本地实测（专用隔离环境：容器化 PostgreSQL 15.14 / Redis 7.4.7，Python 3.11 + 隔离环境自带 venv）
+
+| 项 | 结果 |
+|---|---|
+| 真实 `/metrics` 抓取（用本工作树代码起 API，容器化 PostgreSQL 15.14 / Redis 7.4.7） | `schoolwall_db_pool_used_connections 0.0`、`schoolwall_db_pool_overflow_connections 0.0`、`schoolwall_db_pool_max_connections 15.0`（`DB_POOL_SIZE=10` + `DB_MAX_OVERFLOW=5`）、`schoolwall_db_pool_usage_ratio 0.0`、`schoolwall_redis_failures_total 0.0` —— 五个新指标全部可抓取，且文本里没有连接串与口令 |
+| Redis 故障下的真实计数（另一份 API 指向不可达 Redis `127.0.0.1:6390`） | `/health/live` 仍 **200**、`/health/ready` **503**（语义未变）；`/health/ready` 的 ping 失败各计一次 → `schoolwall_redis_failures_total 2.0`；再发一次带限流校验的 `POST /api/v1/auth/web-login`（合成账号，密码为假值）→ 返回 **503**「安全校验服务暂时不可用，请稍后重试」（错误码与文案未改），计数 **2.0 → 3.0** |
+| 后端用例 | `backend/tests/test_db_redis_metrics.py` **8 passed**：① `/metrics` 暴露的连接池用量/预算/使用率与连接池状态一致；② 连接借出时使用率随之上涨（`db_pool_usage` 的口径）；③ SQLAlchemy 的负数 `overflow()`（未溢出时最低到 `-pool_size`）按 0 记；④ `/metrics` 暴露 `schoolwall_redis_failures_total`；⑤ 失败的 Redis 调用计数且异常照旧抛出；⑥ 经应用自己的客户端失败同样计数、且指标文本里能看到计数；⑦ 指标文本里没有 `REDIS_URL`、`DATABASE_URL` 与其中的口令；⑧ 连接池的三个读数都抛异常时按默认值记、`/metrics` 不 500 |
+| 后端全量用例 | `python -m pytest -q -k "not zhengfang_e2e"` → **585 passed**（117.87 秒，隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）。**注**：`tests/test_zhengfang_e2e.py` 的 3 项真实教务链路 E2E 在本机未跳过（工作树的 `backend/.env` 里存在教务测试凭证、该文件不入库），但本机无外网访问教务系统 → `httpx.ReadTimeout`；**CI 无 `.env` 时该文件按 `pytestmark` 自动跳过**，与本次改动无关 |
+| 告警规则守卫 | `python scripts/check_monitoring_alerts.py` 退出码 **0**，打印 `monitoring alerts validated: 11 rules, all referenced metrics are scrapeable (36 known metric names)`；负向验证：规则里放一个没人暴露的指标名、或放一条 `expr: 1 > 0`（一个指标都没引用）→ 均非零退出并点名 |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **91 项全绿**（其中告警守卫 10 项，新增 4 项） |
+| API 契约 | `python scripts/check_api_contract.py --output release/openapi.json` 退出码 **0**，打印 `contract validated: 132 paths`，写回后与入库快照逐字节一致 —— `/metrics` 不在契约里 |
+| 未触碰 | 未改接口契约、迁移与发布门禁口径；未改告警接收端；未接触生产域名、生产实例与真实学生数据；连接串、口令、键名与用户内容不进指标 |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 与 Redis 故障计数实测、后端全量 pytest（隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归与契约导出比对。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

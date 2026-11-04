@@ -65,15 +65,18 @@ async def _clean_before_test(test_redis: Redis):
     """每个测试之前清空所有表，并注入当前循环的 Redis 客户端"""
     import app.utils.rate_limit as rl_module
     import app.utils.redis as redis_module
+    from app.utils.redis import InstrumentedRedis
 
     async with test_engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(table.delete())
     await test_redis.flushdb()
 
-    # 把当前循环的 Redis 注入到业务模块
-    rl_module.redis_client = test_redis
-    redis_module.redis_client = test_redis
+    # 把当前循环的 Redis 注入到业务模块（套上 InstrumentedRedis：
+    # 测试里的 Redis 调用失败也要计入 schoolwall_redis_failures_total）
+    instrumented = InstrumentedRedis(test_redis)
+    rl_module.redis_client = instrumented
+    redis_module.redis_client = instrumented
 
     yield
 

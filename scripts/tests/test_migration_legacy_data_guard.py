@@ -122,6 +122,11 @@ class MigrationLegacyDataGuardTests(unittest.TestCase):
             self.assertTrue(spec.real_name.startswith("synthetic-"))
             self.assertNotIn(spec.nickname.lower(), ("", "real"))
 
+    def test_legacy_content_belongs_to_the_account_the_cutover_disables(self):
+        openids = [spec.openid for spec in migration.LEGACY_USERS]
+        self.assertIn(migration.LEGACY_AUTHOR_OPENID, openids)
+        self.assertIn(migration.LEGACY_AUTHOR_OPENID, migration.DEV_DEMO_OPENIDS)
+
     def test_semantic_change_whitelist_matches_the_migration_sources(self):
         self.assertEqual({key for key in migration.SEMANTIC_CHANGES},
                          {("529bf8becb3f", "upgrade"), ("d4e5f6a7b910", "downgrade")})

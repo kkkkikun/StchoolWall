@@ -137,6 +137,8 @@ LEGACY_USERS = (
                "synthetic-student-1", "synthetic-name-1", "synthetic bottom fixture"),
 )
 LEGACY_TAGS = ("synthetic-bottom-tag-a", "synthetic-bottom-tag-b")
+# 旧内容的作者：切换迁移会把这个演示账号置为 status=-2，旧帖子与举报仍须保全。
+LEGACY_AUTHOR_OPENID = "dev_demo_student"
 # 帖子：post_type / content / status
 LEGACY_POST = ("general", "synthetic bottom fixture", 1)
 # 举报：reason / description / status
@@ -404,7 +406,11 @@ async def assert_chain_roundtrips(url, chain=CHAIN):
 
 
 async def insert_legacy_fixture(url):
-    """在链底插入合成的旧版夹具（用户 / 帖子 / 标签 / 帖子标签 / 举报），只有假数据。"""
+    """在链底插入合成的旧版夹具（用户 / 帖子 / 标签 / 帖子标签 / 举报），只有假数据。
+
+    帖子与举报都由 dev_demo_student 撰写：切换迁移会把该演示账号置为 status=-2，
+    旧内容仍必须保全 —— 账号失效不得带走用户已有的帖子与举报。
+    """
     import asyncpg
     connection = await asyncpg.connect(url)
     try:
@@ -420,20 +426,20 @@ async def insert_legacy_fixture(url):
             tags[name] = await connection.fetchval(
                 f"INSERT INTO tags ({', '.join(LEGACY_TAG_COLUMNS)}) VALUES ($1) RETURNING id",
                 name)
+        author = users[LEGACY_AUTHOR_OPENID]
         post_id = await connection.fetchval(
             f"INSERT INTO posts ({', '.join(LEGACY_POST_COLUMNS)})"
             " VALUES ($1,$2,$3,'[]'::jsonb,$4) RETURNING id",
-            users[LEGACY_USERS[0].openid], LEGACY_POST[0], LEGACY_POST[1], LEGACY_POST[2])
+            author, LEGACY_POST[0], LEGACY_POST[1], LEGACY_POST[2])
         await connection.execute(
             f"INSERT INTO post_tags ({', '.join(LEGACY_POST_TAG_COLUMNS)}) VALUES ($1,$2)",
             post_id, tags[LEGACY_TAGS[0]])
         report_id = await connection.fetchval(
             f"INSERT INTO reports ({', '.join(LEGACY_REPORT_COLUMNS)})"
             " VALUES ($1,$2,$3,$4,$5) RETURNING id",
-            post_id, users[LEGACY_USERS[0].openid],
-            LEGACY_REPORT[0], LEGACY_REPORT[1], LEGACY_REPORT[2])
-        return {"post_user_id": users[LEGACY_USERS[0].openid], "post_id": post_id,
-                "tag_id": tags[LEGACY_TAGS[0]], "reporter_id": users[LEGACY_USERS[0].openid],
+            post_id, author, LEGACY_REPORT[0], LEGACY_REPORT[1], LEGACY_REPORT[2])
+        return {"post_user_id": author, "post_id": post_id,
+                "tag_id": tags[LEGACY_TAGS[0]], "reporter_id": author,
                 "report_id": report_id}
     finally:
         await connection.close()

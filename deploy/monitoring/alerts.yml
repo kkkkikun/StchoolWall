@@ -33,3 +33,23 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations: {summary: "SchoolWall API p95 exceeds one second"}
+      # 任务队列信号：阈值与持续时长照抄 docs/production/runbook.md「首发告警目标」表的 jobs 行
+      # （oldest pending>10分钟5分钟、dead>0、running lease过期）——表内没给持续时长的两项按立即触发处理。
+      # 最老待处理任务的等待秒数按入队时间算（app/metrics.py 里的口径说明）。
+      - alert: SchoolWallJobsBacklog
+        expr: schoolwall_jobs_oldest_pending_age_seconds > 600
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall oldest pending job has waited over ten minutes"
+          runbook: "docs/production/runbook.md"
+      - alert: SchoolWallJobsDeadLetters
+        expr: schoolwall_jobs_dead > 0
+        for: 0m
+        labels: {severity: critical}
+        annotations: {summary: "SchoolWall has dead letter jobs waiting for a manual replay"}
+      - alert: SchoolWallJobsLeaseExpired
+        expr: schoolwall_jobs_running_lease_expired > 0
+        for: 0m
+        labels: {severity: warning}
+        annotations: {summary: "SchoolWall has running jobs whose lease has expired"}

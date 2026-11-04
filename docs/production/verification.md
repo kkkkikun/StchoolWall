@@ -712,6 +712,35 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 **仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与 API 契约的权威判定**；本机已跑通的是契约导出与比对本身、运维脚本回归（81 项），后端全量 pytest 与契约导出步骤由 CI 复跑确认。
 
 
+## G2 可靠性：任务队列信号接成可抓取的应用指标与告警规则（2026-11-04，专用隔离环境）
+
+### 缺口
+
+`docs/production/runbook.md` 的「首发告警目标」表把 jobs 列为首发告警目标（最老 pending>10 分钟持续 5 分钟、dead>0、running 租约过期），但改动前：① 应用 `/metrics` 只暴露 HTTP 请求计数与时延直方图，**没有任何任务队列信号**；② `deploy/monitoring/alerts.yml` 只覆盖探针与 HTTP RED，**没有任何一条针对 jobs 的规则**。结果是 runbook 表里的 jobs 目标既没有可抓取的指标、也没有规则 —— 值班人收不到「待审任务积压 / 死信」告警，而文档又要求「不得把表中目标说成所有告警已经配置」。
+
+### 改动（只改仓库自控的监控配置、必要的应用指标暴露面与其守卫用例）
+
+- `backend/app/metrics.py`（新增）：应用的指标面集中在一处（`schoolwall_http_requests_total`、`schoolwall_http_duration_seconds` 一并迁入），并新增四个任务队列信号 —— `schoolwall_jobs_pending`（待处理数）、`schoolwall_jobs_oldest_pending_age_seconds`（最老待处理任务等待秒数）、`schoolwall_jobs_dead`（死信数）、`schoolwall_jobs_running_lease_expired`（租约过期的运行中任务数），外加 `schoolwall_jobs_metrics_collection_ok`（最近一次采集是否成功）。采集只跑一条聚合 SQL、只输出计数与时长，**不带 payload、证件、token 或任何用户内容**；最老待处理任务的等待秒数按**入队时间**算（退避重排只推迟下一次可执行时间，不会让积压从视野里消失），口径与 `docs/production/capacity.md` 的「待审任务最旧年龄」一致。数据库不可用时采集失败只把 `collection_ok` 置 0，**不抛异常** —— 否则一次数据库故障会把错误率与时延信号一起抹掉。
+- `backend/app/main.py`：`/metrics` 在渲染前顺带刷新任务队列信号（`/metrics` 不在接口契约里，路径数不变）。
+- `deploy/monitoring/alerts.yml`：按 runbook 表的 jobs 行补三条规则 —— `SchoolWallJobsBacklog`（`schoolwall_jobs_oldest_pending_age_seconds > 600`，`for: 5m`）、`SchoolWallJobsDeadLetters`（`schoolwall_jobs_dead > 0`）、`SchoolWallJobsLeaseExpired`（`schoolwall_jobs_running_lease_expired > 0`）。后两条在表内没有给持续时长，按立即触发处理（`for: 0m`）。
+- `scripts/check_monitoring_alerts.py` + `scripts/tests/test_monitoring_alerts.py`（新增，**6 项**）：守卫每条规则表达式引用的指标都真实可抓取 —— 可抓取集合 = 应用 `/metrics` 实际输出的指标名（含 `_bucket`/`_sum`/`_count` 等派生序列名）+ 既定 exporter 指标（blackbox_exporter 的 `probe_*` 与 Prometheus 自带的 `up`）。引用了没人暴露的指标（规则空转）一律非零退出并逐条点名。守卫用例随 CI 运维脚本回归一起跑。
+- 未改发布门禁口径、未改告警接收端（receiver 与值班人确认属人工安排）、未改主机/DB/备份类信号（仍需对应 exporter，保持为已记录的缺口）。
+
+### 本地实测（专用隔离环境：容器化 PostgreSQL 15.14 / Redis 7.4.7，Python 3.11 + 隔离环境自带 venv）
+
+| 项 | 结果 |
+|---|---|
+| 改动前后对照（真实 `/metrics` 抓取，同一隔离库） | **改动前**（main 检出 `aefedc5` 起服务）：`/metrics` 里 `schoolwall_jobs_*` 指标 **0 条**，只有 HTTP RED 指标；**改动后**（本分支起服务，同一 PostgreSQL）：`schoolwall_jobs_pending 1.0`（库里 1 条 20 分钟前入队的 pending）、`schoolwall_jobs_oldest_pending_age_seconds 1203.870003`、`schoolwall_jobs_dead 1.0`（库里 1 条死信）、`schoolwall_jobs_running_lease_expired 0.0`、`schoolwall_jobs_metrics_collection_ok 1.0` |
+| 后端用例 | `backend/tests/test_job_metrics.py` **2 passed**：① 五个合成任务（2 pending、1 dead、1 租约过期 running、1 租约有效 running）下四个信号与库内状态逐项一致，最老 pending 年龄落在 900~960 秒区间，且任务 payload 不出现在指标文本里；② 数据库连接被拒时 `/metrics` 仍返回 **200**、`schoolwall_jobs_metrics_collection_ok` 为 **0**、HTTP RED 指标仍在 |
+| 后端全量用例 | `python -m pytest -q` → **580 passed**（121.97 秒，隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑） |
+| 告警规则守卫 | `python scripts/check_monitoring_alerts.py` 退出码 **0**，打印 `monitoring alerts validated: 9 rules, all referenced metrics are scrapeable (29 known metric names)`；负向验证：临时规则文件里放一条引用 `schoolwall_jobs_never_exposed` 的规则 → 退出码 **1** 并点名该指标；无表达式的规则同样非零退出 |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **87 项全绿**（新增 6 项） |
+| API 契约 | `python scripts/check_api_contract.py --output release/openapi.json` 退出码 **0**，打印 `contract validated: 132 paths`，写回后与入库快照逐字节一致（`git status` 无差异）—— `/metrics` 不在契约里 |
+| 未触碰 | 未改接口契约、迁移与发布门禁口径；未改告警接收端；未接触生产域名、生产实例与真实学生数据；任务内容（payload）不进指标 |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest 与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 实测、后端全量 pytest（580 passed，隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归（87 项）与契约导出比对。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

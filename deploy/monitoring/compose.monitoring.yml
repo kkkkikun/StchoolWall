@@ -43,8 +43,9 @@ services:
   #   - DATA_SOURCE_URI 里只有主机、端口与库名，没有用户名与口令；
   #   - 用户名与口令分别放在宿主机 secret 目录下的两个文件里，以只读方式挂进容器
   #     （DATA_SOURCE_USER_FILE / DATA_SOURCE_PASS_FILE）。
-  # secret 目录的宿主机路径由运维决定（默认在 /opt/schoolwall/shared 之外部目录），
-  # 目录与文件要能让容器内的 uid 65534 读到（参考 deploy/README.md）。
+  # secret 目录的宿主机路径由运维决定（默认 /opt/schoolwall/shared/postgres-exporter，
+  # 可用 POSTGRES_EXPORTER_SECRET_DIR 覆盖），目录与文件要能让容器内的 uid 65534 读到
+  # （参考 deploy/README.md）。
   # 监听地址同样只绑 127.0.0.1（需要从别处看指标时走已认证的 SSH 隧道）。
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1

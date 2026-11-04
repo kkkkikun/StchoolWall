@@ -7,8 +7,10 @@
 指标的规则」与「一个指标都没引用的规则」确实会被拦下，并锁住 jobs、DB/Redis、
 备份与容量规则的阈值与持续时长仍然照抄 runbook 的表。
 
-容量信号由 node_exporter 提供：指标名在守卫里显式登记，exporter 还必须接进监控栈
-（compose 里有服务、prometheus.yml 里有抓取作业），否则规则照样是空转。
+容量信号由 node_exporter 提供、DB 锁等待信号由 postgres_exporter 提供：指标名在守卫里
+显式登记，exporter 还必须接进监控栈（compose 里有服务、prometheus.yml 里有抓取作业），
+否则规则照样是空转。锁等待规则的阈值照抄 runbook 的 DB/Redis 行（锁等待会话>0、
+死锁增长>0），连接串与口令只走只读的运行时配置、不得入库。
 """
 
 import re

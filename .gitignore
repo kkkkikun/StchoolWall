@@ -18,6 +18,10 @@ env/
 .env.production
 .env.prod
 
+# 监控栈的运行时凭据（postgres_exporter 的监控账号与口令文件）：只在宿主机上存在
+deploy/monitoring/*.env
+deploy/monitoring/postgres-exporter/
+
 # GH Actions 部署：服务器上的 npm 缓存挂载目录
 .npm-cache/
 

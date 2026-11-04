@@ -838,7 +838,39 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 **仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是监控配置解析、告警规则守卫（含两条负向验证）、运维脚本回归与契约导出比对。`promtool check rules` 与真实 node_exporter 实例未能在本机执行（本机无外网、无法拉取 `prom/prometheus` 与 `prom/node-exporter` 镜像，宿主机上的 exporter 部署属人工安排），规则表达式沿用与既有规则同形的写法，语义由守卫用例锁定。
 
 
-## 已知发布阻断
+## G2 可靠性：DB 锁等待信号接成可抓取的指标与告警规则（2026-11-04）
+
+### 缺口
+
+`docs/production/runbook.md` 的「首发告警目标」表把 DB/Redis 列为首发告警目标（pool使用>80% 10分钟、**锁等待上升**、Redis失败>0）。pool 与 Redis 两项已由上一轮接上规则，**锁等待这一项既没有可抓取的信号、也没有任何规则**：改动前 `deploy/monitoring/compose.monitoring.yml` 的监控栈只有 Prometheus、blackbox、node_exporter 与 Alertmanager，**没有 postgres_exporter**，`deploy/monitoring/prometheus.yml` 里也没有对应的抓取作业；runbook、`docs/production/implementation-status.md` 与 `backend/app/metrics.py` 的注释都写着「锁等待上升仍需 postgres_exporter，保持为已记录的缺口」。表里写了目标，值班人既抓不到锁等待的数，也收不到告警。
+
+### 改动（只改仓库自控的监控配置、其 exporter 接线与守卫用例）
+
+- `deploy/monitoring/compose.monitoring.yml`：新增 `postgres-exporter` 服务（`quay.io/prometheuscommunity/postgres-exporter:v0.20.1` —— 上游每个 release 都发布这个 tag，`network_mode: host`，`--web.listen-address=127.0.0.1:9187` **只绑回环**，与本文件其余 exporter 一致）。**连接串与口令只走只读的运行时配置、绝不入库**：`DATA_SOURCE_URI` 里只有主机、端口与库名（默认 `127.0.0.1:5432/schoolwall?sslmode=disable`，可用 `POSTGRES_EXPORTER_URI` 覆盖），用户名与口令分别放在宿主机 secret 目录下的两个文件里、以**只读**方式挂进容器（`DATA_SOURCE_USER_FILE` / `DATA_SOURCE_PASS_FILE`，secret 目录路径由 `POSTGRES_EXPORTER_SECRET_DIR` 决定，默认在宿主机 `/opt/schoolwall/shared/postgres-exporter`）。上游 `exporter/datasource.go` 的取值优先级是 `DATA_SOURCE_NAME > DATA_SOURCE_{USER|PASS}_FILE > DATA_SOURCE_{USER|PASS}`，即用文件给口令时 `DATA_SOURCE_URI` 会被拼成 `postgresql://<user>:<pass>@<uri>`。exporter 在宿主机上的实际部署、secret 目录的宿主机路径、监控账号的创建与授权属运维安排，仓库只提供配置与规则。
+- `deploy/monitoring/prometheus.yml`：新增 `postgres-exporter` 抓取作业（目标 `127.0.0.1:9187`）—— 没有这一步，Prometheus 根本不会去抓，规则照样空转。
+- `deploy/monitoring/alerts.yml`：按 runbook 的 DB/Redis 行补两条规则 —— `SchoolWallDbLockWaitRising`（`sum(pg_stat_activity_count{wait_event_type="Lock"}) > 0`，即**当前正在等锁的会话数大于 0**，立即触发）与 `SchoolWallDbDeadlockRising`（`increase(pg_stat_database_deadlocks[5m]) > 0`，即**死锁计数在最近 5 分钟内增长**，立即触发）。该行原本只写「锁等待上升」、没有数值，收敛依据写在 runbook 同一节：① `pg_stat_activity_count` 是 postgres_exporter 里唯一能直接抓「等待」的指标（按 `wait_event_type` 维度统计会话数，`wait_event_type="Lock"` 即等锁会话），而 `pg_locks_count` 统计的是**已持有**的锁（含已授予）总数、分不出等待与持有，故不用于判定；② 「上升」取**出现等锁会话**这一最小可判定口径（阈值 0），不凭空设机型相关的会话数阈值；③ 表内没给持续时长，按仓库既有做法（jobs 行、备份行、容量行同样没给的项）**立即触发**；④ 死锁是锁等待的最坏形态，用计数器的**增长量**判定，沿用 Redis 失败、备份失败同款「最近 5 分钟窗口」口径。另外 `SchoolWallMonitorTargetMissing` 的 `up{job=~...}` 一并盯住 `postgres-exporter`：exporter 没部署或起不来时（缺 DSN、缺权限、镜像拉不到）锁等待信号是空的，**信号缺失必须让人看见，不能静默**。
+- `scripts/check_monitoring_alerts.py`：`EXPORTER_SOURCES` 新增 `postgres` 一项，按 exporter **显式登记**它暴露的三个锁/会话等待指标（`pg_stat_activity_count`、`pg_stat_database_deadlocks`、`pg_locks_count`）；既有的接线检查（compose 里要有服务、prometheus.yml 里要有抓取作业）自动覆盖到它。
+- `scripts/tests/test_monitoring_alerts.py`：扩到 **26 项**（新增 6 项：锁等待指标登记为 postgres_exporter 指标、锁等待规则阈值照抄 runbook 的 DB/Redis 行、锁等待规则只用 postgres_exporter 的指标、postgres_exporter 已接进监控栈（compose 服务 + 回环监听 + 只读挂载 + prometheus 抓取作业）、监控配置里不得出现口令（连接串不得带 `user:pass@`）、规则里放 postgres_exporter 上不存在的指标名必须被拦下），随 CI 运维脚本回归一起跑。
+- 未改发布门禁口径、未改告警接收端（receiver 与值班人确认属人工安排）；**WAL 归档/PITR、异机备份与备份加密仍需 pgBackRest 与人工安排，保持为已记录的缺口**。
+
+**指标名与取值的依据（不凭空编造）**：取自上游 `prometheus-community/postgres_exporter` **v0.20.1** 的源码与 README —— `collector/pg_stat_activity.go`（`stat_activity` collector，默认启用，产出 `pg_stat_activity_count`，标签含 `wait_event_type` / `wait_event` / `state` / `datname`）、`collector/pg_stat_database.go`（`stat_database` collector，默认启用，死锁计数以 `CounterValue` 暴露为 `pg_stat_database_deadlocks`）、`collector/pg_locks.go`（`locks` collector，默认启用，`pg_locks_count{datname,mode}`）、`exporter/datasource.go`（`DATA_SOURCE_*_FILE` 的取值优先级）与 README 的 collector 默认值清单。
+
+### 本地实测（容器化 Python 3.11 + 隔离环境自带 venv；监控配置与守卫不依赖真实 exporter 实例）
+
+| 项 | 结果 |
+|---|---|
+| 监控配置 | `docker compose -f deploy/monitoring/compose.monitoring.yml config` 解析通过：`postgres-exporter` 服务渲染为 `quay.io/prometheuscommunity/postgres-exporter:v0.20.1` + `network_mode: host` + `--web.listen-address=127.0.0.1:9187` + secret 目录 `read_only: true` 挂到 `/etc/postgres-exporter`，环境变量只有 `DATA_SOURCE_URI`（`127.0.0.1:5432/schoolwall?sslmode=disable`，**无用户名无口令**）、`DATA_SOURCE_USER_FILE`、`DATA_SOURCE_PASS_FILE`；`prometheus.yml` 的 `postgres-exporter` 抓取作业目标为 `127.0.0.1:9187` |
+| 告警规则守卫 | `python scripts/check_monitoring_alerts.py` 退出码 **0**，打印 `monitoring alerts validated: 18 rules, all referenced metrics are scrapeable (49 known metric names)` |
+| 负向验证（指标没人暴露） | 规则里放 `pg_stat_activity_never_exposed_count` → 退出码 **1** 并点名该指标 |
+| 负向验证（exporter 没接线） | 在仓库外的一份副本里删掉 compose 的 `postgres-exporter` 服务 → 守卫点名 `postgres` 未接线（守卫用例 `test_exporter_wiring_problem_is_reported` 覆盖同一路径） |
+| 守卫用例 | `python -m unittest scripts.tests.test_monitoring_alerts` → **26 项全绿**（改动前 20 项 + 新增 6 项） |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **110 项全绿**（改动前 104 项 + 新增 6 项） |
+| API 契约 | `python scripts/check_api_contract.py --output ...` 退出码 **0**，打印 `contract validated: 132 paths` —— 本次未改后端接口面 |
+| 未触碰 | 未改后端业务逻辑、迁移、接口契约与发布门禁口径；未改告警接收端；未接触生产域名、生产实例与真实学生数据；仓库里没有写入任何口令、连接串或 secret 文件（守卫用例逐条断言） |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是监控配置解析、告警规则守卫（含负向验证）、守卫用例、运维脚本回归与契约导出比对。`promtool check rules` 与真实 postgres_exporter 实例未能在本机执行（本机无外网、拉不到 `quay.io/prometheuscommunity/postgres-exporter` 镜像，宿主机上的 exporter 部署属人工安排），规则表达式沿用与既有规则同形的写法（`sum(...)` / `increase(...[5m])`），语义由守卫用例锁定。
+
+
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。
 

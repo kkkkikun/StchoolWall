@@ -37,6 +37,27 @@ services:
     volumes:
       - /:/host:ro,rslave
     restart: unless-stopped
+  # DB 锁等待信号（pg_locks / pg_stat_activity 一类）的来源。
+  # 仓库只提供这套配置：exporter 在主机上的实际部署、监控账号的创建与授权属运维安排。
+  # 连接串与口令只走只读的运行时配置，绝不入库：
+  #   - DATA_SOURCE_URI 里只有主机、端口与库名，没有用户名与口令；
+  #   - 用户名与口令分别放在宿主机 secret 目录下的两个文件里，以只读方式挂进容器
+  #     （DATA_SOURCE_USER_FILE / DATA_SOURCE_PASS_FILE）。
+  # secret 目录的宿主机路径由运维决定（默认 /opt/schoolwall/shared/postgres-exporter，
+  # 可用 POSTGRES_EXPORTER_SECRET_DIR 覆盖），目录与文件要能让容器内的 uid 65534 读到
+  # （参考 deploy/README.md）。
+  # 监听地址同样只绑 127.0.0.1（需要从别处看指标时走已认证的 SSH 隧道）。
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    network_mode: host
+    environment:
+      DATA_SOURCE_URI: "${POSTGRES_EXPORTER_URI:-127.0.0.1:5432/schoolwall?sslmode=disable}"
+      DATA_SOURCE_USER_FILE: /etc/postgres-exporter/user
+      DATA_SOURCE_PASS_FILE: /etc/postgres-exporter/pass
+    volumes:
+      - ${POSTGRES_EXPORTER_SECRET_DIR:-/opt/schoolwall/shared/postgres-exporter}:/etc/postgres-exporter:ro
+    command: ["--web.listen-address=127.0.0.1:9187"]
+    restart: unless-stopped
   alertmanager:
     image: prom/alertmanager:v0.28.1
     network_mode: host

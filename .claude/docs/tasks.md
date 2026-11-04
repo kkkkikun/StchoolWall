@@ -53,6 +53,8 @@
 
 - 2026-11-04 进展（把主机容量信号接成可抓取的指标与告警规则）：按 `docs/production/runbook.md`「首发告警目标」表的容量/证书行（磁盘<20%、内存>85% 10分钟、证书<14天）落地 —— 证书那一半已有 `SchoolWallCertificateExpiring` 规则，**磁盘与内存两项目前一条规则都没有**，主机容量也没有任何可抓取的信号。① `deploy/monitoring/compose.monitoring.yml` 新增 `node-exporter` 服务（`prom/node-exporter:v1.8.2`、`network_mode: host` + `pid: host`、宿主机根目录以**只读**方式挂到 `/host`、`--path.rootfs=/host`、`--web.listen-address=127.0.0.1:9100` **只绑回环**，与本文件其余 exporter 一致）；② `deploy/monitoring/prometheus.yml` 新增 `node-exporter` 抓取作业（`127.0.0.1:9100`）—— 只加规则不加抓取作业，规则照样空转；③ `deploy/monitoring/alerts.yml` 补两条规则：`SchoolWallHostDiskSpaceLow`（`node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.2`，表内没给持续时长 → 立即触发）与 `SchoolWallHostMemoryUsageHigh`（`1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.85`，`for: 10m`），阈值与持续时长照抄 runbook 容量行，挂载点标签用 `^/(host)?$` 兼容两种挂法；④ 守卫口径扩展：`scripts/check_monitoring_alerts.py` 改成按 exporter **显式登记**指标名（`EXPORTER_SOURCES`：prometheus / blackbox / node）并新增**接线检查** `check_exporter_wiring()`（规则引用到的 exporter 必须在 compose 里有服务、在 prometheus.yml 里有抓取作业，缺一即非零退出），`scripts/tests/test_monitoring_alerts.py` 扩到 **20 项**（新增 6 项），随 CI 运维脚本回归一起跑。**本地实测**（容器化 Python 3.11 + 隔离环境自带 venv）：`docker compose -f deploy/monitoring/compose.monitoring.yml config` 解析通过并渲染出 node-exporter 服务与回环监听地址；守卫脚本退出码 0 并打印 `monitoring alerts validated: 16 rules, all referenced metrics are scrapeable (46 known metric names)`；负向验证 —— 规则里放 `node_filesystem_never_exposed_bytes` → 退出码 1 并点名；在仓库外副本里删掉 compose 的 node-exporter 服务 → 退出码 1 并报 `node: compose.monitoring.yml 里没有 node-exporter 服务`；运维脚本回归 **104 项全绿**；API 契约导出退出码 0 并打印 `contract validated: 132 paths`（未改后端代码与接口面）。未改发布门禁口径、未改告警接收端；**exporter 在宿主机上的实际部署、挂载路径与磁盘/内存阈值的机型差异属人工安排，不得说成已配置**；**DB 锁等待上升仍需 postgres_exporter**，WAL 归档/PITR、异机备份与备份加密仍需 pgBackRest 与人工安排，保持为已记录的缺口。数值与命令原文见 `docs/production/verification.md` 的「G2 可靠性：主机容量信号接成可抓取的指标与告警规则（2026-11-04）」小节。
 
+- 2026-11-04 进展（把 DB 锁等待信号接成可抓取的指标与告警规则）：按 `docs/production/runbook.md`「首发告警目标」表的 DB/Redis 行（pool使用>80% 10分钟、**锁等待上升**、Redis失败>0）落地 —— pool 与 Redis 两项已由上一轮接上规则，锁等待这一项既没有可抓取的信号、也没有任何规则。① `deploy/monitoring/compose.monitoring.yml` 新增 `postgres-exporter` 服务（`quay.io/prometheuscommunity/postgres-exporter:v0.20.1`、`network_mode: host`、`--web.listen-address=127.0.0.1:9187` **只绑回环**）；**连接串与口令只走只读的运行时配置、绝不入库** —— `DATA_SOURCE_URI` 只有主机、端口与库名，用户名与口令分别放在宿主机 secret 目录下的两个文件里、以**只读**方式挂进容器（`DATA_SOURCE_USER_FILE` / `DATA_SOURCE_PASS_FILE`，目录路径由 `POSTGRES_EXPORTER_SECRET_DIR` 决定）。② `deploy/monitoring/prometheus.yml` 新增 `postgres-exporter` 抓取作业（`127.0.0.1:9187`）—— 只加规则不加抓取作业，规则照样空转。③ 该行表内原本只写「锁等待上升」、没有数值，**先把口径收敛成明确数值再写进规则**（收敛依据写进 runbook）：`pg_stat_activity_count{wait_event_type="Lock"}` 是唯一能直接抓「等待」的指标（`pg_locks_count` 统计的是已持有的锁、分不出等待与持有，故不用它判定），「上升」取**出现等锁会话**这一最小可判定口径（阈值 0，不凭空设机型相关的会话数阈值），表内没给持续时长则按仓库既有做法**立即触发**，死锁用 `pg_stat_database_deadlocks`（counter）的**增长量**判定（沿用 Redis 失败、备份失败同款「最近 5 分钟窗口」口径）；据此补两条规则：`SchoolWallDbLockWaitRising`（`sum(pg_stat_activity_count{wait_event_type="Lock"}) > 0`）与 `SchoolWallDbDeadlockRising`（`increase(pg_stat_database_deadlocks[5m]) > 0`），并把 `postgres-exporter` 纳入 `SchoolWallMonitorTargetMissing` 的盯防范围（信号缺失必须让人看见）。④ 守卫口径扩展：`scripts/check_monitoring_alerts.py` 的 `EXPORTER_SOURCES` 新增 `postgres` 一项（按 exporter 显式登记 `pg_stat_activity_count` / `pg_stat_database_deadlocks` / `pg_locks_count`，指标名取自上游 v0.20.1 的 collector 源码），`scripts/tests/test_monitoring_alerts.py` 扩到 **26 项**（新增 6 项，含「监控配置里不得出现口令」），随 CI 运维脚本回归一起跑。**本地实测**（容器化 Python 3.11 + 隔离环境自带 venv）：`docker compose -f deploy/monitoring/compose.monitoring.yml config` 解析通过并渲染出 postgres-exporter 服务、回环监听地址与只读 secret 挂载；守卫脚本退出码 **0** 并打印 `monitoring alerts validated: 18 rules, all referenced metrics are scrapeable (49 known metric names)`；负向验证 —— 规则里放 `pg_stat_activity_never_exposed_count` → 退出码 1 并点名；删掉 compose 的 postgres-exporter 服务 → 守卫点名 `postgres: compose.monitoring.yml 里没有 postgres-exporter 服务`；守卫用例 **26 项全绿**；运维脚本回归 **110 项全绿**；API 契约导出退出码 0 并打印 `contract validated: 132 paths`（未改后端代码与接口面）。未改发布门禁口径、未改告警接收端；**exporter 在宿主机上的实际部署、secret 目录的宿主机路径、监控账号的创建与授权（需 `pg_monitor` 角色）、锁等待阈值的机型差异与告警接收端属人工安排，不得说成已配置**；`promtool check rules` 与真实 exporter 实例未能在本机执行（本机无外网拉不到镜像）；**WAL 归档/PITR、异机备份与备份加密仍需 pgBackRest 与人工安排，保持为已记录的缺口**。数值与命令原文见 `docs/production/verification.md` 的「G2 可靠性：DB 锁等待信号接成可抓取的指标与告警规则（2026-11-04）」小节。
+
 ## 已完成（已归档）
 
 ### 后端社交互动层（A/B/C/D）+ 前端重做 → 已归档
@@ -90,6 +92,27 @@
 ## 阻塞项 (Blocked)
 
 > 当前无。新增阻塞项请记录：现象 / 根因或未知 / 需要谁介入。
+
+### 待人工验证条目（2026-11-04 按派活价值闸门整理，仓库无法自证）
+
+以下条目在仓库文档里已记录为缺口，但都缺人工或基础设施条件，**不是可由 agent 完成的候选任务**；缺什么条件、谁来定写在这里：
+
+- **WAL 归档/PITR 口径的 RPO、异机备份、备份加密**（`docs/production/release-gates.md` G2 行、`docs/production/implementation-status.md`、`deploy/backup/README.md`）：缺对象存储与 KMS/密钥托管、需要一次异机恢复演练才能证明 RPO ≤1 小时；决定人：门禁 G2 的验收负责人（运维/仓库负责人）。
+- **真实告警送达并被人工确认**（runbook「首发告警目标」节与 G2 行）：缺 Alertmanager 的真实 receiver 与值班人确认；决定人：值班负责人。
+- **G1 镜像扫描零未豁免高危**（`openspec/changes/backend-python-311/tasks.md` 第 9 行、`openspec/specs/optimization/spec.md`「真实环境验证缺口」）：45 条 OS 层 HIGH 在 Debian 13 尚无修复版本，换基础镜像族属族级变更、须走 `openspec/changes/` 提案与人工决策；决定人：仓库负责人。
+- **主体与平台准入**（G0/G4/G5 行：备案、微信真机与商店审核、试运营放量）：缺真实主体账号与法务材料；决定人：运营负责人。
+
+### 下一条队列候选的价值判据评估（2026-11-04，PR #64 的 `docs/production/agent-dispatch.md` 五条判据）
+
+backlog-027 完成后按五条判据评估了「下一条」的最高优先级候选，**没有候选同时满足五条**，故按判据「不达标就停」把 `.agent/dispatch-queue.json` 的 `current` 置为 `null`（工作流读到空 `current.id` 即停止派发），不凑数写下一条：
+
+- **WAL 归档新鲜度与归档失败接成可抓取的指标与告警规则（pgBackRest 侧）**：有据 ✓（runbook 备份行「WAL归档>30分钟或失败增长」、implementation-status 与 `deploy/backup/README.md` 均记为缺口）；**不重复 ✗** —— 这是「监控接入面一类一个信号」的连续第 6 刀（backlog-023 jobs / 024 DB-Redis / 025 备份 / 026 容量 / 027 锁等待），判据明写「同一主题已经做过 ≥2 个类似 PR 的，不再切同类」；**能做完 ✗** —— 需要真实 PostgreSQL `archive_mode` + pgBackRest 仓库与凭据，且 `deploy/backup/README.md` 已写明「no rule in this repository may be described as covering them」，仓库侧再写一条覆盖它的规则与已记录口径冲突；**有险 ✗** —— 它降低的风险（归档延迟、PITR）本来就依赖人工部署；**有净收益 ✗** —— 相对改动量收益有限，还会多出一个「规则存在但抓不到」的接入面。
+- **异机备份 / 备份加密 / PITR 口径的 RPO**：有据 ✓、有险 ✓，**能做完 ✗**（需对象存储、KMS 与人工验收）→ 记入上面的待人工验证条目。
+- **真实告警送达并被人工确认**：有据 ✓、有险 ✓，**能做完 ✗**（receiver 与值班人属人工安排）→ 记入上面的待人工验证条目。
+- **G1 镜像扫描零未豁免高危（换基础镜像族）**：有据 ✓、有险 ✓、不重复 ✓，**能做完 ✗**（族级变更须走 `openspec/changes/` 提案与人工决策，且要等上游安全更新）→ 记入上面的待人工验证条目。
+- **把已完成的 openspec 变更（desktop-web-ui / feedback-channel / post-images）归档并同步进主规范**：有据 ✗（三份变更的任务清单已全部勾选，不是「已记录的未完成项」）、有险 ✗（只做整理，不降低任何已记录的失败模式）、有净收益 ✗ → 按判据「不凑数」不做。
+
+**恢复条件**：仓库出现新的**已记录**缺口（人写进 spec、runbook 或 tasks 的条目）、有人派活、或上面某条待人工验证条目拿到了人工结论；恢复时从最高优先级的候选重新过一遍五条判据。
 
 ---
 

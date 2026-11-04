@@ -6,7 +6,7 @@
 
 /health/live 仅判断进程；/health/ready 检查数据库和Redis，故障返回非200；正常响应包含revision用于发布核对。禁止把liveness绑定外部微信/COS，避免供应商故障触发无限重启。Docker健康状态本身不会自动重启unhealthy容器，也不会通知值班人。
 
-deploy/monitoring 提供Prometheus+blackbox+Alertmanager配置。替换真实域名、配置真实receiver后，仅在私有运维网络启动；上线前主动制造一次无害探针失败，确认告警到达、被确认、恢复通知到达。当前receiver是空模板，不属于完成告警。
+deploy/monitoring 提供Prometheus+blackbox+node_exporter+Alertmanager配置。替换真实域名、配置真实receiver后，仅在私有运维网络启动；上线前主动制造一次无害探针失败，确认告警到达、被确认、恢复通知到达。当前receiver是空模板，不属于完成告警。node_exporter 提供主机磁盘与内存信号，它在宿主机上的实际部署、挂载路径与按机型调整阈值属运维安排，仓库只提供配置与规则。
 
 | 信号 | 首发告警目标 | 处理 |
 |---|---|---|
@@ -17,7 +17,7 @@ deploy/monitoring 提供Prometheus+blackbox+Alertmanager配置。替换真实域
 | 备份 | WAL归档>30分钟或失败增长、最新备份>26小时 | 立即修复备份；未恢复保护前停止新增风险变更 |
 | 容量/证书 | 磁盘<20%、内存>85% 10分钟、证书<14天 | 扩容/清理受控制品、续证并检查作业 |
 
-HTTP探针与证书规则已提供；应用RED指标抓取与延迟/5xx规则已提供，仍需真实告警验证；任务队列、DB/Redis与备份的应用侧信号已由应用metrics暴露并接上规则（见下），主机容量、DB锁等待与WAL归档仍需接入对应exporter。不得把表中目标说成所有告警已经配置。jobs初期可在受控只读DB会话执行：
+HTTP探针与证书规则已提供；应用RED指标抓取与延迟/5xx规则已提供，仍需真实告警验证；任务队列、DB/Redis与备份的应用侧信号已由应用metrics暴露并接上规则（见下）；主机容量信号已由 node_exporter 接入监控栈并接上规则（见下），DB锁等待与WAL归档仍需接入对应exporter。不得把表中目标说成所有告警已经配置。jobs初期可在受控只读DB会话执行：
 ```sql
 SELECT status, count(*), min(available_at), min(lease_until)
 FROM jobs WHERE status IN ('pending','running','dead') GROUP BY status;
@@ -26,11 +26,13 @@ FROM jobs WHERE status IN ('pending','running','dead') GROUP BY status;
 
 任务的四个队列信号已由应用 `/metrics` 暴露（`schoolwall_jobs_pending`、`schoolwall_jobs_oldest_pending_age_seconds`、`schoolwall_jobs_dead`、`schoolwall_jobs_running_lease_expired`，另有 `schoolwall_jobs_metrics_collection_ok` 表示最近一次采集是否成功），并按上表 jobs 行的阈值接上告警规则（`SchoolWallJobsBacklog` / `SchoolWallJobsDeadLetters` / `SchoolWallJobsLeaseExpired`）。最老待处理任务的等待秒数按**入队时间**算：退避重排只推迟下一次可执行时间，并不会让积压从视野里消失。
 
-DB/Redis 的应用侧信号同样已由应用 `/metrics` 暴露：`schoolwall_db_pool_usage_ratio`（已用连接占**连接预算**的比率，预算 = DB_POOL_SIZE + DB_MAX_OVERFLOW，与下文「数据库连接总预算」口径一致）、`schoolwall_db_pool_used_connections`、`schoolwall_db_pool_overflow_connections`、`schoolwall_db_pool_max_connections`，以及 `schoolwall_redis_failures_total`（本进程内失败的 Redis 调用次数，只记次数，不含键名、payload、连接串或用户内容）。并按上表 DB/Redis 行的阈值接上告警规则：`SchoolWallDbPoolPressure`（使用率 >80%，持续 10 分钟）与 `SchoolWallRedisFailures`（最近 5 分钟内有过失败即触发）。Redis 失败用 `increase(schoolwall_redis_failures_total[5m]) > 0` 判定：计数只增不减，直接写 `> 0` 会让规则一直挂着、再也不恢复。连接池用量取的是进程内状态、不查库，数据库变慢或不可达时依然可读。**锁等待上升**仍需 postgres_exporter（`pg_locks` / `pg_stat_activity` 一类），主机容量与备份类信号同样仍需对应 exporter（node_exporter 等），保持为缺口；上表其余目标与「真实告警到达并被确认」仍属人工安排 —— 规则存在不等于告警已送达。
+DB/Redis 的应用侧信号同样已由应用 `/metrics` 暴露：`schoolwall_db_pool_usage_ratio`（已用连接占**连接预算**的比率，预算 = DB_POOL_SIZE + DB_MAX_OVERFLOW，与下文「数据库连接总预算」口径一致）、`schoolwall_db_pool_used_connections`、`schoolwall_db_pool_overflow_connections`、`schoolwall_db_pool_max_connections`，以及 `schoolwall_redis_failures_total`（本进程内失败的 Redis 调用次数，只记次数，不含键名、payload、连接串或用户内容）。并按上表 DB/Redis 行的阈值接上告警规则：`SchoolWallDbPoolPressure`（使用率 >80%，持续 10 分钟）与 `SchoolWallRedisFailures`（最近 5 分钟内有过失败即触发）。Redis 失败用 `increase(schoolwall_redis_failures_total[5m]) > 0` 判定：计数只增不减，直接写 `> 0` 会让规则一直挂着、再也不恢复。连接池用量取的是进程内状态、不查库，数据库变慢或不可达时依然可读。**锁等待上升**仍需 postgres_exporter（`pg_locks` / `pg_stat_activity` 一类），保持为缺口；主机容量已由 node_exporter 接入监控栈并接上规则（见下）；上表其余目标与「真实告警到达并被确认」仍属人工安排 —— 规则存在不等于告警已送达。
 
 首发恢复验收目标为RPO≤1小时、RTO≤4小时；告警留出恢复处理余量，不能把归档配置当作已满足RPO。
 
 仓库自控的**逻辑备份**（`deploy/backup.sh`）的备份新鲜度与备份失败已由应用 `/metrics` 暴露：`schoolwall_backup_last_success_age_seconds`（距最近一次成功备份的秒数，未知记 -1）、`schoolwall_backup_last_attempt_succeeded`（最近一次备份尝试是否成功）、`schoolwall_backup_failures_total`（观察到的失败次数，只在失败数增长时递增）、`schoolwall_backup_status_collection_ok`（状态是否读到了）。信号来源是 `deploy/backup.sh` 每次尝试写下的状态文件 `backup_status.json`（`deploy/backup_status.py` 维护，里面只有时间戳与计数，**不含备份路径、对象存储密钥、连接串或备份内容**）；生产把该目录以只读方式挂进后端容器（compose 的 `BACKUP_STATUS_DIR`，见 `deploy/README.md`）。按上表备份行接上的规则是：`SchoolWallBackupStale`（最新备份 >26 小时）、`SchoolWallBackupFailed`（最近一次备份未成功，或失败计数在增长）、`SchoolWallBackupStatusUnknown`（状态读不到 —— 信号没接上时必须让人看见，不能静默）。**WAL 归档（>30分钟）与归档失败增长仍需 pgBackRest（`deploy/backup/README.md`），异机备份与备份加密仍属人工安排，保持为缺口**；上表其余目标与「真实告警到达并被确认」同样仍属人工安排 —— 规则存在不等于告警已送达。
+
+主机容量信号由 **node_exporter** 提供：`deploy/monitoring/compose.monitoring.yml` 里新增 `node-exporter` 服务（宿主机根目录以只读方式挂到 `/host`，`--path.rootfs=/host` 采集宿主的文件系统与内存，监听地址只绑 `127.0.0.1:9100`，与本目录其余 exporter 一致），`deploy/monitoring/prometheus.yml` 里新增 `node-exporter` 抓取作业（`127.0.0.1:9100`）。据此接上的两条规则是：`SchoolWallHostDiskSpaceLow`（根文件系统可用空间占比 <20%，即 `node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.2`；该行表内没给持续时长，按仓库既有做法立即触发）与 `SchoolWallHostMemoryUsageHigh`（内存使用率 >85%，即 `1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.85`，持续 10 分钟）—— 阈值与持续时长照抄上表容量/证书行。挂载点标签用 `^/(host)?$` 兼容两种挂法（exporter 直接跑在主机上时是 `/`，以 `--path.rootfs=/host` 跑在容器里时可能是 `/host`）。**exporter 在宿主机上的实际部署、挂载路径、磁盘/内存阈值的机型差异与告警接收端属人工安排，仓库只提供配置与规则，不得把它们说成已配置**；规则存在不等于告警已送达。
 
 ## 故障处置
 

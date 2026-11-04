@@ -20,6 +20,23 @@ services:
     volumes: ["./blackbox.yml:/config/blackbox.yml:ro"]
     command: ["--config.file=/config/blackbox.yml", "--web.listen-address=127.0.0.1:9115"]
     restart: unless-stopped
+  # 主机容量信号（磁盘可用空间、内存使用率）的来源。
+  # 仓库只提供这套配置：exporter 在主机上的实际部署、挂载路径与机型差异属运维安排。
+  # 宿主机根目录以只读方式挂到 /host，node_exporter 用 --path.rootfs=/host 采集宿主的
+  # 文件系统与内存指标；监听地址同样只绑 127.0.0.1，与本文件其余 exporter 一致
+  # （需要从别处看指标时走已认证的 SSH 隧道，不要把 9100 暴露到公网）。
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      # 排除伪文件系统与容器自身的挂载点，避免把 /etc/hosts 之类的绑定挂载当成磁盘。
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|etc|host|var/lib/docker|var/lib/containers/storage)($$|/)
+      - --web.listen-address=127.0.0.1:9100
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
   alertmanager:
     image: prom/alertmanager:v0.28.1
     network_mode: host

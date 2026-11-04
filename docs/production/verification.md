@@ -807,6 +807,37 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 **仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 与失败计数实测、后端全量 pytest（隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归与契约导出比对。`promtool check rules` 未能在本机执行（本机无外网、无法拉取 `prom/prometheus` 镜像），规则表达式沿用与既有规则同形的写法，语义由守卫用例与上面的实测锁定。
 
 
+## G2 可靠性：主机容量信号接成可抓取的指标与告警规则（2026-11-04）
+
+### 缺口
+
+`docs/production/runbook.md` 的「首发告警目标」表把容量/证书列为首发告警目标（磁盘<20%、内存>85% 10分钟、证书<14天），处理列是「扩容/清理受控制品、续证并检查作业」。证书那一半已有 `SchoolWallCertificateExpiring` 规则，**磁盘与内存两项目前一条规则都没有**；主机容量也没有任何可抓取的信号 —— 改动前 `deploy/monitoring/compose.monitoring.yml` 的监控栈只有 Prometheus、blackbox 与 Alertmanager，**没有 node_exporter**，`deploy/monitoring/prometheus.yml` 也没有对应的抓取作业。表里写了目标，值班人既抓不到磁盘与内存的数，也收不到告警。
+
+### 改动（只改仓库自控的监控配置、其 exporter 接线与守卫用例）
+
+- `deploy/monitoring/compose.monitoring.yml`：新增 `node-exporter` 服务（`prom/node-exporter:v1.8.2`，`network_mode: host` + `pid: host`，宿主机根目录以**只读**方式挂到 `/host`，`--path.rootfs=/host` 采集宿主的文件系统与内存，`--web.listen-address=127.0.0.1:9100` **只绑回环**，与本文件其余 exporter 一致）。exporter 在宿主机上的实际部署、挂载路径与按机型调整阈值属运维安排，仓库只提供配置与规则。
+- `deploy/monitoring/prometheus.yml`：新增 `node-exporter` 抓取作业（目标 `127.0.0.1:9100`）—— 没有这一步，Prometheus 根本不会去抓，规则照样空转。
+- `deploy/monitoring/alerts.yml`：按 runbook 容量/证书行补两条规则 —— `SchoolWallHostDiskSpaceLow`（`node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.2`，即根文件系统可用空间低于 20%；该行表内没给持续时长，按仓库既有做法立即触发）与 `SchoolWallHostMemoryUsageHigh`（`1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.85`，即内存使用率高于 85%，持续 10 分钟）。挂载点标签用 `^/(host)?$` 兼容两种挂法：exporter 直接跑在主机上时标签是 `/`，以 `--path.rootfs=/host` 跑在容器里时可能是 `/host`。
+- `scripts/check_monitoring_alerts.py`：把「既定 exporter 的指标」改成按 exporter **显式登记**（`EXPORTER_SOURCES`：prometheus / blackbox / node），node_exporter 的四个指标名写死在登记里；并新增**接线检查**（`check_exporter_wiring()`）：规则引用到的 exporter 必须在 `compose.monitoring.yml` 里有对应服务、在 `prometheus.yml` 里有对应抓取作业，缺一即非零退出 —— 指标登记了但 exporter 没部署，规则仍然是空转。
+- `scripts/tests/test_monitoring_alerts.py`：扩到 **20 项**（新增 6 项：容量指标登记为 node_exporter 指标、容量规则阈值照抄 runbook 容量行、容量规则只用 node_exporter 的指标、node_exporter 已接进监控栈（compose 服务 + 监听回环 + prometheus 抓取作业）、exporter 没接线时守卫必须点名、规则里放 node_exporter 上不存在的指标名必须被拦下），随 CI 运维脚本回归一起跑。
+- 未改发布门禁口径、未改告警接收端（receiver 与值班人确认属人工安排）；**DB 锁等待上升仍需 postgres_exporter**，WAL 归档/PITR、异机备份与备份加密仍需 pgBackRest 与人工安排，保持为已记录的缺口。
+
+### 本地实测（容器化 Python 3.11 + 隔离环境自带 venv；监控配置与守卫不依赖真实 exporter 实例）
+
+| 项 | 结果 |
+|---|---|
+| 监控配置 | `docker compose -f deploy/monitoring/compose.monitoring.yml config` 解析通过：`node-exporter` 服务渲染为 `prom/node-exporter:v1.8.2` + `network_mode: host` + `pid: host` + 根目录只读挂载到 `/host`（`rslave`）+ `--path.rootfs=/host` + `--web.listen-address=127.0.0.1:9100`；`prometheus.yml` 的 `node-exporter` 抓取作业目标为 `127.0.0.1:9100` |
+| 告警规则守卫 | `python scripts/check_monitoring_alerts.py` 退出码 **0**，打印 `monitoring alerts validated: 16 rules, all referenced metrics are scrapeable (46 known metric names)` |
+| 负向验证（指标没人暴露） | 规则里放 `node_filesystem_never_exposed_bytes` → 退出码 **1** 并点名该指标 |
+| 负向验证（exporter 没接线） | 在仓库外的一份副本里删掉 compose 的 `node-exporter` 服务 → 退出码 **1**，打印 `alert rules reference exporters that are not wired into the monitoring stack:` 与 `node: compose.monitoring.yml 里没有 node-exporter 服务` |
+| 守卫用例 | `python -m unittest discover -s scripts/tests -p "test_monitoring_alerts.py"` → **20 项全绿** |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **104 项全绿**（改动前 98 项 + 新增 6 项） |
+| API 契约 | `python scripts/check_api_contract.py --output ...` 退出码 **0**，打印 `contract validated: 132 paths` —— 本次未改后端代码与接口面 |
+| 未触碰 | 未改后端业务代码、迁移、接口契约与发布门禁口径；未改告警接收端；未接触生产域名、生产实例与真实学生数据；exporter 只暴露主机容量数字，不含用户内容 |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是监控配置解析、告警规则守卫（含两条负向验证）、运维脚本回归与契约导出比对。`promtool check rules` 与真实 node_exporter 实例未能在本机执行（本机无外网、无法拉取 `prom/prometheus` 与 `prom/node-exporter` 镜像，宿主机上的 exporter 部署属人工安排），规则表达式沿用与既有规则同形的写法，语义由守卫用例锁定。
+
+
 ## 已知发布阻断
 
 主前端官方npm audit：**0 high / 0 critical**（20 moderate 告警包：17 条继承自 `@intlify/core-base` 的构建期advisory 链、3 条来自 `openapi-typescript` → `@redocly/openapi-core` → `minimatch` 链，均为 devDependency 传递依赖，产物中不含该包）；管理台官方npm audit：**0 vulnerabilities**（2026-11-01，`vue-tsc` 升至 `~3.1.8` 后 `minimatch` 依赖链消失）。旧基线里的 braces3.0.3 告警（GHSA-vfj7-8cjw-p6xm）已由**上游撤回该 advisory**，npm 不再下发，braces 本身仍是最新版3.0.3、未发生版本变更；同期新披露的 vue-i18n/@intlify、body-parser、follow-redirects 高危已通过移除未使用的 vue-i18n、回调 @intlify overrides 至9.1.9/9.14.4、overrides body-parser→^1.20.9 与 follow-redirects→^1.16.2 全部清除。详细依赖链、原始报告与解除条件见[客户端验收记录](../client-release-validation.md)。不忽略扫描、不伪造依赖版本。2026-11-01 新披露的 39 条 pillow advisory 全部指向 13.0.0，而 13.0.0 要求 Python ≥ 3.11（12.3.0 是最后一个支持 3.10 的版本），因此在 Python 3.10 上没有可用修复版；按 G1 规则严重与高危漏洞不得豁免，处理方式是升级运行时到 3.11（见 `openspec/changes/backend-python-311/`），不做风险豁免、不加忽略扫描配置。

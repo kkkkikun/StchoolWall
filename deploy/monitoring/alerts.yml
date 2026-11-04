@@ -100,3 +100,28 @@ groups:
         annotations:
           summary: "SchoolWall backup status is unreadable, backup freshness cannot be judged"
           runbook: "docs/production/runbook.md"
+      # 主机容量信号：阈值照抄 docs/production/runbook.md「首发告警目标」表的容量/证书行
+      # （磁盘<20%、内存>85% 10分钟、证书<14天）——证书那一半已由
+      # SchoolWallCertificateExpiring 覆盖，这里补磁盘与内存两项目标。
+      # 指标来自 node_exporter（deploy/monitoring/compose.monitoring.yml 的 node-exporter
+      # 服务 + deploy/monitoring/prometheus.yml 的 node-exporter 抓取作业）：
+      #   node_filesystem_avail_bytes / node_filesystem_size_bytes —— 根文件系统的可用与总容量
+      #   node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes —— 可用与总内存
+      # mountpoint 用 ^/(host)?$ 兼容两种挂法：exporter 直接跑在主机上时标签是 "/"，
+      # 以 --path.rootfs=/host 跑在容器里时标签可能是 "/host"。
+      # 磁盘行表内没给持续时长，按仓库既有做法立即触发（jobs 行与备份行同样没给的项）。
+      # 分机型调整阈值、按挂载点分别设限属运维安排，这里不擅自改口径。
+      - alert: SchoolWallHostDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{job="node-exporter",mountpoint=~"^/(host)?$",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{job="node-exporter",mountpoint=~"^/(host)?$",fstype!~"tmpfs|overlay|squashfs"}) < 0.2
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall root filesystem has less than twenty percent of space available"
+          runbook: "docs/production/runbook.md"
+      - alert: SchoolWallHostMemoryUsageHigh
+        expr: (1 - node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}) > 0.85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "SchoolWall host memory usage exceeds eighty-five percent"
+          runbook: "docs/production/runbook.md"

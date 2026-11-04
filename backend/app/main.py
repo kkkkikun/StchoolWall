@@ -43,11 +43,13 @@ app.add_middleware(CORSMiddleware,
 
 try:
     from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-    from app.metrics import HTTP_LATENCY as LATENCY, HTTP_REQUESTS as REQUESTS, refresh_db_pool_metrics, refresh_job_metrics
+    from app.metrics import (HTTP_LATENCY as LATENCY, HTTP_REQUESTS as REQUESTS,
+                              refresh_backup_metrics, refresh_db_pool_metrics, refresh_job_metrics)
 except ImportError:
     REQUESTS = LATENCY = None
     refresh_job_metrics = None
     refresh_db_pool_metrics = None
+    refresh_backup_metrics = None
 
 
 @app.middleware("http")
@@ -174,7 +176,9 @@ async def ready():
 async def metrics():
     if REQUESTS is None:
         raise HTTPException(503, "Metrics unavailable")
-    # 抓取时顺带刷新任务队列信号与数据库连接池用量；采集失败不会让 /metrics 失败（见 app.metrics）。
+    # 抓取时顺带刷新任务队列信号、数据库连接池用量与备份侧信号；采集失败不会让
+    # /metrics 失败（见 app.metrics）。
     await refresh_job_metrics()
     refresh_db_pool_metrics()
+    refresh_backup_metrics()
     return Response(generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})

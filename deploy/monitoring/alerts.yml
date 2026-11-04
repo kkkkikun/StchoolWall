@@ -73,3 +73,30 @@ groups:
         annotations:
           summary: "SchoolWall Redis calls are failing"
           runbook: "docs/production/runbook.md"
+      # 备份侧信号：阈值照抄 docs/production/runbook.md「首发告警目标」表的备份行
+      # （最新备份>26小时、失败增长）——表内没给持续时长，按立即触发处理。
+      # 备份新鲜度与失败都来自仓库自控的逻辑备份（deploy/backup.sh 写下的状态文件，
+      # 应用 /metrics 暴露），采集只输出计数、时长与布尔。
+      # WAL 归档（>30分钟）与归档失败增长来自 pgBackRest，属人工与基础设施安排，
+      # 这里不冒充已覆盖。
+      - alert: SchoolWallBackupStale
+        expr: schoolwall_backup_last_success_age_seconds > 93600
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall latest successful backup is older than twenty-six hours"
+          runbook: "docs/production/runbook.md"
+      - alert: SchoolWallBackupFailed
+        expr: (schoolwall_backup_last_attempt_succeeded == 0 and schoolwall_backup_status_collection_ok == 1) or increase(schoolwall_backup_failures_total[5m]) > 0
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall backup failed or its failure counter grew"
+          runbook: "docs/production/runbook.md"
+      - alert: SchoolWallBackupStatusUnknown
+        expr: schoolwall_backup_status_collection_ok == 0
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "SchoolWall backup status is unreadable, backup freshness cannot be judged"
+          runbook: "docs/production/runbook.md"

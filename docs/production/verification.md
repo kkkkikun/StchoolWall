@@ -772,6 +772,40 @@ DELETE FROM reports WHERE handled_by IS NOT NULL AND handled_by NOT IN (SELECT i
 
 **仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 与 Redis 故障计数实测、后端全量 pytest（隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归与契约导出比对。
 
+## G2 可靠性：备份侧信号接成可抓取的应用指标与告警规则（2026-11-04，专用隔离环境）
+
+### 缺口
+
+`docs/production/runbook.md` 的「首发告警目标」表把备份列为首发告警目标（WAL归档>30分钟或失败增长、最新备份>26小时），处理列是「立即修复备份；未恢复保护前停止新增风险变更」。但改动前：① 仓库自控的逻辑备份（`deploy/backup.sh`）跑完只在磁盘上留一份 `.sql.gz`，**没有任何可抓取的信号** —— 备份是多久以前的、刚刚那次成功没有、失败了几次，应用与 Prometheus 都看不到；② `deploy/monitoring/alerts.yml` 只有探针、HTTP RED、jobs 三条与 DB/Redis 两条规则，**没有任何一条针对备份的规则**。与 jobs 行、DB/Redis 行同样的空转：值班人收不到「备份过期 / 备份失败」告警。
+
+### 改动（只改仓库自控的备份侧信号暴露面、监控配置与其守卫用例）
+
+- `deploy/backup_status.py`（新增）：维护备份状态文件 `<目录>/backup_status.json`，里面**只有时间戳与计数**（attempts / failures / last_attempt_at / last_attempt_ok / last_success_at）—— 没有备份路径、对象存储密钥、连接串或备份内容。原子写（先写临时文件再改名），状态目录 0755、状态文件 0644，后端容器（uid 10001）能只读读到；备份产物本身仍是 0600，不受影响。
+- `deploy/backup.sh`：每次尝试（成功与失败）都写状态。失败路径用 EXIT trap 记（`exit "$code"` 保留原始退出码）；**写状态失败只打印一行告警**，不把一次成功的备份判成失败 —— 那会让值班人拿到假的「备份失败」。
+- `backend/app/backup_status.py`（新增）：只读解析状态文件，输出「距最近一次成功备份的秒数」「最近一次尝试是否成功」「累计失败次数」「状态是否读到了」。读不到（路径没配、文件不存在、内容坏了）一律按未知记（年龄 `-1`），**不抛异常** —— `/metrics` 是 Prometheus 的抓取入口，不能因为备份状态读不到就整个 500、把这一轮指标一起抹掉。
+- `backend/app/metrics.py`：新增四个备份侧信号 `schoolwall_backup_last_success_age_seconds`（时长）、`schoolwall_backup_last_attempt_succeeded`（布尔）、`schoolwall_backup_failures_total`（计数，只在观察到失败数**增长**时递增；累计值本身不是「增长」）、`schoolwall_backup_status_collection_ok`（布尔）。采集只输出计数、时长与布尔。
+- `backend/app/main.py`：`/metrics` 在渲染前刷新备份信号（`/metrics` 不在接口契约里，路径数不变）。
+- `backend/app/config.py`：新增 `BACKUP_STATUS_FILE`（默认 `backup-status/backup_status.json`）。
+- `deploy/docker-compose.prod.yml`：把状态目录以**只读**方式挂进后端容器（`${BACKUP_STATUS_DIR:-/opt/schoolwall/backup-status}:/data/backup-status:ro`），并把容器内的 `BACKUP_STATUS_FILE` 指向 `/data/backup-status/backup_status.json`。这是本次唯一的部署面改动：多一个只读挂载，运维把 `BACKUP_STATUS_DIR` 指向 `deploy/backup.sh` 写的同一个主机目录即可；删掉这两行即可回退。
+- `deploy/monitoring/alerts.yml`：按 runbook 表的备份行补三条规则 —— `SchoolWallBackupStale`（`schoolwall_backup_last_success_age_seconds > 93600`，即 26 小时）、`SchoolWallBackupFailed`（`schoolwall_backup_last_attempt_succeeded == 0 and schoolwall_backup_status_collection_ok == 1` 或 `increase(schoolwall_backup_failures_total[5m]) > 0`）、`SchoolWallBackupStatusUnknown`（`schoolwall_backup_status_collection_ok == 0`）。表内没给持续时长，按立即触发（`for: 0m`）处理。阈值 93600 = 26×3600，照抄 runbook 备份行。
+- `scripts/tests/test_monitoring_alerts.py` + `scripts/tests/test_backup_script.py`：守卫用例扩到 **14 + 5 项** —— 新增「备份指标可抓取」「备份规则阈值照抄 runbook 备份行」「备份规则只用应用暴露的指标」「**不得冒充已覆盖 WAL 归档**（pgBackRest 侧仍属人工安排）」，以及「成功的备份写状态」「失败的备份写状态」「状态文件对后端容器可读」。随 CI 运维脚本回归一起跑。
+- 未改发布门禁口径、未改告警接收端（receiver 与值班人确认属人工安排）；**WAL 归档/PITR、异机备份与备份加密仍需 pgBackRest 与人工安排，保持为已记录的缺口**，不得说成已配置。
+
+### 本地实测（专用隔离环境：容器化 PostgreSQL 15.14 / Redis 7.4.7，Python 3.11 + 隔离环境自带 venv）
+
+| 项 | 结果 |
+|---|---|
+| 真实 `/metrics` 抓取（用本工作树代码起 API，`BACKUP_STATUS_FILE` 指向状态文件） | `schoolwall_backup_last_success_age_seconds 20.477206`、`schoolwall_backup_last_attempt_succeeded 1.0`、`schoolwall_backup_failures_total 0.0`、`schoolwall_backup_status_collection_ok 1.0` —— 四个新指标全部可抓取；文本里没有状态文件路径，也没有状态文件里的任何内容 |
+| 失败增长（把状态文件改成一次失败后再抓取） | `schoolwall_backup_last_attempt_succeeded 1.0 → 0.0`、`schoolwall_backup_failures_total 0.0 → 1.0`（失败数从 1 增长到 2 时计数才递增）；`schoolwall_backup_last_success_age_seconds` 继续按最近一次**成功**备份算 |
+| 后端用例 | `backend/tests/test_backup_metrics.py` **6 passed**：① 四个备份信号出现在 `/metrics` 且与状态文件一致；② 最近一次失败时布尔信号为 0；③ 状态文件缺失 → `collection_ok=0`、年龄 `-1`、`/metrics` 仍 200；④ 状态文件内容坏了同样按未知记、`/metrics` 不 500；⑤ 指标文本里没有状态文件路径与状态文件内容；⑥ 失败计数只在失败数增长时递增 |
+| 后端全量用例 | `python -m pytest -q` → **594 passed**（121.22 秒，隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑） |
+| 告警规则守卫 | `python scripts/check_monitoring_alerts.py` 退出码 **0**，打印 `monitoring alerts validated: 14 rules, all referenced metrics are scrapeable (42 known metric names)` |
+| 运维脚本回归 | `python -m unittest discover -s scripts/tests` → **98 项全绿**（告警守卫 14 项 + 备份脚本 5 项） |
+| API 契约 | `python scripts/check_api_contract.py --output release/openapi.json` 退出码 **0**，打印 `contract validated: 132 paths`，写回后与入库快照逐字节一致 —— `/metrics` 不在契约里 |
+| 未触碰 | 未改接口契约、迁移与发布门禁口径；未改告警接收端；未接触生产域名、生产实例与真实学生数据；备份路径、密钥、连接串与备份内容不进指标 |
+
+**仍待 Production CI 判定**：**Production CI 的 `verify` 作业仍是后端全量 pytest、迁移链与运维脚本回归的权威判定**；本机已跑通的是 `/metrics` 与失败计数实测、后端全量 pytest（隔离 PostgreSQL 15.14 / Redis 7.4.7 实跑）、告警规则守卫、运维脚本回归与契约导出比对。`promtool check rules` 未能在本机执行（本机无外网、无法拉取 `prom/prometheus` 镜像），规则表达式沿用与既有规则同形的写法，语义由守卫用例与上面的实测锁定。
+
 
 ## 已知发布阻断
 

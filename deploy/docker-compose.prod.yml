@@ -10,12 +10,18 @@ x-app: &app
     BUILD_REVISION: ${BUILD_REVISION:?set release commit}
     # Uvicorn reads this environment variable; only the host bridge gateway is trusted.
     FORWARDED_ALLOW_IPS: ${SCHOOLWALL_GATEWAY:-172.30.0.1}
+    # 备份状态文件（deploy/backup.sh 写）：应用 /metrics 据此暴露备份新鲜度与
+    # 备份失败信号。状态文件里只有时间戳与计数，没有备份路径、密钥或备份内容，
+    # 因此以只读方式挂进容器。
+    BACKUP_STATUS_FILE: /data/backup-status/backup_status.json
   volumes:
     - static_uploads:/data/static
     - private_media:/data/private-media
     - private_verifications:/data/private-verifications
     # 反馈截图是测试现场，必须跨容器重建留存
     - private_feedback:/data/private-feedback
+    # 备份状态目录（只读）：BACKUP_STATUS_DIR 与 deploy/backup.sh 用同一个主机路径
+    - ${BACKUP_STATUS_DIR:-/opt/schoolwall/backup-status}:/data/backup-status:ro
   init: true
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]

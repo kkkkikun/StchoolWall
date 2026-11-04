@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     ADMIN_MFA_ENCRYPTION_KEY: str = ""
     STATIC_BASE_DIR: str = "static"
     PRIVATE_MEDIA_DIR: str = "private-media"
+    # 备份状态文件（deploy/backup.sh 写、deploy/backup_status.py 维护）：只含时间戳
+    # 与计数，用来把备份新鲜度与备份失败接成可抓取的指标。生产里由 compose 以
+    # 只读方式挂进容器；读不到就按「状态未知」记。
+    BACKUP_STATUS_FILE: str = "backup-status/backup_status.json"
     MEDIA_MAX_PIXELS: int = 25000000
     MEDIA_MAX_BYTES: int = 10485760
     STORAGE_PROVIDER: str = "local"

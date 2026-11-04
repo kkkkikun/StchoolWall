@@ -9,6 +9,7 @@
 - 复制 env.prod.example 到 shared/.env，权限0600；替换占位符。预发布额外写 DEPLOY_ENVIRONMENT=staging；应用 ENVIRONMENT 仍为 production，验证同样的安全闸门。
 - 注册私有 GHCR 的主机只读拉取凭证。CI 使用 GITHUB_TOKEN 推送，不把读写仓库凭证放进应用环境。
 - 备份接入见 [pgBackRest](backup/README.md)。现有本地上传卷需要设置安全目录权限；新版容器 uid10001。将历史数据在维护窗口备份后迁移，禁止直接修改生产卷并宣称验证完成。
+- 逻辑备份（`deploy/backup.sh`）每次尝试都会把结果写进状态目录 `BACKUP_STATUS_DIR`（默认 `backup-status`，**只含时间戳与计数**，没有备份路径、密钥或备份内容）。生产把该目录放在宿主机上，compose 用同一个 `BACKUP_STATUS_DIR`（绝对路径，例如 `/opt/schoolwall/backup-status`，确保部署账号可写、容器 uid10001 可读）；compose 已按只读方式挂载它并把容器内的 `BACKUP_STATUS_FILE` 指向 `/data/backup-status/backup_status.json`。没接上时应用会暴露「备份状态不可读」并触发 `SchoolWallBackupStatusUnknown` 告警 —— 不会静默。
 - Nginx 使用 nginx.schoolwall.conf，将域名替换、签发 HTTPS 证书；新静态根目录为 /opt/schoolwall/current/web/{h5,admin}。首次发布前符号链接不存在，站点暂时不可用属初始化状态。
 - GitHub: branch protection 要求 Production CI 成功；staging 和 production environment 分别设置 SERVER_HOST、SERVER_USERNAME、SERVER_SSH_KEY、SERVER_KNOWN_HOSTS；production 设置 required reviewers 和保护 main。PUBLIC_API_BASE_URL 变量必须是真实 HTTPS API地址，否则小程序制品不能上架。
 - 生产发布每次复制 release-gates.example.json 到 shared/release-gates.json，填写匹配 commit、审核人、时间与 G0..G4 证据；默认 false 会阻止发布。

@@ -7,6 +7,8 @@
 任务队列信号只输出聚合计数：不含 payload、证件、token 或任何用户内容。
 DB/Redis 信号同样只输出计数与比率：连接池用了几条连接、占了连接预算的多少，
 Redis 调用失败了几次 —— 不带连接串、键名、payload 或任何用户内容。
+备份侧信号只输出计数、时长与布尔：距最近一次成功备份的秒数、最近一次备份
+尝试是否成功、累计失败次数 —— 不带备份路径、对象存储密钥、连接串或备份内容。
 """
 import logging
 from datetime import datetime, timezone
@@ -14,6 +16,7 @@ from datetime import datetime, timezone
 from prometheus_client import Counter, Gauge, Histogram
 from sqlalchemy import func, select
 
+from app.backup_status import read_backup_status
 from app.config import settings
 from app.database import async_session, engine
 from app.models.job import Job
@@ -47,6 +50,22 @@ DB_POOL_USAGE_RATIO = Gauge("schoolwall_db_pool_usage_ratio",
                             "Used share of the database connection budget (0 to 1)")
 REDIS_FAILURES = Counter("schoolwall_redis_failures_total",
                           "Redis calls that failed in this process")
+
+# 备份侧信号：最近一次成功备份距今的秒数（时长）、最近一次备份尝试是否成功
+# （布尔）、累计失败的备份次数（计数）与「状态是否读到了」（布尔）。采集只输出
+# 计数、时长与布尔，不带备份路径、对象存储密钥、连接串或备份内容。
+BACKUP_LAST_SUCCESS_AGE = Gauge("schoolwall_backup_last_success_age_seconds",
+                                "Seconds since the last successful backup; -1 when unknown")
+BACKUP_LAST_ATTEMPT_SUCCEEDED = Gauge("schoolwall_backup_last_attempt_succeeded",
+                                       "1 when the most recent recorded backup attempt succeeded")
+BACKUP_FAILURES = Counter("schoolwall_backup_failures_total",
+                           "Failed backup attempts observed by this process")
+BACKUP_STATUS_COLLECTION_OK = Gauge("schoolwall_backup_status_collection_ok",
+                                     "1 when the backup status file was read and parsed")
+
+# 累计失败数的基线：状态文件里的失败数是累计值，应用重启后第一次读到它时
+# 只记基线（那是之前就发生过的失败，不是「增长」）。
+_backup_failure_baseline: int | None = None
 
 # 一条聚合查询取全部任务队列信号；租约是否过期按数据库时钟判断。
 _JOB_STATS = select(
@@ -142,3 +161,28 @@ def refresh_db_pool_metrics() -> None:
     DB_POOL_OVERFLOW.set(overflow)
     DB_POOL_MAX.set(budget)
     DB_POOL_USAGE_RATIO.set(ratio)
+
+
+def refresh_backup_metrics() -> None:
+    """刷新备份侧指标；状态文件读不到只把 collection_ok 置 0，不抛异常。"""
+    status = read_backup_status(settings.BACKUP_STATUS_FILE)
+    BACKUP_STATUS_COLLECTION_OK.set(1 if status.readable else 0)
+    BACKUP_LAST_SUCCESS_AGE.set(status.last_success_age_seconds)
+    BACKUP_LAST_ATTEMPT_SUCCEEDED.set(1 if status.last_attempt_succeeded else 0)
+    _observe_backup_failures(status.failures)
+
+
+def _observe_backup_failures(failures: int) -> None:
+    """累计失败数只在观察到增长时递增。
+
+    状态文件里的失败数是累计值：应用重启后第一次读到它时只记基线 —— 那是
+    之前就发生过的失败，不是「增长」；之后每次读到更大的值才递增计数。
+    「最近一次备份是否成功」另外单独暴露，停机期间发生的失败不会因此丢失。
+    """
+    global _backup_failure_baseline
+    if _backup_failure_baseline is None:
+        _backup_failure_baseline = failures
+        return
+    if failures > _backup_failure_baseline:
+        BACKUP_FAILURES.inc(failures - _backup_failure_baseline)
+    _backup_failure_baseline = failures

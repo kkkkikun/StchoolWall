@@ -43,6 +43,30 @@ const router = createRouter({
           component: () => import('@/views/SettingsView.vue'),
           meta: { requiresAuth: true },
         },
+        {
+          path: 'verify',
+          name: 'verify',
+          component: () => import('@/views/VerifyView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'blocks',
+          name: 'blocks',
+          component: () => import('@/views/BlocksView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'appeals',
+          name: 'appeals',
+          component: () => import('@/views/AppealsView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          // 信息页用路由参数区分内容：/info/community、/info/privacy 等
+          path: 'info/:type',
+          name: 'info',
+          component: () => import('@/views/InfoView.vue'),
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue') },

@@ -48,11 +48,17 @@ BRAND_TOKENS = ('--sw-primary', '--sw-primary-strong', '--sw-primary-soft',
                 '--sw-primary-text', '--el-color-primary')
 
 # 扫描的页面：与走查脚本一致的四条关键路径
+# 扫描的页面：与走查脚本一致的关键路径；第三列标记是否需要登录
 PAGES = [
-    ('feed', '/'),
-    ('post-detail', '/post/1'),
-    ('login', '/login'),
-    ('publish', '/publish'),
+    ('feed', '/', False),
+    ('post-detail', '/post/1', False),
+    ('login', '/login', False),
+    ('publish', '/publish', True),
+    ('settings', '/settings', True),
+    ('verify', '/verify', True),
+    ('blocks', '/blocks', True),
+    ('appeals', '/appeals', True),
+    ('info', '/info/community', False),
 ]
 
 MODES = ('light', 'dark')
@@ -504,7 +510,14 @@ def main():
                     f"try {{ localStorage.setItem('sw_theme', '{mode}'); }} catch (e) {{}}")
                 page = context.new_page()
                 desktop_mock_api.install_routes(page, server_origin(base_url))
-                for name, route in PAGES:
+                # 需要登录的页面先登录一次，mock 的刷新通道会记住登录态
+                page.goto(route_url(base_url, '/login'), wait_until='networkidle', timeout=45000)
+                page.wait_for_selector('.sw-auth__form', timeout=20000)
+                page.locator('.sw-auth__form input').nth(0).fill('contrast_user')
+                page.locator('.sw-auth__form input').nth(1).fill('contrast-pass-1234')
+                page.locator('.sw-auth__submit').click()
+                page.wait_for_selector('.sw-user__name', timeout=20000)
+                for name, route, needs_auth in PAGES:
                     page.goto(route_url(base_url, route), wait_until='networkidle', timeout=45000)
                     page.wait_for_timeout(900)
                     result = page.evaluate(SCAN)

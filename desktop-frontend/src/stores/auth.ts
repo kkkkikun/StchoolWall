@@ -67,5 +67,15 @@ export const useAuthStore = defineStore('auth', () => {
     return true
   }
 
-  return { user, role, loggedIn, canPublish, login, register, logout, restore, clear }
+  /**
+   * 接管后端下发的新会话。
+   *
+   * 跨端配对绑定原账号后，登录身份会并入原账号并换发新会话，
+   * 这里用新会话替换本地令牌，页面状态无需重新登录。
+   */
+  function adopt(session: SessionData): void {
+    applySession(session)
+  }
+
+  return { user, role, loggedIn, canPublish, login, register, logout, restore, adopt, clear }
 })

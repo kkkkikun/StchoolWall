@@ -117,6 +117,12 @@
   --sw-text-secondary: #a9b3bd;
   /* 弱化文字：深底 6.10:1 / 卡底 5.62:1 / 品牌浅粉底 5.11:1 */
   --sw-text-muted: #8b949e;
+  /* 语义色的文字档位：亮色下用深色系保证白底 ≥4.5:1，
+     暗色下必须提亮，否则深底上只有 3.2:1 */
+  --sw-danger: #ff7a86;
+  --sw-warning: #e0a33a;
+  --sw-success: #3fd6a0;
+  --sw-info: var(--sw-text-secondary);
   /* 暗色下品牌小字必须提亮：深玫红在深底上只有 3.22~3.54:1 */
   --sw-primary-text: #e07087;
   /* 悬停态的品牌色：亮色更深、暗色更亮，两套配色都在各自底色上 ≥4.5:1 */
@@ -152,14 +158,59 @@
   --el-color-danger: #ff7a86;
   --el-color-error: #ff7a86;
   --el-color-info: var(--sw-text-secondary);
+  /* plain 语义按钮与 alert 的底色：Element Plus 默认取 light-9（浅色系），
+     暗色下必须换成深色系，否则浅底 + 亮语义色文字压不到 4.5:1 */
+  --el-color-success-light-9: #1c2518;
+  --el-color-warning-light-9: #2e2614;
+  --el-color-danger-light-9: #2e1a1e;
+  --el-color-error-light-9: #2e1a1e;
+  --el-color-info-light-9: #1d222a;
+  /* 语义色的边框档位（plain 按钮描边、禁用态文字）同样需要暗色覆写 */
+  --el-color-success-light-8: #25371c;
+  --el-color-warning-light-8: #3e301c;
+  --el-color-danger-light-8: #412626;
+  --el-color-error-light-8: #412626;
+  --el-color-info-light-8: #2d2d2f;
+  --el-color-success-light-5: #3e6b27;
+  --el-color-warning-light-5: #7d5b28;
+  --el-color-danger-light-5: #854040;
+  --el-color-error-light-5: #854040;
+  --el-color-info-light-5: #525457;
   --el-border-color: var(--sw-border);
   --el-border-color-light: var(--sw-border);
+  /* 浅一档的分隔线：表格单元格、复选框等内部描边在暗色下需要更弱的分层 */
+  --el-border-color-lighter: var(--sw-border);
+  --el-border-color-extra-light: var(--sw-border);
+  /* 填充层级：上传卡片、按钮禁用态等需要比卡片底更深的填充 */
+  --el-fill-color: var(--sw-surface-muted);
+  --el-fill-color-lighter: var(--sw-surface-muted);
+  --el-fill-color-extra-light: var(--sw-surface-muted);
+  --el-fill-color-dark: var(--sw-border);
+  --el-fill-color-darker: var(--sw-border-strong);
+  /* 遮罩与浮层：弹窗 / 消息框的遮罩在暗色下保持半透明黑 */
+  --el-mask-color: rgb(0 0 0 / 75%);
+  --el-mask-color-extra-light: rgb(0 0 0 / 45%);
+  --el-overlay-color-lighter: rgb(0 0 0 / 55%);
+  --el-box-shadow: var(--sw-shadow-lg);
+  --el-box-shadow-light: var(--sw-shadow);
+  --el-box-shadow-lighter: var(--sw-shadow-sm);
+  --el-box-shadow-dark: var(--sw-shadow-lg);
+  --el-color-white: var(--sw-surface);
+  --el-color-black: #000000;
 }
 
 /* Element Plus 的 plain 主按钮：品牌色小字取品牌文字令牌
    （默认取 --el-color-primary，压品牌浅底只有 4.58:1） */
 :root .el-button--primary.is-plain {
   --el-button-text-color: var(--sw-primary-text);
+}
+
+/* 实心主按钮的悬停底色：Element Plus 默认取 --el-color-primary-light-3，
+   白字压上去只有 3.30:1，低于规范要求的 4.5:1。
+   亮色下改用更深的品牌色（白字 6.6:1），与暗色下的处理口径一致。 */
+:root .el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-hover-bg-color: var(--sw-primary-strong);
+  --el-button-hover-border-color: var(--sw-primary-strong);
 }
 
 /* 暗色下实心主按钮：填充压深，白字 5.74:1（浅玫瑰填充只有 3.07:1） */

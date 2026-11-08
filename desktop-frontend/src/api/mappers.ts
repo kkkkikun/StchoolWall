@@ -1,5 +1,9 @@
 import type {
+  AppealRecord,
+  AppealStatus,
+  AppealType,
   BannerItem,
+  BlockedUser,
   CommentItem,
   HotUser,
   MyProfile,
@@ -8,6 +12,8 @@ import type {
   PostDetail,
   PublicProfile,
   TagItem,
+  VerificationRecord,
+  VerificationStatus,
 } from './types'
 
 type Raw = Record<string, any>
@@ -166,5 +172,69 @@ export function mapHotUser(raw: Raw): HotUser {
     nickname: str(raw.nickname) || '匿名',
     avatarUrl: optionalStr(raw.avatar_url) ?? null,
     heat: num(raw.heat),
+  }
+}
+
+const VERIFICATION_STATUSES: VerificationStatus[] = [
+  'draft',
+  'pending',
+  'approved',
+  'rejected',
+  'expired',
+  'revoked',
+]
+
+/** 学生证认证记录。未知状态按草稿处理，避免视图层拿到意料之外的值。 */
+export function mapVerificationRecord(raw: Raw): VerificationRecord {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      schoolId: '',
+      status: 'draft',
+      createdAt: '',
+      submittedAt: null,
+      reviewedAt: null,
+      reviewReason: null,
+      verifiedUntil: null,
+      evidenceDeleteAfter: null,
+    }
+  }
+  const status = str(raw.status) as VerificationStatus
+  return {
+    id: str(raw.id),
+    schoolId: str(raw.school_id),
+    status: VERIFICATION_STATUSES.includes(status) ? status : 'draft',
+    createdAt: str(raw.created_at),
+    submittedAt: optionalStr(raw.submitted_at) ?? null,
+    reviewedAt: optionalStr(raw.reviewed_at) ?? null,
+    reviewReason: optionalStr(raw.review_reason) ?? null,
+    verifiedUntil: optionalStr(raw.verified_until) ?? null,
+    evidenceDeleteAfter: optionalStr(raw.evidence_delete_after) ?? null,
+  }
+}
+
+/** 已屏蔽的用户。 */
+export function mapBlockedUser(raw: Raw): BlockedUser {
+  return {
+    id: str(raw.id),
+    nickname: optionalStr(raw.nickname) ?? null,
+  }
+}
+
+const APPEAL_TYPES: AppealType[] = ['post', 'comment', 'party', 'verification']
+const APPEAL_STATUSES: AppealStatus[] = ['pending', 'accepted', 'rejected']
+
+/** 申诉记录。 */
+export function mapAppealRecord(raw: Raw): AppealRecord {
+  const entityType = str(raw.entity_type) as AppealType
+  const status = str(raw.status) as AppealStatus
+  return {
+    id: str(raw.id),
+    entityType: APPEAL_TYPES.includes(entityType) ? entityType : 'post',
+    entityId: str(raw.entity_id),
+    reason: str(raw.reason),
+    status: APPEAL_STATUSES.includes(status) ? status : 'pending',
+    decisionReason: optionalStr(raw.decision_reason) ?? null,
+    createdAt: str(raw.created_at),
   }
 }

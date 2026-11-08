@@ -173,6 +173,55 @@ export interface RuntimeControls {
   publishing_enabled: boolean
 }
 
+/** 学生证认证状态。 */
+export type VerificationStatus =
+  | 'draft'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'expired'
+  | 'revoked'
+
+/** 学生证认证记录（本人可见）。 */
+export interface VerificationRecord {
+  id: string
+  schoolId: string
+  status: VerificationStatus
+  createdAt: string
+  submittedAt: string | null
+  reviewedAt: string | null
+  /** 审核结论说明；被拒 / 撤销时会写明原因。 */
+  reviewReason: string | null
+  /** 认证有效期；为空表示未通过。 */
+  verifiedUntil: string | null
+  /** 证件照片的最迟删除时间（审核结束 7 天后删除，待审最长 14 天）。 */
+  evidenceDeleteAfter: string | null
+}
+
+/** 已屏蔽的用户。 */
+export interface BlockedUser {
+  id: string
+  nickname: string | null
+}
+
+/** 申诉对象类型。 */
+export type AppealType = 'post' | 'comment' | 'party' | 'verification'
+
+/** 申诉处理状态。 */
+export type AppealStatus = 'pending' | 'accepted' | 'rejected'
+
+/** 一条申诉记录。 */
+export interface AppealRecord {
+  id: string
+  entityType: AppealType
+  entityId: string
+  reason: string
+  status: AppealStatus
+  /** 管理团队的处理说明。 */
+  decisionReason: string | null
+  createdAt: string
+}
+
 /** 发布帖子的入参。 */
 export interface PostCreatePayload {
   post_type: string

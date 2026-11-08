@@ -188,3 +188,106 @@ def test_long_production_example_keys_are_rejected(monkeypatch, field, value):
     monkeypatch.setattr(settings, field, value)
     with pytest.raises(RuntimeError):
         validate_security_config()
+
+
+def _production_verification_config(monkeypatch):
+    """一套通过其它所有生产闸门的配置，只留学生证存储这一项可变。"""
+    from app.config import settings as live
+    configured = {
+        'ENVIRONMENT': 'production', 'JWT_SECRET': 'j' * 48,
+        'DATABASE_URL': 'postgresql+asyncpg://u:longrandom@db:5432/ey_wall',
+        'REDIS_URL': 'redis://:longrandom@redis:6379/0',
+        'CORS_ORIGINS': 'https://campus.example.edu.cn',
+        'DEV_LOGIN_ENABLED': False, 'MODERATION_FAIL_OPEN': False,
+        'ZHENGFANG_BASE_URL': '', 'ZHENGFANG_TEST_PASSWORD': '',
+        'STUDENT_VERIFICATION_ENABLED': True,
+        'VERIFICATION_FINGERPRINT_KEY': 'f' * 48,
+        'VERIFICATION_FINGERPRINT_PREVIOUS_KEYS': '{}',
+        'VERIFICATION_STORAGE_PROVIDER': 'local',
+        'VERIFICATION_COS_BUCKET': '', 'COS_BUCKET': '',
+        'COS_SECRET_ID': '', 'COS_SECRET_KEY': '',
+        'VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION': False,
+    }
+    for name, value in configured.items():
+        monkeypatch.setattr(live, name, value)
+    return live
+
+
+def test_production_rejects_local_student_verification_storage(monkeypatch):
+    """生产环境默认必须用独立私有 COS 桶，local 存储一律拒绝。"""
+    from app.config import validate_security_config
+    _production_verification_config(monkeypatch)
+    with pytest.raises(RuntimeError, match="独立私有 COS 桶"):
+        validate_security_config()
+
+
+def test_production_allows_local_only_with_explicit_escape_hatch(monkeypatch):
+    """显式打开逃生开关后，local 存储才被接受 —— 且仅限这一项放宽。"""
+    from app.config import validate_security_config
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION", True)
+    # 其它生产闸门不放宽：占位符密钥仍然必须被拒。
+    monkeypatch.setattr(live, "JWT_SECRET", 'CHANGE_ME_INDEPENDENT_RANDOM_SECRET_AT_LEAST_32_CHARACTERS')
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        validate_security_config()
+
+
+def test_verification_storage_layer_refuses_local_in_production(monkeypatch):
+    """存储层自身也要拦住 local —— 绕过配置校验直接构造存储对象同样不行。"""
+    from app.utils.verification_storage import VerificationStorage
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "STATIC_BASE_DIR", '/tmp/sw-public-static')
+    monkeypatch.setattr(live, "VERIFICATION_PRIVATE_DIR", '/tmp/sw-private-verifications')
+    with pytest.raises(RuntimeError, match="独立私有 COS 桶"):
+        VerificationStorage()
+
+
+def test_verification_storage_layer_allows_local_with_escape_hatch(monkeypatch):
+    """逃生开关打开时，存储层允许 local，且认证照片目录不得落在公共静态目录里。"""
+    from app.utils.verification_storage import VerificationStorage
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION", True)
+    monkeypatch.setattr(live, "DEPLOY_ENVIRONMENT", 'staging')
+    monkeypatch.setattr(live, "STATIC_BASE_DIR", '/tmp/sw-public-static')
+    monkeypatch.setattr(live, "VERIFICATION_PRIVATE_DIR", '/tmp/sw-private-verifications')
+    assert VerificationStorage().provider == 'local'
+
+    monkeypatch.setattr(live, "VERIFICATION_PRIVATE_DIR", '/tmp/sw-public-static/proofs')
+    with pytest.raises(RuntimeError, match="不得位于公共静态目录"):
+        VerificationStorage()
+
+
+def test_verification_escape_hatch_requires_staging(monkeypatch):
+    """真生产部署即使误填了逃生开关也必须被拦住。"""
+    from app.config import validate_security_config
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION", True)
+    monkeypatch.setattr(live, "DEPLOY_ENVIRONMENT", 'production')
+    with pytest.raises(RuntimeError, match="内测放宽开关"):
+        validate_security_config()
+
+
+def test_production_rejects_guest_and_auto_approve_switches(monkeypatch):
+    """真生产部署不得开启 guest 交互或审核自动通过。"""
+    from app.config import validate_security_config
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "DEPLOY_ENVIRONMENT", 'production')
+    monkeypatch.setattr(live, "ALLOW_GUEST_INTERACTION", True)
+    with pytest.raises(RuntimeError, match="ALLOW_GUEST_INTERACTION"):
+        validate_security_config()
+
+    monkeypatch.setattr(live, "ALLOW_GUEST_INTERACTION", False)
+    monkeypatch.setattr(live, "AUTO_APPROVE_MODERATION", True)
+    with pytest.raises(RuntimeError, match="AUTO_APPROVE_MODERATION"):
+        validate_security_config()
+
+
+def test_staging_allows_relaxed_switches(monkeypatch):
+    """staging 部署可以同时开启全部内测放宽开关。"""
+    from app.config import validate_security_config
+    live = _production_verification_config(monkeypatch)
+    monkeypatch.setattr(live, "DEPLOY_ENVIRONMENT", 'staging')
+    monkeypatch.setattr(live, "ALLOW_GUEST_INTERACTION", True)
+    monkeypatch.setattr(live, "AUTO_APPROVE_MODERATION", True)
+    monkeypatch.setattr(live, "VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION", True)
+    validate_security_config()

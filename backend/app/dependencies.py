@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.config import settings
+from app.config import is_test_deployment, settings
 from app.database import get_db
 from app.models.admin_user import AdminUser
 from app.models.user import User
@@ -64,8 +64,20 @@ async def get_optional_user(
         raise
 
 def require_role(*roles: str):
+    """角色闸门。
+
+    内测/预发布环境可以用 ALLOW_GUEST_INTERACTION 放开 guest 参与写操作：
+    未完成学生证认证的用户也能发帖、评论、改资料等，方便少量测试人员
+    走完整个流程而不必逐个人工审核升级角色。
+
+    放开只针对 guest —— admin 与其它角色判定不变。生产环境必须留空，
+    那里的 student 身份是学生证人工核验的结果，代表"这个人确实是我们学校的人"。
+    """
     async def _check(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
+            if (settings.ALLOW_GUEST_INTERACTION and is_test_deployment()
+                    and user.role == "guest" and "student" in roles):
+                return user
             raise HTTPException(403, "权限不足")
         return user
     return _check

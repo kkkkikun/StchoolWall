@@ -17,6 +17,10 @@
 
 Production CI 执行后端、操作脚本测试、真实 Alembic 迁移链检查、OpenAPI契约、依赖和密钥扫描、H5/微信小程序/Android代码包/后台构建、最终镜像扫描。验证运行的完整Python依赖约束随制品保存，镜像按同一约束安装并执行导入/契约烟测，通过扫描后才推送不可变镜像digest。Android代码包仍需在平台工具中使用真实签名打包和真机审核。部署工作流下载同一 CI 的制品和manifest，在预发布部署，再通过 production environment 发放相同制品。不会在服务器 git pull 或重新编译。
 
+正式发布使用 `v<主版本>.<次版本>.<修订号>` tag（可带预发布后缀）。tag 必须指向 main 已有提交；推送后重新执行完整 CI、构建同一不可变制品并自动部署 staging。生产需在 `Staging then Production` 工作流中手动填写已成功的 CI 运行 ID、tag 和 `DEPLOY` 确认；工作流会核验来源后发布同一制品并生成同名 GitHub Release。普通 main 推送只构建候选制品并部署 staging，不直接进入生产。若仓库套餐支持 production required reviewers，仍建议额外启用人工审批。
+
+当前 CN 内测机通过 staging environment 变量 `DEPLOY_PROFILE=cn`、`DEPLOY_ROOT=/opt/schoolwall-cn` 使用 `docker-compose.cn.yml` 和 `rollout-cn.sh`，保留未被制品覆盖的 PC 静态目录。标准环境无需这两个变量。每个环境仍需配置独立的 `SERVER_HOST`、`SERVER_USERNAME`、`SERVER_SSH_KEY`、`SERVER_KNOWN_HOSTS`，主机还需具备 GHCR 只读拉取能力。
+
 scripts/rollout.sh 加主机级锁，拉取image，停止worker，单独执行一次迁移，再启动API/worker；检查 readiness 和返回的 commit 后原子切换静态站点链接。失败自动恢复上版应用镜像。数据库不会自动降级，所以每次发布必须采用兼容旧应用的 expand/contract 迁移，并在预发布确认恢复旧应用仍能运行。首次单机容器替换存在短暂连接中断，没有宣称零停机。
 
 手工应用回退使用 `bash /path/to/repository/scripts/rollback-release.sh /opt/schoolwall`；只回退应用。破坏性数据库变更、PG大版本升级、bucket迁移属于独立维护变更，不能交给自动回退。不要通过再次运行旧的git源码部署脚本覆盖新制品。旧 deploy/ci/ 脚本保留用于已有环境，生产门禁由 GitHub工作流负责。

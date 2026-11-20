@@ -1,0 +1,107 @@
+name: schoolwall-cn
+x-app: &app
+  image: ${BACKEND_IMAGE:?set the backend image tag}
+  restart: unless-stopped
+  env_file: ${APP_ENV_FILE:-/opt/schoolwall-cn/shared/.env}
+  environment: &app-env
+    DATABASE_URL: postgresql+asyncpg://${DB_USER:-eywall}:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/ey_wall
+    REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+    BUILD_REVISION: ${BUILD_REVISION:?set release commit}
+    # 只信任宿主机 Caddy 所在的共享网络网关，不用 "*"
+    FORWARDED_ALLOW_IPS: ${SCHOOLWALL_GATEWAY:-172.30.0.1}
+  volumes:
+    - static_uploads:/data/static
+    - private_media:/data/private-media
+    - private_verifications:/data/private-verifications
+    - private_feedback:/data/private-feedback
+  init: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  stop_grace_period: 45s
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-eywall}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      POSTGRES_DB: ey_wall
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    # 这台机器只有 1.7GB 内存且已有 openfeedback 在跑，给每个容器设上限，
+    # 避免某个容器吃满内存把整台机器拖垮。
+    mem_limit: 320m
+    shm_size: 64m
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=50", "-c", "work_mem=4MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-eywall} -d ey_wall"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      options: {max-size: "10m", max-file: "3"}
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH='${REDIS_PASSWORD}' redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      options: {max-size: "10m", max-file: "3"}
+
+  backend:
+    <<: *app
+    mem_limit: 384m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      default: {}
+      sw-edge:
+        aliases: [backend]
+
+  worker:
+    <<: *app
+    mem_limit: 256m
+    cpus: "0.7"
+    command: ["python", "-m", "app.worker"]
+
+  migrate:
+    <<: *app
+    restart: "no"
+    profiles: ["tools"]
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+
+volumes:
+  private_media:
+  private_verifications:
+  private_feedback:
+  pgdata:
+  redisdata:
+  static_uploads:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${SCHOOLWALL_SUBNET:-172.30.0.0/24}
+          gateway: ${SCHOOLWALL_GATEWAY:-172.30.0.1}
+  sw-edge:
+    external: true
+    name: sw-edge

@@ -484,3 +484,11 @@ describe('MP-WEIXIN Mine Page Re-login Suite (真实生产源码回归)', () => 
     })
   })
 })
+
+describe('App.vue 微信小程序启动登录', () => {
+  it('使用静态导入，避免动态 import 被编译成字符串 then 调用', async () => {
+    const source = await readFile(new URL('../src/App.vue', import.meta.url), 'utf8')
+    assert.match(source, /import\s*\{\s*wxLoginAndStore\s*\}\s*from\s*['"]@\/api\/auth['"]/)
+    assert.doesNotMatch(source, /import\(\s*['"]@\/api\/auth['"]\s*\)/)
+  })
+})

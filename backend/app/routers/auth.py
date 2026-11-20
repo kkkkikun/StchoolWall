@@ -17,6 +17,7 @@ from app.models.user import User
 from app.schemas.auth import MpLoginRequest, WebLoginRequest, WxLoginRequest
 from app.services.auth import dev_login, mp_oauth_login, web_login, wx_login
 from app.services.sessions import issue_session, now_utc, refresh_session, revoke_user_sessions, token_hash
+from app.services.runtime_controls import require_registration
 from app.utils.password import hash_password
 from app.utils.rate_limit import LOGIN_USER_RATE, check_rate_limit, clear_rate, get_rate, incr_rate
 from app.utils.security import decode_access_token
@@ -119,7 +120,7 @@ async def web_login_route(body: WebLoginRequest, request: Request, response: Res
     return _respond(result, request, response)
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(require_registration)])
 async def register(body: RegisterRequest, request: Request, response: Response,
                    db: AsyncSession = Depends(get_db)):
     await _ip_rate(request, "register", 10)

@@ -5,7 +5,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_optional_user, require_role
+from app.dependencies import (
+    get_optional_user,
+    require_interaction_access,
+    require_posting_access,
+)
 from app.models.user import User
 from app.services import party as svc
 
@@ -43,11 +47,14 @@ async def list_parties(
 async def create_party(
     body: PartyCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_posting_access),
 ):
-    p = await svc.create_party(
-        db, user, body.type, body.category, body.title, body.content, body.total, location=body.location
-    )
+    try:
+        p = await svc.create_party(
+            db, user, body.type, body.category, body.title, body.content, body.total, location=body.location
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     return {"code": 0, "data": svc._party_dict(p, user.nickname, is_joined=False)}
 
 
@@ -55,7 +62,7 @@ async def create_party(
 async def join_party(
     party_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.join_party(db, user, party_id)
     if data is None:
@@ -67,7 +74,7 @@ async def join_party(
 async def leave_party(
     party_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.leave_party(db, user, party_id)
     if data is None:
@@ -79,7 +86,7 @@ async def leave_party(
 async def my_parties(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     items, next_cursor, has_more = await svc.my_parties(db, user, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}

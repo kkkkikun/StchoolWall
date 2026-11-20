@@ -22,6 +22,7 @@ class AdminActor:
     display_name: str
     source: str
     role: str = "owner"
+    username: str = ""
 
 async def _resolve_user(token: str, db: AsyncSession) -> User:
     payload = decode_access_token(token)
@@ -70,6 +71,21 @@ def require_role(*roles: str):
         return user
     return _check
 
+
+async def require_posting_access(user: User = Depends(get_current_user)) -> User:
+    from app.services.runtime_controls import guest_posting_enabled
+    if user.role in {"student", "admin"} or (user.role == "guest" and await guest_posting_enabled()):
+        return user
+    raise HTTPException(403, "内测期间仅认证学生可发布内容")
+
+
+async def require_interaction_access(user: User = Depends(get_current_user)) -> User:
+    from app.services.runtime_controls import guest_interaction_enabled
+    if user.role in {"student", "admin"} or (user.role == "guest" and await guest_interaction_enabled()):
+        return user
+    raise HTTPException(403, "内测期间仅认证学生可互动")
+
+
 async def require_admin_console(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme_optional),
@@ -99,9 +115,10 @@ async def require_admin_console(
             raise HTTPException(403, "管理员账号已停用")
         if payload.get("pwd_version", 0) != admin.pwd_version:
             raise HTTPException(401, "密码已变更，请重新登录")
-        if settings.ENVIRONMENT == "production" and (not admin.mfa_secret_encrypted or not payload.get("mfa")):
-            raise HTTPException(403, "请使用双重验证登录管理后台")
-        return AdminActor(str(admin.id), admin.nickname, "console")
+        if (settings.ENVIRONMENT == "production" and admin.role == "owner"
+                and (not admin.mfa_secret_encrypted or not payload.get("mfa"))):
+            raise HTTPException(403, "超级管理员请使用双重验证登录")
+        return AdminActor(str(admin.id), admin.nickname, "console", admin.role, admin.username)
     # Isolated legacy test fixtures do not authorize any deployed API.
     if settings.ENVIRONMENT == "test":
         user = await _resolve_user(credentials.credentials, db)
@@ -109,3 +126,9 @@ async def require_admin_console(
             return AdminActor(str(user.id), user.nickname, "legacy")
         raise HTTPException(403, "权限不足")
     raise HTTPException(403, "请使用独立管理后台账号登录")
+
+
+async def require_admin_owner(actor: AdminActor = Depends(require_admin_console)) -> AdminActor:
+    if actor.role != "owner":
+        raise HTTPException(403, "仅超级管理员可执行此操作")
+    return actor

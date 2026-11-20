@@ -16,6 +16,7 @@ from app.services.blocks import blocked_between
 from app.services.media import entity_media, media_bytes, media_url, publish_entity_media, reject_entity_media
 from app.services.moderation_record import add_moderation_record
 from app.services.sensitive_word import load_active_words
+from app.services.runtime_controls import sensitive_words_enabled
 from app.utils.local_rules import check_text_local
 from app.utils.moderation import ModerationResult, _strictest, check_image_data, check_images, check_text, _is_configured
 
@@ -44,7 +45,8 @@ async def _check_frequency(db: AsyncSession, user_id) -> ModerationResult:
 
 
 async def _text_verdict(db: AsyncSession, content: str) -> tuple[ModerationResult, list[str], ModerationResult, ModerationResult]:
-    local, matched = check_text_local(content, await load_active_words(db))
+    words = await load_active_words(db) if await sensitive_words_enabled() else []
+    local, matched = check_text_local(content, words)
     if local.verdict == "reject":
         return local, matched, local, ModerationResult("pass")
     provider = await check_text(content, "")

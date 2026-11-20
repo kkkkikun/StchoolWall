@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -43,6 +44,7 @@ TestSession = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_com
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_database():
     async with test_engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
     yield
 
@@ -172,6 +174,7 @@ async def console_admin() -> AdminUser:
             username=f"console_admin_{uuid.uuid4().hex[:6]}",
             nickname="后台管理员",
             password_hash=hash_password("Admin12345"),
+            role="owner",
         )
         db.add(admin)
         await db.commit()

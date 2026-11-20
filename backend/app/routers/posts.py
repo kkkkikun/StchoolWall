@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user, require_role
+from app.dependencies import get_current_user, get_optional_user, require_posting_access, require_role
 from app.models.interaction import Favorite, Like
 from app.models.user import User
 from app.schemas.post import PostBrief, PostCreate, PostListResponse, ReportRequest
@@ -59,12 +59,11 @@ async def get_posts(
 async def new_post(
     body: PostCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_posting_access),
 ):
     """发布帖子（admin 可发广告且跳过审核）"""
     # 只有 admin 能发 advertisement
     if body.post_type == "advertisement" and user.role != "admin":
-        from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="仅管理员可发布广告")
 
     # 按用户限流：防灌水（审核频率风控之外的第一道闸）
@@ -93,7 +92,7 @@ async def new_post(
 async def get_my_posts(
     status: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_posting_access),
 ):
     """我的帖子（含待审/封禁等全部状态，软删除除外）"""
     items = await my_posts(db, user, status)
@@ -172,7 +171,7 @@ async def change_status(
     post_id: int,
     status: int = Query(..., ge=-2, le=2),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_posting_access),
 ):
     """变更帖子状态（归档/删除/封禁）"""
     post = await update_post_status(db, post_id, user, status)

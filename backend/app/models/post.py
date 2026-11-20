@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -10,6 +10,13 @@ from app.database import Base
 
 class Post(Base):
     __tablename__ = "posts"
+    __table_args__ = (
+        # 搜索收敛：`content ILIKE '%q%'` 走 pg_trgm GIN 索引（仍是子串匹配，语义不变）。
+        # 依赖 pg_trgm 扩展，由 Alembic 迁移创建（见 d7e8f9a0b123）。
+        Index("ix_posts_content_trgm", "content", postgresql_using="gin", postgresql_ops={"content": "gin_trgm_ops"}),
+        # 搜索/精华流的排序与键集分页：(is_featured, id) 复合索引
+        Index("ix_posts_featured_id", "is_featured", "id"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)

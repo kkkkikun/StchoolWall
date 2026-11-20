@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from app.config import settings
+from app.config import is_test_deployment, settings
 
 MAX_PROOF_BYTES = 5 * 1024 * 1024
 MAX_PROOF_PIXELS = 12_000_000
@@ -55,7 +55,8 @@ class VerificationStorage:
         public = Path(settings.STATIC_BASE_DIR).resolve()
         if self.base.is_relative_to(public):
             raise RuntimeError("认证照片目录不得位于公共静态目录")
-        if self.provider == "local" and settings.ENVIRONMENT == "production":
+        if (self.provider == "local" and settings.ENVIRONMENT == "production"
+                and not (settings.VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION and is_test_deployment())):
             raise RuntimeError("生产认证照片必须使用独立私有 COS 桶")
         if self.provider not in {"local", "cos"}:
             raise RuntimeError("未知认证照片存储类型")

@@ -22,6 +22,18 @@ def _strictest(results: list[ModerationResult]) -> ModerationResult:
     return max(results, key=lambda result: _SEVERITY[result.verdict], default=ModerationResult("pass"))
 
 
+def auto_approve_review(result: ModerationResult) -> ModerationResult:
+    """内测模式下把「需人工复核」降级为「通过」。
+
+    只降级 review —— 命中敏感词或被拒绝的内容仍然拒绝，内容安全底线不变。
+    生产环境必须留空：那里的 review 意味着机器判不了、需要人来定。
+    """
+    from app.config import is_test_deployment, settings
+    if settings.AUTO_APPROVE_MODERATION and is_test_deployment() and result.verdict == "review":
+        return ModerationResult("pass", reason=result.reason or "auto_approved_for_test")
+    return result
+
+
 def _is_configured() -> bool:
     return is_configured()
 

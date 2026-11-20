@@ -6,6 +6,10 @@ PLACEHOLDER_JWT_SECRETS = {"your_super_secret_key_change_me"}
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
+    # 部署环境标记：production 是真生产；staging 是预发布/内测。
+    # 仓库既有的 rollout.sh 用它区分是否要求人工发布审批。
+    # 内测专用的放宽开关只在 staging 下生效，避免真生产误开。
+    DEPLOY_ENVIRONMENT: str = "production"
     BUILD_REVISION: str = "development"
     DATABASE_URL: str = "postgresql+asyncpg://eywall:eywall123@localhost:5432/ey_wall"
     DB_POOL_SIZE: int = Field(10, ge=1, le=100)
@@ -62,6 +66,19 @@ class Settings(BaseSettings):
     VERIFICATION_PRIVATE_DIR: str = "private-verifications"
     VERIFICATION_STORAGE_PROVIDER: str = "local"
     VERIFICATION_COS_BUCKET: str = ""
+    # 内测/预发布环境的显式逃生开关：允许学生证照片存在本机私有目录。
+    # 生产环境必须留空 —— 那里的红线是学籍证件 PII 不得落进非私有桶。
+    # 打开这个开关等于声明"这台机器上的证件材料只在内测范围内存放"，
+    # 责任在部署者，不改变任何其他生产闸门（/static 仍然不公开挂载）。
+    VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION: bool = False
+    # 内测开关一：允许未完成学生证认证的 guest 参与写操作（发帖、评论、
+    # 改资料、点赞收藏等）。生产环境必须为 false —— 那里的 student 身份
+    # 是学生证人工核验的结果，代表"这个人确实是我们学校的人"。
+    ALLOW_GUEST_INTERACTION: bool = False
+    # 内测开关二：把审核结论里的"需人工复核"自动降级为通过。
+    # 命中敏感词被拒的内容仍然拒绝，内容安全底线不变。
+    # 生产环境必须为 false —— 那里的 review 意味着机器判不了、需要人来定。
+    AUTO_APPROVE_MODERATION: bool = False
     ZHENGFANG_BASE_URL: str = ""
     ZHENGFANG_TEST_STUDENT_ID: str = ""
     ZHENGFANG_TEST_PASSWORD: str = ""
@@ -75,6 +92,15 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 settings = Settings()
+
+
+def is_test_deployment() -> bool:
+    """是否是预发布/内测部署（DEPLOY_ENVIRONMENT=staging）。
+
+    内测专用的放宽开关（guest 参与写操作、审核自动通过、学生证存本机）
+    只在这个环境下生效。真生产部署无法误开这些闸门。
+    """
+    return settings.DEPLOY_ENVIRONMENT.strip().lower() == "staging"
 
 def validate_security_config() -> None:
     if settings.ENVIRONMENT not in {"production", "development", "test"}:
@@ -94,6 +120,19 @@ def validate_security_config() -> None:
         raise RuntimeError("CORS_ORIGINS 必须为正式 HTTPS 域名白名单")
     if settings.MODERATION_FAIL_OPEN or settings.DEV_LOGIN_ENABLED:
         raise RuntimeError("生产禁止审核失败放行和开发登录")
+    if not is_test_deployment():
+        # 真生产部署（DEPLOY_ENVIRONMENT=production）不得开启任何内测放宽开关。
+        relaxed = {
+            "ALLOW_GUEST_INTERACTION": settings.ALLOW_GUEST_INTERACTION,
+            "AUTO_APPROVE_MODERATION": settings.AUTO_APPROVE_MODERATION,
+            "VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION": settings.VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION,
+        }
+        enabled = [name for name, value in relaxed.items() if value]
+        if enabled:
+            raise RuntimeError(
+                "真生产部署禁止开启内测放宽开关: " + ", ".join(sorted(enabled))
+                + "；这些开关只在 DEPLOY_ENVIRONMENT=staging 时生效"
+            )
     if settings.STUDENT_VERIFICATION_ENABLED:
         import json
         keys = {settings.VERIFICATION_FINGERPRINT_KEY_VERSION: settings.VERIFICATION_FINGERPRINT_KEY}
@@ -107,12 +146,13 @@ def validate_security_config() -> None:
         if any(not isinstance(k, str) or len(k) < 32 or k == secret or
                any(marker in k.upper() for marker in ("CHANGE_ME", "REPLACE_")) for k in keys.values()):
             raise RuntimeError("学籍指纹密钥必须独立且至少32字符")
-        if settings.VERIFICATION_STORAGE_PROVIDER != "cos" or not settings.VERIFICATION_COS_BUCKET:
-            raise RuntimeError("生产学生证必须使用独立私有 COS 桶")
-        if settings.VERIFICATION_COS_BUCKET == settings.COS_BUCKET:
-            raise RuntimeError("学生证与公开媒体必须使用不同 COS 桶")
-        if not settings.COS_SECRET_ID or not settings.COS_SECRET_KEY:
-            raise RuntimeError("学生证 COS 凭证未配置")
+        if not (settings.VERIFICATION_ALLOW_LOCAL_IN_PRODUCTION and is_test_deployment()):
+            if settings.VERIFICATION_STORAGE_PROVIDER != "cos" or not settings.VERIFICATION_COS_BUCKET:
+                raise RuntimeError("生产学生证必须使用独立私有 COS 桶")
+            if settings.VERIFICATION_COS_BUCKET == settings.COS_BUCKET:
+                raise RuntimeError("学生证与公开媒体必须使用不同 COS 桶")
+            if not settings.COS_SECRET_ID or not settings.COS_SECRET_KEY:
+                raise RuntimeError("学生证 COS 凭证未配置")
     if settings.ZHENGFANG_BASE_URL or settings.ZHENGFANG_TEST_PASSWORD:
         raise RuntimeError("教务密码认证已停用，请删除生产教务配置")
 

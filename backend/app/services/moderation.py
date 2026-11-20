@@ -17,7 +17,8 @@ from app.services.media import entity_media, media_bytes, media_url, publish_ent
 from app.services.moderation_record import add_moderation_record
 from app.services.sensitive_word import load_active_words
 from app.utils.local_rules import check_text_local
-from app.utils.moderation import ModerationResult, _strictest, check_image_data, check_images, check_text, _is_configured
+from app.utils.moderation import (ModerationResult, _strictest, auto_approve_review, check_image_data,
+                                 check_images, check_text, _is_configured)
 
 FREQ_WINDOW_MINUTES = 10
 FREQ_MAX_POSTS = 3
@@ -82,7 +83,7 @@ async def check_post_moderation(post_id: int) -> None:
         media_result = (ModerationResult("pass") if local_result.verdict == "reject"
                         else await _media_verdict(db, "post", post_id, post.images or []))
         rule_result = _strictest([local_result, await _check_frequency(db, post.user_id)])
-        result = _strictest([text_result, media_result, rule_result])
+        result = auto_approve_review(_strictest([text_result, media_result, rule_result]))
         add_moderation_record(db, post_id, "rule", rule_result, matched=matched or None)
         if local_result.verdict != "reject" and _is_configured():
             add_moderation_record(db, post_id, "tencent", _strictest([provider_result, media_result]))
@@ -116,6 +117,7 @@ async def check_media_moderation(media_id: str) -> None:
         result = await check_image_data(await media_bytes(asset))
         if result.verdict == "error":
             raise ModerationRetry("provider_unavailable")
+        result = auto_approve_review(result)
         if result.verdict == "review":
             raise ManualReviewRequired("manual_review")
         approved = result.verdict == "pass"
@@ -133,6 +135,7 @@ async def check_comment_moderation(comment_id: int) -> None:
             return
         content_snapshot = comment.content
         result, matched, _, _ = await _text_verdict(db, content_snapshot)
+        result = auto_approve_review(result)
         add_moderation_record(db, comment.post_id, "tencent", result,
                               matched=matched or None, comment_id=comment_id)
         if result.verdict == "review":
@@ -166,6 +169,7 @@ async def check_party_moderation(party_id: int) -> None:
             return
         snapshot = (party.title, party.content, party.location)
         result, _, _, _ = await _text_verdict(db, " ".join(value or "" for value in snapshot))
+        result = auto_approve_review(result)
         if result.verdict == "review":
             raise ManualReviewRequired("manual_review")
         changed = await db.execute(update(Party).where(
@@ -199,6 +203,7 @@ async def check_profile_moderation(payload: dict) -> None:
                 if image_result.verdict == "error":
                     raise ModerationRetry("provider_unavailable")
                 result = _strictest([result, image_result])
+        result = auto_approve_review(result)
         if result.verdict == "review":
             raise ManualReviewRequired("manual_review")
         if result.verdict == "reject":

@@ -57,10 +57,3 @@ export function unfollowUser(userId: string): Promise<{ followed: boolean }> {
     method: 'DELETE',
   })
 }
-
-export function blockUser(userId: string): Promise<{ blocked: boolean }> {
-  return request<{ blocked: boolean }>({
-    url: `/users/${encodeURIComponent(userId)}/block`,
-    method: 'POST',
-  })
-}

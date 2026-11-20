@@ -93,6 +93,84 @@ BANNERS = {
     ]
 }
 
+# 个人资料：只回显昵称等公开字段，不含任何真实姓名与学号
+PROFILE = {
+    'nickname': '走查测试员',
+    'real_name': '',
+    'student_id': '',
+    'wechat_id': 'walkthrough_wx',
+    'avatar_url': None,
+    'banner_url': None,
+    'bio': '这是一条走查用的简介。',
+    'is_verified': False,
+    'role': 'student',
+}
+
+# 登录设备：一条当前设备、一条其它设备
+SESSIONS = {
+    'items': [
+        {
+            'id': 'sess-current',
+            'client_type': 'web',
+            'created_at': '2026-11-03T08:00:00',
+            'last_seen_at': '2026-11-03T10:00:00',
+        },
+        {
+            'id': 'sess-other',
+            'client_type': 'android',
+            'created_at': '2026-11-02T20:00:00',
+            'last_seen_at': '2026-11-03T07:00:00',
+        },
+    ]
+}
+
+# 学生证认证：被拒状态，用来渲染驳回原因、申诉入口与完整提交表单
+VERIFICATION = {
+    'id': 'ver-1001',
+    'school_id': 'school-1',
+    'status': 'rejected',
+    'created_at': '2026-11-03T08:00:00',
+    'submitted_at': '2026-11-03T08:10:00',
+    'reviewed_at': '2026-11-03T09:00:00',
+    'review_reason': '照片里的学号与填写的不一致，请重新拍摄后提交。',
+    'verified_until': None,
+    'evidence_delete_after': '2026-11-10T08:10:00',
+}
+
+# 屏蔽列表：一个有昵称的、一个昵称为空的（页面据此显示占位名）
+BLOCKED_USERS = {
+    'items': [
+        {'id': 'user-2001', 'nickname': '陈同学'},
+        {'id': 'user-2002', 'nickname': None},
+    ],
+    'has_more': False,
+    'next_cursor': None,
+}
+
+# 申诉记录：一条待处理、一条已受理
+APPEALS = {
+    'items': [
+        {
+            'id': 'appeal-3001',
+            'entity_type': 'post',
+            'entity_id': '1',
+            'reason': '这条失物招领没有被误判，希望恢复展示。',
+            'status': 'pending',
+            'decision_reason': None,
+            'created_at': '2026-11-03T09:00:00',
+        },
+        {
+            'id': 'appeal-3002',
+            'entity_type': 'verification',
+            'entity_id': 'ver-1001',
+            'reason': '认证被误拒，补充材料如附件。',
+            'status': 'accepted',
+            'decision_reason': '已复核，恢复认证申请。',
+            'created_at': '2026-11-02T09:00:00',
+        },
+    ]
+}
+
 
 def _page(items):
     return {'items': items, 'next_cursor': None, 'has_more': False}
@@ -120,6 +198,33 @@ def dispatch(method, path):
             return {'favorited': True}
         if path.endswith('/comments'):
             return COMMENTS[0]
+        # 学生证认证：拍摄码与提交
+        if path == '/student-verifications/challenge':
+            return {
+                'verification_id': 'ver-1001',
+                'challenge_id': 'chal-1001',
+                'code': 'A1B2C3',
+                'expires_at': '2026-11-03T08:20:00',
+                'school_id': 'school-1',
+                'school_name': '鄂尔多斯应用技术学院',
+            }
+        if path == '/student-verifications':
+            return VERIFICATION
+        # 跨端配对：生成与绑定
+        if path == '/auth/pairing':
+            return {'code': 'A1B2C3D4E5F6', 'expires_in': 600}
+        if path == '/auth/pairing/claim':
+            SESSION_STATE['logged_in'] = True
+            return SESSION
+        # 修改密码 / 注销账号
+        if path == '/user/password':
+            return {}
+        if path == '/user/account/deactivate':
+            SESSION_STATE['logged_in'] = False
+            return {}
+        # 申诉发起
+        if path == '/appeals':
+            return APPEALS['items'][0]
         return {}
 
     # GET
@@ -149,6 +254,20 @@ def dispatch(method, path):
         return {'like': 0, 'comment': 0, 'follow': 0, 'system': 0}
     if path == '/runtime-controls':
         return {'publish_enabled': True}
+    # 个人资料与登录设备
+    if path == '/user/profile':
+        return PROFILE
+    if path == '/auth/sessions':
+        return SESSIONS
+    # 学生证认证状态
+    if path == '/student-verifications/me':
+        return {'enabled': True, 'school_name': '鄂尔多斯应用技术学院', 'verification': VERIFICATION}
+    # 屏蔽列表
+    if path == '/user/blocks':
+        return BLOCKED_USERS
+    # 申诉记录
+    if path == '/appeals':
+        return APPEALS
     return {}
 
 

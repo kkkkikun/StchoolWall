@@ -9,6 +9,7 @@ import { ElMessage } from 'element-plus'
 import { Bell, ChatDotRound, EditPen, Search } from '@element-plus/icons-vue'
 
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { getHotUsers, getNotifications, getUnreadSummary } from '@/api/user'
 import { getTags } from '@/api/content'
 import type { HotUser, NotificationItem, TagItem } from '@/api/types'
@@ -17,6 +18,7 @@ import type { HotUser, NotificationItem, TagItem } from '@/api/types'
 const FeedbackDialog = defineAsyncComponent(() => import('@/components/FeedbackDialog.vue'))
 
 const auth = useAuthStore()
+const theme = useThemeStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -60,9 +62,7 @@ function submitSearch(): void {
 }
 
 function toggleTheme(): void {
-  const root = document.documentElement
-  const isDark = root.classList.toggle('theme-dark')
-  localStorage.setItem('sw_theme', isDark ? 'dark' : 'light')
+  theme.toggle()
 }
 
 async function loadAside(): Promise<void> {
@@ -90,8 +90,7 @@ async function handleLogout(): Promise<void> {
 }
 
 onMounted(() => {
-  const saved = localStorage.getItem('sw_theme')
-  if (saved === 'dark') document.documentElement.classList.add('theme-dark')
+  // 主题在 main.ts 挂载前已初始化，这里只挂快捷键与加载侧栏数据
   window.addEventListener('keydown', onShortcut)
   loadAside()
   loadAnnouncements()
@@ -147,7 +146,9 @@ onBeforeUnmount(() => {
             />
           </el-tooltip>
 
-          <el-button text @click="toggleTheme">暗色</el-button>
+          <el-tooltip :content="theme.dark ? '切换到浅色模式' : '切换到深色模式'" placement="bottom">
+            <el-button text @click="toggleTheme">{{ theme.dark ? '浅色' : '深色' }}</el-button>
+          </el-tooltip>
 
           <el-dropdown v-if="auth.loggedIn">
             <span class="sw-user">

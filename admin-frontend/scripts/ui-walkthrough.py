@@ -4,7 +4,7 @@ SchoolWall 管理后台 (admin-frontend) 自动化端到端渲染与无障碍走
 使用真实 Headless Chromium 测试三种主流视口 (390×844, 768×1024, 1280×800) 下的：
 1. 登录页表单响应式布局、防止横向溢出、键盘聚焦可见性；
 2. 亮暗双模式下输入框占位符色彩对比度 (WCAG AA >= 4.5:1)；
-3. 后台公共布局与窄屏抽屉导航 (18个菜单项、改密、登出、主题切换)；
+3. 后台公共布局与窄屏抽屉导航 (19个菜单项、改密、登出、主题切换)；
 4. 桌面端 220px 侧边栏与路由不退化。
 产物输出至 ci-artifacts/admin-ui/
 """
@@ -90,7 +90,7 @@ def handle_admin_api(route):
                     'id': 'admin-test-01',
                     'username': 'admin',
                     'display_name': '系统管理员',
-                    'role': 'super_admin',
+                    'role': 'owner',
                     'mfa_enabled': True,
                 }
             })
@@ -193,13 +193,27 @@ with sync_playwright() as p:
     assert card_box['width'] <= 390, f"登录卡片宽度超过视口: {card_box['width']}px"
     print(f"   [卡片宽度自适应] 实际卡片宽={card_box['width']}px (<= 390px)")
 
-    # 1.3 断言表单 3 个输入框（用户名、密码、TOTP）完整可见且不被裁剪
+    # 1.3 断言登录表单输入框完整可见且不被裁剪
+    # 登录页按管理员类型分 tab：默认「普通管理员」只有用户名与密码两个输入框，
+    # 「超级管理员」(owner) 才多出一个 TOTP 动态码框，两个 tab 都要验一遍。
     inputs = page.locator('.login-card input')
-    assert inputs.count() >= 3, f"登录页输入框数量不足 3，实际为 {inputs.count()}"
+    assert inputs.count() >= 2, f"登录页输入框数量不足 2，实际为 {inputs.count()}"
     for i in range(inputs.count()):
         box = inputs.nth(i).bounding_box()
         assert box['x'] >= 0 and box['x'] + box['width'] <= 390, f"输入框 {i} 发生水平越界: {box}"
-    print("   [输入框完整性] 用户名、密码、TOTP动态码输入框均完整容纳在视口内")
+    owner_tab = page.locator('.login-kind button', has_text='超级管理员')
+    assert owner_tab.count() >= 1, "登录页缺少「超级管理员」类型切换按钮"
+    owner_tab.first.click()
+    page.wait_for_timeout(300)
+    owner_inputs = page.locator('.login-card input')
+    assert owner_inputs.count() >= 3, f"超级管理员 tab 下输入框数量不足 3，实际为 {owner_inputs.count()}"
+    for i in range(owner_inputs.count()):
+        box = owner_inputs.nth(i).bounding_box()
+        assert box['x'] >= 0 and box['x'] + box['width'] <= 390, f"超级管理员 tab 输入框 {i} 发生水平越界: {box}"
+    # 切回默认 tab，避免影响后续步骤的占位符取样
+    page.locator('.login-kind button', has_text='普通管理员').first.click()
+    page.wait_for_timeout(300)
+    print("   [输入框完整性] 用户名、密码输入框完整容纳在视口内，超级管理员 tab 的 TOTP 动态码框同样完整")
 
     # 1.4 测量亮色模式下输入框占位符色彩与背景对比度 (>= 4.5:1)
     contrast_light = page.evaluate('''() => {
@@ -368,10 +382,10 @@ with sync_playwright() as p:
     mobile_toggle = page.locator('.mobile-toggle')
     assert not mobile_toggle.is_visible(), "桌面端移动端抽屉按钮应当隐藏"
 
-    # 5.3 断言桌面侧栏菜单包含全部 18 个菜单项
+    # 5.3 断言桌面侧栏菜单包含全部 19 个菜单项
     desktop_menu_items = page.locator('.desktop-aside .el-menu-item')
-    assert desktop_menu_items.count() == 18, f"桌面侧栏菜单项数量应为 18，实际为 {desktop_menu_items.count()}"
-    print(f"   [侧栏菜单项] 确认桌面端渲染全部 18 个菜单入口")
+    assert desktop_menu_items.count() == 19, f"桌面侧栏菜单项数量应为 19，实际为 {desktop_menu_items.count()}"
+    print(f"   [侧栏菜单项] 确认桌面端渲染全部 19 个菜单入口")
 
     # 5.4 顶栏管理员名称可见
     time.sleep(0.3)
@@ -387,7 +401,7 @@ with sync_playwright() as p:
         'viewport': '1280x800',
         'mode': 'light',
         'status': 'PASS',
-        'evidence': f"05_layout_1280_desktop.png, 桌面侧栏宽度 {aside_box['width']:.1f}px, 包含全部 18 个导航入口, 汉堡按钮隐藏"
+        'evidence': f"05_layout_1280_desktop.png, 桌面侧栏宽度 {aside_box['width']:.1f}px, 包含全部 19 个导航入口, 汉堡按钮隐藏"
     })
     ctx_admin_1280.close()
 
@@ -451,10 +465,10 @@ with sync_playwright() as p:
     page.wait_for_selector('.drawer-content', state='visible', timeout=5000)
     time.sleep(0.3)
 
-    # 7.3 断言抽屉内包含 18 个菜单入口
+    # 7.3 断言抽屉内包含 19 个菜单入口
     drawer_menu_items = page.locator('.drawer-content .el-menu-item')
-    assert drawer_menu_items.count() == 18, f"抽屉导航菜单项应为 18，实际为 {drawer_menu_items.count()}"
-    print(f"   [抽屉菜单项] 抽屉内完整渲染全部 18 个菜单项")
+    assert drawer_menu_items.count() == 19, f"抽屉导航菜单项应为 19，实际为 {drawer_menu_items.count()}"
+    print(f"   [抽屉菜单项] 抽屉内完整渲染全部 19 个菜单项")
 
     # 7.4 断言抽屉底部包含用户信息、改密入口、退出入口
     time.sleep(0.2)
@@ -483,7 +497,7 @@ with sync_playwright() as p:
         'viewport': '390x844',
         'mode': 'light',
         'status': 'PASS',
-        'evidence': f"07_layout_390_drawer.png, 抽屉内 18 个菜单完整展示, 改密/退出入口正常, 点击成功导航并自动收起抽屉"
+        'evidence': f"07_layout_390_drawer.png, 抽屉内 19 个菜单完整展示, 改密/退出入口正常, 点击成功导航并自动收起抽屉"
     })
 
     # =========================================================================

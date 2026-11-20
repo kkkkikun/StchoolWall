@@ -14,6 +14,7 @@ from app.services.jobs import enqueue_job
 from app.services.blocks import require_interaction, visible_author
 from app.models.user import User
 from app.services.notification import create_notification
+from app.services.runtime_controls import moderation_enabled, sensitive_words_enabled
 
 
 # ---- 通用 ----
@@ -125,11 +126,9 @@ def _comment_dict(c: Comment, nickname: str, avatar_url: str | None = None,
 
 
 async def create_comment(db: AsyncSession, user: User, post_id: int, content: str) -> dict | None:
-    """发评论（同步本地词检：hard 拒 / gray 待审 / clean 即见）。
+    """发评论：硬违规词始终拒绝；审核关闭时直接公开，否则进入审核任务。
 
-    - hard：抛 ValueError（路由转 400），评论不创建，审核记录 post_id=被评帖
-    - gray：status=0 待审——不计数不通知，过审（admin）时补计数与通知
-    - clean：status=1 即见，计数 + 通知帖子作者（不通知自己）
+    只有公开评论才增加计数并通知帖子作者，过审时补计数与通知。
     """
     post = await _get_post(db, post_id, actor_id=user.id)
     if not post:
@@ -139,13 +138,15 @@ async def create_comment(db: AsyncSession, user: User, post_id: int, content: st
     from app.services.sensitive_word import load_active_words
     from app.utils.local_rules import check_text_local
 
-    local_r, matched = check_text_local(content, await load_active_words(db))
+    words = await load_active_words(db) if await sensitive_words_enabled() else []
+    local_r, matched = check_text_local(content, words)
     if local_r.verdict == "reject":
         add_moderation_record(db, post_id, "rule", local_r, matched=matched or None)
         await db.commit()
         raise ValueError("评论包含违规内容，无法提交")
 
-    status = 1 if user.role == "admin" and local_r.verdict == "pass" else 0
+    review_enabled = await moderation_enabled()
+    status = 1 if (user.role == "admin" and local_r.verdict == "pass") or not review_enabled else 0
     c = Comment(post_id=post_id, user_id=user.id, content=content, status=status)
     db.add(c)
     await db.flush()

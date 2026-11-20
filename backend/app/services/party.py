@@ -10,6 +10,7 @@ from app.models.notification import Notification
 from app.services.jobs import enqueue_job
 from app.services.blocks import visible_author, require_interaction
 from app.services.notification import create_notification
+from app.services.runtime_controls import moderation_enabled, sensitive_words_enabled
 
 # 组局分类白名单（与前端组局页一致）
 CATEGORIES = ["自习", "电影", "聚餐", "拼车", "拼单", "运动", "游戏", "旅行", "其他"]
@@ -19,10 +20,18 @@ async def create_party(
     db: AsyncSession, user: User, type: str, category: str, title: str,
     content: str, total: int, meet_time=None, location: str | None = None,
 ) -> Party:
+    review_enabled = await moderation_enabled()
+    if user.role != "admin" and not review_enabled and await sensitive_words_enabled():
+        from app.services.sensitive_word import load_active_words
+        from app.utils.local_rules import check_text_local
+        text = " ".join(value or "" for value in (title, content, location))
+        local, _ = check_text_local(text, await load_active_words(db))
+        if local.verdict == "reject":
+            raise ValueError("组局包含违规内容，无法发布")
     p = Party(
         user_id=user.id, type=type, category=category, title=title,
         content=content, total=total, meet_time=meet_time, location=location,
-        status=1 if user.role == "admin" else 0,
+        status=1 if user.role == "admin" or not review_enabled else 0,
     )
     db.add(p)
     await db.flush()

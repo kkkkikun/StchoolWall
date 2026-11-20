@@ -10,12 +10,7 @@ from app.database import Base
 
 
 class AdminUser(Base):
-    """独立 Web 管理后台的账号（与小程序 users 表解耦）。
-
-    - 密码只存 bcrypt 哈希，绝不存明文
-    - pwd_version 用于改密后使所有已签发 token 失效
-    - 无 role 列：当前只有一种管理员角色
-    """
+    """独立 Web 管理后台账号；owner 管理账号与内测设置，admin 处理日常业务。"""
 
     __tablename__ = "admin_users"
 
@@ -23,6 +18,7 @@ class AdminUser(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(100), nullable=False)
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="admin")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # 改密 +1；token 中的 pwd_version 与库不匹配即失效
     pwd_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

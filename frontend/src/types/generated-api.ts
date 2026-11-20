@@ -1730,9 +1730,29 @@ export interface paths {
         put?: never;
         /**
          * Admin Login
-         * @description 账号密码登录（IP 限流 + 按用户名失败退避），返回 console 专用 token。
+         * @description 普通管理员密码登录；超级管理员使用独立 TOTP 或完成首次绑定。
          */
         post: operations["admin_login_api_v1_admin_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/auth/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Mfa Setup
+         * @description 验证首次绑定码；setup token 不包含正式后台访问权限。
+         */
+        post: operations["verify_mfa_setup_api_v1_admin_auth_mfa_setup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1746,10 +1766,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Admin Me
-         * @description 当前登录的管理员信息。
-         */
+        /** Admin Me */
         get: operations["admin_me_api_v1_admin_auth_me_get"];
         put?: never;
         post?: never;
@@ -1786,16 +1803,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Admin Accounts
-         * @description 管理后台账号列表（仅 admin）。
-         */
+        /** List Admin Accounts */
         get: operations["list_admin_accounts_api_v1_admin_admins_get"];
         put?: never;
-        /**
-         * Create Admin Account
-         * @description 新建管理后台账号（仅 admin）。
-         */
+        /** Create Admin Account */
         post: operations["create_admin_account_api_v1_admin_admins_post"];
         delete?: never;
         options?: never;
@@ -1811,10 +1822,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Update Admin Account Status
-         * @description 启用/停用管理后台账号（仅 admin）；停用会立即让对应 token 失效。
-         */
+        /** Update Admin Account Status */
         put: operations["update_admin_account_status_api_v1_admin_admins__admin_id__status_put"];
         post?: never;
         delete?: never;
@@ -1831,10 +1839,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Reset Admin Account Password
-         * @description 强制重置其他管理员密码（仅 admin）；目标账号旧 token 全部失效。
-         */
+        /** Reset Admin Account Password */
         put: operations["reset_admin_account_password_api_v1_admin_admins__admin_id__password_put"];
         post?: never;
         delete?: never;
@@ -2143,7 +2148,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Admin Current */
+        get: operations["admin_current_api_v1_admin_runtime_controls_get"];
         /** Change */
         put: operations["change_api_v1_admin_runtime_controls_put"];
         post?: never;
@@ -2532,6 +2538,12 @@ export interface components {
             nickname: string;
             /** Password */
             password: string;
+            /**
+             * Role
+             * @default admin
+             * @enum {string}
+             */
+            role: "admin" | "owner";
         };
         /** AdminAccountStatusRequest */
         AdminAccountStatusRequest: {
@@ -2546,6 +2558,15 @@ export interface components {
             username: string;
             /** Password */
             password: string;
+            /** Login Kind */
+            login_kind?: ("admin" | "owner") | null;
+        };
+        /** AdminMfaSetupVerifyRequest */
+        AdminMfaSetupVerifyRequest: {
+            /** Setup Token */
+            setup_token: string;
+            /** Totp Code */
+            totp_code: string;
         };
         /** AdminPasswordChangeRequest */
         AdminPasswordChangeRequest: {
@@ -2710,7 +2731,17 @@ export interface components {
         /** Controls */
         Controls: {
             /** Publishing Enabled */
-            publishing_enabled: boolean;
+            publishing_enabled?: boolean | null;
+            /** Moderation Enabled */
+            moderation_enabled?: boolean | null;
+            /** Sensitive Words Enabled */
+            sensitive_words_enabled?: boolean | null;
+            /** Registration Enabled */
+            registration_enabled?: boolean | null;
+            /** Guest Posting Enabled */
+            guest_posting_enabled?: boolean | null;
+            /** Guest Interaction Enabled */
+            guest_interaction_enabled?: boolean | null;
         };
         /** Decision */
         Decision: {
@@ -6190,6 +6221,39 @@ export interface operations {
             };
         };
     };
+    verify_mfa_setup_api_v1_admin_auth_mfa_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMfaSetupVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_me_api_v1_admin_auth_me_get: {
         parameters: {
             query?: never;
@@ -6955,6 +7019,26 @@ export interface operations {
         };
     };
     current_api_v1_runtime_controls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    admin_current_api_v1_admin_runtime_controls_get: {
         parameters: {
             query?: never;
             header?: never;

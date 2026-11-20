@@ -3,14 +3,32 @@ on:
   workflow_run:
     workflows: ["Production CI"]
     types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Production CI run ID for the tag
+        required: true
+        type: string
+      tag:
+        description: Release tag, for example v1.2.3
+        required: true
+        type: string
+      confirm:
+        description: Type DEPLOY to publish to production
+        required: true
+        type: string
 permissions: {contents: read, actions: read}
 concurrency:
   group: schoolwall-release
   cancel-in-progress: false
+
 jobs:
   staging:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request'
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      (github.event.workflow_run.head_branch == 'main' || startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -46,13 +64,19 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
           SERVER: ${{ secrets.SERVER_HOST }}
           USERNAME: ${{ secrets.SERVER_USERNAME }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/opt/schoolwall' }}
+          DEPLOY_PROFILE: ${{ vars.DEPLOY_PROFILE || 'standard' }}
         run: |
+          [[ "$DEPLOY_PROFILE" =~ ^(standard|cn)$ ]]
+          [[ "$DEPLOY_ROOT" =~ ^/opt/[A-Za-z0-9._/-]+$ ]]
+          if [[ "$DEPLOY_PROFILE" == cn ]]; then ROLLOUT_SCRIPT=rollout-cn.sh; else ROLLOUT_SCRIPT=rollout.sh; fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:/opt/schoolwall/incoming/"
-          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" 'cd /opt/schoolwall/incoming && sha256sum -c release.tar.gz.sha256 && UNPACK="$(mktemp -d /opt/schoolwall/incoming/release.XXXXXX)" && tar -xzf release.tar.gz -C "$UNPACK" && bash "$UNPACK/rollout.sh" /opt/schoolwall "$UNPACK"'
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" "mkdir -p '$DEPLOY_ROOT/incoming'"
+          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:$DEPLOY_ROOT/incoming/"
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" "cd '$DEPLOY_ROOT/incoming' && sha256sum -c release.tar.gz.sha256 && UNPACK=\"\$(mktemp -d '$DEPLOY_ROOT/incoming/release.XXXXXX')\" && tar -xzf release.tar.gz -C \"\$UNPACK\" && bash \"\$UNPACK/$ROLLOUT_SCRIPT\" '$DEPLOY_ROOT' \"\$UNPACK\""
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: staged-release
@@ -62,23 +86,92 @@ jobs:
           retention-days: 30
 
   production:
-    needs: staging
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # Configure required reviewers + protected main in repository environment settings.
     environment: production
     steps:
+      - name: Validate manual approval and source CI run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ inputs.run_id }}
+          TAG: ${{ inputs.tag }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [[ "$CONFIRM" == DEPLOY ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > ci-run.json
+          python - <<'PY'
+          import json, os
+          run = json.load(open("ci-run.json"))
+          assert run["name"] == "Production CI"
+          assert run["conclusion"] == "success"
+          assert run["event"] == "push"
+          assert run["head_branch"] == os.environ["TAG"]
+          PY
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with: {name: staged-release, path: .}
-      - name: Deploy the identical staged artifact
+        with:
+          name: verified-web
+          path: release
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-manifest
+          path: release
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create production transport from the verified CI artifacts
+        run: |
+          python - <<'PY'
+          import json, re
+          m = json.load(open("release/manifest.json"))
+          assert re.fullmatch(r"[a-f0-9]{40}", m["revision"])
+          assert re.fullmatch(r"ghcr.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}", m["backend_image"])
+          PY
+          tar -xzf release/verified-web.tar.gz -C release
+          rm release/verified-web.tar.gz
+          tar -czf release.tar.gz -C release .
+          sha256sum release.tar.gz > release.tar.gz.sha256
+      - name: Deploy the verified artifact to production
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
           SERVER: ${{ secrets.SERVER_HOST }}
           USERNAME: ${{ secrets.SERVER_USERNAME }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/opt/schoolwall' }}
+          DEPLOY_PROFILE: ${{ vars.DEPLOY_PROFILE || 'standard' }}
         run: |
+          [[ "$DEPLOY_PROFILE" =~ ^(standard|cn)$ ]]
+          [[ "$DEPLOY_ROOT" =~ ^/opt/[A-Za-z0-9._/-]+$ ]]
+          if [[ "$DEPLOY_PROFILE" == cn ]]; then ROLLOUT_SCRIPT=rollout-cn.sh; else ROLLOUT_SCRIPT=rollout.sh; fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:/opt/schoolwall/incoming/"
-          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" 'cd /opt/schoolwall/incoming && sha256sum -c release.tar.gz.sha256 && UNPACK="$(mktemp -d /opt/schoolwall/incoming/release.XXXXXX)" && tar -xzf release.tar.gz -C "$UNPACK" && bash "$UNPACK/rollout.sh" /opt/schoolwall "$UNPACK"'
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" "mkdir -p '$DEPLOY_ROOT/incoming'"
+          scp -o StrictHostKeyChecking=yes release.tar.gz release.tar.gz.sha256 "$USERNAME@$SERVER:$DEPLOY_ROOT/incoming/"
+          ssh -o StrictHostKeyChecking=yes "$USERNAME@$SERVER" "cd '$DEPLOY_ROOT/incoming' && sha256sum -c release.tar.gz.sha256 && UNPACK=\"\$(mktemp -d '$DEPLOY_ROOT/incoming/release.XXXXXX')\" && tar -xzf release.tar.gz -C \"\$UNPACK\" && bash \"\$UNPACK/$ROLLOUT_SCRIPT\" '$DEPLOY_ROOT' \"\$UNPACK\""
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: staged-release
+          path: |
+            release.tar.gz
+            release.tar.gz.sha256
+          retention-days: 30
+
+  release:
+    needs: production
+    runs-on: ubuntu-latest
+    permissions: {contents: write, actions: read}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: staged-release, path: .}
+      - name: Publish tagged GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes --title "$TAG"
+          gh release upload "$TAG" release.tar.gz release.tar.gz.sha256 --clobber

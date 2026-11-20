@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import get_current_user, require_posting_access
+from app.services.runtime_controls import guest_posting_enabled
 from app.models.media import MediaAsset
 from app.models.user import User
 from app.services.media import create_media, get_owned_media, media_bytes, media_url
@@ -23,7 +24,7 @@ UPLOAD_KINDS = ("avatars", "banners", "posts", "parties")
 async def get_upload_config(
     filename: str = Query(..., min_length=1, max_length=255),
     content_type: str = Query("image/jpeg", max_length=100),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_posting_access),
 ):
     error = validate_file(filename, content_type)
     if error:
@@ -38,9 +39,11 @@ async def get_upload_config(
 async def direct_upload(
     file: UploadFile,
     kind: str = Query(..., pattern="^(avatars|banners|posts|parties)$"),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.role not in {"student", "admin"} and (kind != "posts" or not await guest_posting_enabled()):
+        raise HTTPException(403, "内测期间仅认证学生可上传内容图片")
     await check_rate_limit(f"rl:u:{user.id}:upload", *RATE_UPLOAD)
     if not file.filename:
         raise HTTPException(status_code=400, detail="缺少文件名")

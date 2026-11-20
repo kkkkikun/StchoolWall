@@ -179,6 +179,7 @@ async def console_admin() -> AdminUser:
             username=f"console_admin_{uuid.uuid4().hex[:6]}",
             nickname="后台管理员",
             password_hash=hash_password("Admin12345"),
+            role="owner",
         )
         db.add(admin)
         await db.commit()

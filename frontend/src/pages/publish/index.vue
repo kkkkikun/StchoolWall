@@ -350,7 +350,7 @@ const onSubmit = async () => {
   submitting.value = true
   try {
     const uploaded = images.value.filter((i) => i.status === 'done').map((i) => i.mediaId)
-    await createPost({
+    const created = await createPost({
       post_type: selectedType.value,
       content: text,
       category: section.value,
@@ -358,7 +358,7 @@ const onSubmit = async () => {
       price: parsedPrice,
     })
     uni.removeStorageSync(DRAFT_KEY)
-    uni.showToast({ title: '发布成功，审核通过后可见', icon: 'success' })
+    uni.showToast({ title: created.status === 1 ? '发布成功' : '发布成功，审核通过后可见', icon: 'success' })
     setTimeout(() => {
       content.value = ''
       section.value = '广场'

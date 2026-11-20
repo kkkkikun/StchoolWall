@@ -115,6 +115,10 @@ CHAIN = (
          (("table", "post_hot_scores"), ("table", "post_hot_score_state"),
           ("index", "ix_posts_content_trgm"), ("index", "ix_posts_featured_id")),
          ()),
+    Step("c8f3a6b2d901", "d7e8f9a0b123",
+         (("column", "admin_users", "role"),
+          ("constraint", "admin_users", "ck_admin_users_role")),
+         ()),
 )
 
 

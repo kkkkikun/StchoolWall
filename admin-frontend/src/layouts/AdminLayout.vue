@@ -130,7 +130,6 @@ import {
   Lock,
   PriceTag,
   Calendar,
-  ChatLineSquare,
   Setting,
 } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/stores/theme'

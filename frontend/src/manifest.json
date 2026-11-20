@@ -39,7 +39,8 @@
     "quickapp" : {},
     /* 小程序特有相关 */
     "mp-weixin" : {
-        "appid" : "",
+        "appid" : "wx9dc79fce8669b758",
+        "libVersion" : "3.15.1",
         "setting" : {
             "urlCheck" : true
         },

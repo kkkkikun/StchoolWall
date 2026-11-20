@@ -74,6 +74,28 @@ REPORTS = [{
     'created_at': NOW, 'handled_at': None,
 } for i in range(1, 5)]
 
+# 反馈箱（owner-only）：列表、统计与详情都要有内容，否则页面接近空白会被判失败
+FEEDBACKS = [{
+    'id': i, 'category': ['bug', 'ui', 'feature', 'other'][i % 4],
+    'severity': ['low', 'medium', 'high'][i % 3],
+    'title': f'第{i}条走查用反馈：验证反馈箱列表、筛选与状态徽标渲染。',
+    'content': '反馈正文，用于验证管理端反馈收件箱的内容渲染与排版。',
+    'page_url': 'https://example.test/pc/settings', 'route': '/pc/settings',
+    'viewport': '1280x800', 'theme': 'light', 'app_version': '0.1.0',
+    'user_agent': 'Mozilla/5.0 (walkthrough)', 'reporter_name': '走查同学',
+    'status': ['open', 'handling', 'resolved', 'closed'][i % 4],
+    'note': None, 'created_at': NOW, 'handled_at': None, 'screenshot_count': 0,
+} for i in range(1, 5)]
+
+FEEDBACK_STATS = {'open': 1, 'handling': 1, 'resolved': 1, 'closed': 1, 'total': 4}
+
+# 内测设置（owner-only）：开关与快捷入口，用于验证运行期开关面板渲染
+RUNTIME_CONTROLS = {
+    'publishing_enabled': True, 'moderation_enabled': True,
+    'sensitive_words_enabled': True, 'registration_enabled': True,
+    'guest_posting_enabled': False, 'guest_interaction_enabled': False,
+}
+
 COMMENTS = [{
     'id': i, 'content': f'第{i}条走查用评论：验证评论管理与软删状态展示。',
     'post_id': i, 'post_content': '被评论的帖子标题', 'user': AUTHOR,
@@ -148,7 +170,7 @@ def handle_api(route):
     if '/admin/auth/me' in url:
         route.fulfill(status=200, content_type='application/json', body=json.dumps(ok({
             'admin': {'id': 'a-1', 'username': 'boss', 'display_name': '走查管理员',
-                      'role': 'superadmin', 'mfa_enabled': True},
+                      'role': 'owner', 'mfa_enabled': True},
             'password_version': 1,
         })))
     elif '/admin/stats/trends' in url:
@@ -195,6 +217,12 @@ def handle_api(route):
         route.fulfill(status=200, content_type='application/json', body=json.dumps(list_page(TAGS)))
     elif '/admin/activities' in url:
         route.fulfill(status=200, content_type='application/json', body=json.dumps(list_page(ACTIVITIES)))
+    elif '/admin/feedback/stats' in url:
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(ok(FEEDBACK_STATS)))
+    elif '/admin/feedback' in url:
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(list_page(FEEDBACKS)))
+    elif '/admin/runtime-controls' in url:
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(ok(RUNTIME_CONTROLS)))
     else:
         route.fulfill(status=200, content_type='application/json', body=json.dumps(ok({'items': []})))
 
@@ -202,6 +230,7 @@ def handle_api(route):
 # ---------------------------------------------------------------- 路由清单
 ROUTES = [
     ('dashboard', '/dashboard'),
+    ('runtime-controls', '/runtime-controls'),
     ('posts', '/posts'),
     ('moderation-jobs', '/moderation-jobs'),
     ('appeals', '/appeals'),
@@ -398,6 +427,9 @@ with sync_playwright() as p:
               localStorage.setItem('sw_admin_name', '走查管理员');
               localStorage.setItem('sw_admin_username', 'boss');
               localStorage.setItem('sw_admin_id', 'a-1');
+              // 以 owner 视角走查：内测设置与反馈箱是 owner-only 页面，
+              // 非 owner 身份下菜单被过滤、路由被守卫重定向，等于从未验收过。
+              localStorage.setItem('sw_admin_role', 'owner');
             } catch (e) {}
         """)
         page = context.new_page()

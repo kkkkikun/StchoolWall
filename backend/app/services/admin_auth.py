@@ -12,6 +12,7 @@ from app.utils.query import escape_like
 from app.utils.security import create_access_token
 
 CONSOLE_SCOPE = "admin_console"
+MFA_SETUP_SCOPE = "admin_mfa_setup"
 
 
 def issue_console_token(admin: AdminUser, mfa: bool = False) -> str:
@@ -24,6 +25,19 @@ def issue_console_token(admin: AdminUser, mfa: bool = False) -> str:
             "pwd_version": admin.pwd_version,
         },
         expires_delta=timedelta(hours=settings.ADMIN_TOKEN_EXPIRE_HOURS),
+    )
+
+
+def issue_mfa_setup_token(admin: AdminUser, encrypted_secret: str) -> str:
+    """首次绑定令牌只能携带本次加密密钥，不能访问任何管理接口。"""
+    return create_access_token(
+        {
+            "sub": str(admin.id),
+            "scope": MFA_SETUP_SCOPE,
+            "pwd_version": admin.pwd_version,
+            "mfa_secret": encrypted_secret,
+        },
+        expires_delta=timedelta(minutes=10),
     )
 
 
@@ -87,7 +101,6 @@ async def create_or_reset_admin(
     return admin, True
 
 
-
 async def list_admin_users(
     db: AsyncSession,
     *,
@@ -117,6 +130,8 @@ async def list_admin_users(
         "id": str(a.id),
         "username": a.username,
         "nickname": a.nickname,
+        "role": a.role,
+        "mfa_enabled": bool(a.mfa_secret_encrypted),
         "is_active": bool(a.is_active),
         "pwd_version": a.pwd_version,
         "last_login_at": a.last_login_at.isoformat() if a.last_login_at else None,
@@ -126,7 +141,7 @@ async def list_admin_users(
 
 
 async def create_admin_user(
-    db: AsyncSession, username: str, nickname: str, password: str
+    db: AsyncSession, username: str, nickname: str, password: str, role: str = "admin"
 ) -> tuple[AdminUser | None, str | None]:
     """新建管理后台账号；用户名冲突返回错误信息。"""
     username = username.strip()
@@ -141,6 +156,7 @@ async def create_admin_user(
         username=username,
         nickname=nickname,
         password_hash=hash_password(password),
+        role=role,
     )
     db.add(admin)
     await db.commit()
@@ -155,7 +171,7 @@ async def set_admin_active(
     *,
     actor_id: str | None = None,
 ) -> tuple[AdminUser | None, str | None]:
-    """启用/停用管理后台账号；停用需保留至少一个启用账号，且不能停用自己。"""
+    """启用/停用账号，不能停用自己或最后一个启用的超级管理员。"""
     result = await db.execute(select(AdminUser).where(AdminUser.id == admin_id))
     admin = result.scalar_one_or_none()
     if admin is None:
@@ -164,13 +180,26 @@ async def set_admin_active(
     if not is_active:
         if actor_id is not None and str(admin.id) == str(actor_id):
             return admin, "不能停用当前登录账号"
-        active_count = await db.scalar(
-            select(func.count())
-            .select_from(AdminUser)
-            .where(AdminUser.is_active.is_(True), AdminUser.id != admin.id)
-        ) or 0
-        if active_count == 0:
-            return admin, "至少保留一个启用账号"
+        if admin.role == "owner":
+            owner_count = await db.scalar(
+                select(func.count())
+                .select_from(AdminUser)
+                .where(
+                    AdminUser.is_active.is_(True),
+                    AdminUser.role == "owner",
+                    AdminUser.id != admin.id,
+                )
+            ) or 0
+            if owner_count == 0:
+                return admin, "至少保留一个启用的超级管理员"
+        else:
+            active_count = await db.scalar(
+                select(func.count())
+                .select_from(AdminUser)
+                .where(AdminUser.is_active.is_(True), AdminUser.id != admin.id)
+            ) or 0
+            if active_count == 0:
+                return admin, "至少保留一个启用账号"
 
     admin.is_active = is_active
     await db.commit()

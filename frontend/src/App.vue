@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
+import { wxLoginAndStore } from "@/api/auth";
 
 onLaunch(() => {
   // 微信小程序：静默登录（H5 预览走我的页 dev-login，不在此处理）
   // #ifdef MP-WEIXIN
-  import("@/api/auth").then(({ wxLoginAndStore }) => wxLoginAndStore());
+  wxLoginAndStore();
   // #endif
 });
 onShow(() => {
@@ -242,6 +243,7 @@ html.theme-dark { background: #121012; }
   align-items: center;
   justify-content: center;
 }
+/* #endif */
 
 /* 关掉 uni-app H5 框架的导航阴影图预加载：
    框架用 body:after 挂一个隐藏伪元素，3 秒后从 dcloud 公网 CDN

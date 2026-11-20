@@ -21,6 +21,7 @@ from app.services.hot_scores import (
     hot_score_expr,
     hot_score_state,
 )
+from app.services.runtime_controls import moderation_enabled, sensitive_words_enabled
 
 # 微号披露允许的帖型：交易/拼车联系刚需，其余帖型不向其他学生返回 contact_wechat
 TRADE_POST_TYPES = {"second_hand", "carpool"}
@@ -42,7 +43,14 @@ async def create_post(
     media_ids: list[uuid.UUID] | None = None,
 ) -> Post:
     is_admin = user.role == "admin"
-    status = 1 if is_admin else 0  # admin 直接通过审核
+    review_enabled = await moderation_enabled()
+    if not is_admin and not review_enabled and await sensitive_words_enabled():
+        from app.services.sensitive_word import load_active_words
+        from app.utils.local_rules import check_text_local
+        local, _ = check_text_local(content, await load_active_words(db))
+        if local.verdict == "reject":
+            raise ValueError("帖子包含违规内容，无法发布")
+    status = 1 if is_admin or not review_enabled else 0
 
     post = Post(
         user_id=user.id,

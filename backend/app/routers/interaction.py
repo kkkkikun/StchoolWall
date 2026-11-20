@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_optional_user, require_role
+from app.dependencies import get_optional_user, require_interaction_access
 from app.models.user import User
 from app.schemas.interaction import CommentCreate
 from app.services import interaction as svc
@@ -26,7 +26,7 @@ router = APIRouter()
 async def like_post(
     post_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.like_post(db, user, post_id)
     if data is None:
@@ -38,7 +38,7 @@ async def like_post(
 async def unlike_post(
     post_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.unlike_post(db, user, post_id)
     if data is None:
@@ -54,7 +54,7 @@ async def create_comment(
     post_id: int,
     body: CommentCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     await check_rate_limit(f"rl:u:{user.id}:comments", *RATE_COMMENT)
     try:
@@ -84,7 +84,7 @@ async def list_comments(
 async def delete_comment(
     comment_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     result = await svc.delete_comment(db, user, comment_id)
     if result is None:
@@ -101,7 +101,7 @@ async def delete_comment(
 async def favorite_post(
     post_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.favorite_post(db, user, post_id)
     if data is None:
@@ -113,7 +113,7 @@ async def favorite_post(
 async def unfavorite_post(
     post_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.unfavorite_post(db, user, post_id)
     if data is None:
@@ -128,7 +128,7 @@ async def unfavorite_post(
 async def my_favorites(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     items, next_cursor, has_more = await svc.list_favorites(db, user, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
@@ -138,7 +138,7 @@ async def my_favorites(
 async def my_likes(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     items, next_cursor, has_more = await svc.list_my_likes(db, user, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
@@ -148,7 +148,7 @@ async def my_likes(
 async def my_comments(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     items, next_cursor, has_more = await svc.list_my_comments(db, user, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
@@ -158,7 +158,7 @@ async def my_comments(
 async def my_footprints(
     cursor: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     items, next_cursor, has_more = await svc.list_footprints(db, user, cursor)
     return {"code": 0, "data": {"items": items, "next_cursor": next_cursor, "has_more": has_more}}
@@ -167,7 +167,7 @@ async def my_footprints(
 @router.get("/me/stats")
 async def my_stats(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     data = await svc.get_stats(db, user)
     return {"code": 0, "data": data}
@@ -180,7 +180,7 @@ async def my_stats(
 async def follow_user(
     user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     import uuid as _uuid
     data = await follow_svc.follow(db, user, _uuid.UUID(user_id))
@@ -191,7 +191,7 @@ async def follow_user(
 async def unfollow_user(
     user_id: str = Path(..., pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("student", "admin")),
+    user: User = Depends(require_interaction_access),
 ):
     import uuid as _uuid
     data = await follow_svc.unfollow(db, user, _uuid.UUID(user_id))

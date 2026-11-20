@@ -1,9 +1,13 @@
 # SNAPSHOT — SchoolWall 项目状态快照
 
-> 最后更新：2026-11-02 ｜ 分支：main（已合入主线，合并点 d7fe503，来源分支 feature/main-quality-port） ｜ 维护者：开发团队（assistant 按需更新）
+> 最后更新：2026-11-08 ｜ 分支：main（已合入主线，合并点 d7fe503，来源分支 feature/main-quality-port） ｜ 维护者：开发团队（assistant 按需更新）
 > 用途：新会话进入项目时的第一份"现在在哪"快照。规则全文见 `openspec/specs/`，本文件只记状态。
 
 ---
+
+## 2026-11-08：实机内测状态
+
+用户已部署单独的国内staging，仅计划少量开发人员内测。已进行SSH只读检查，发现入口未限定人员、内测放宽开关开启、服务器迁移与工作区不一致、Caddy可信代理IP不匹配、缺少可验证备份证据。报告与优先准备事项：docs/production/internal-test-review-2026-11-08.md。当前未对服务器作任何配置或业务数据变更；后续真实生产验收仍未通过。
 
 ## 项目一句话
 

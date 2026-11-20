@@ -1,15 +1,15 @@
 {
-  "updated_at": "2026-10-31",
+  "updated_at": "2026-11-20",
   "tolerance": 0.1,
   "note": "体积为 gzip -9 后的字节数；echarts_chunk 守住按需注册的成果",
   "bundle": {
-    "main_chunk_js_gzip": 95561,
-    "main_chunk_css_gzip": 8571,
+    "main_chunk_js_gzip": 96790,
+    "main_chunk_css_gzip": 8602,
     "echarts_chunk_gzip": 179144,
-    "total_js_gzip": 494574,
-    "total_css_gzip": 45747,
+    "total_js_gzip": 507280,
+    "total_css_gzip": 48139,
     "largest_js_gzip": 179144,
-    "js_count": 47,
-    "css_count": 37
+    "js_count": 56,
+    "css_count": 41
   }
 }

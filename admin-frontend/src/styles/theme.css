@@ -154,3 +154,12 @@ html.dark .el-table {
   outline: 2px solid var(--el-color-primary);
   outline-offset: 2px;
 }
+
+/* —— 开关（inline-prompt）关闭态文字对比度 ——
+   Element Plus 的 inline-prompt 文字统一取 --el-switch-on-color（白），
+   可关闭态的轨道是浅灰 #dcdfe6，白字压上去只有 1.33:1，远低于 AA 的 4.5:1。
+   内测设置的运行期开关、站内活动的上下架开关都用 inline-prompt，
+   关闭态一律改用正文深色，在浅灰轨道上约 9.7:1。 */
+html .el-switch:not(.is-checked) .el-switch__inner-wrapper span {
+  color: var(--el-text-color-primary);
+}

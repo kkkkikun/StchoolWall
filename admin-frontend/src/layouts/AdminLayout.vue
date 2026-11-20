@@ -7,7 +7,7 @@
         <span class="brand-text">鄂应墙管理后台</span>
       </div>
       <el-menu :default-active="activeMenu" router class="menu">
-        <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
+        <el-menu-item v-for="item in visibleMenus" :key="item.path" :index="item.path">
           <el-icon class="menu-icon" :size="18"><component :is="item.icon" /></el-icon>
           <span>{{ item.title }}</span>
         </el-menu-item>
@@ -72,7 +72,7 @@
         </div>
         <el-scrollbar class="drawer-menu-scroll">
           <el-menu :default-active="activeMenu" router class="menu" @select="onMenuSelect">
-            <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
+            <el-menu-item v-for="item in visibleMenus" :key="item.path" :index="item.path">
               <el-icon class="menu-icon" :size="18"><component :is="item.icon" /></el-icon>
               <span>{{ item.title }}</span>
             </el-menu-item>
@@ -121,6 +121,7 @@ import {
   School,
   User,
   WarningFilled,
+  ChatLineSquare,
   ChatDotRound,
   Basketball,
   Picture,
@@ -129,6 +130,7 @@ import {
   Lock,
   PriceTag,
   Calendar,
+  Setting,
 } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
@@ -148,6 +150,7 @@ interface MenuItem {
 // 图标使用 SVG 组件（currentColor 继承主题文字色），避免系统 Emoji 字体差异
 const menus: MenuItem[] = [
   { path: '/dashboard', title: '看板', icon: DataBoard },
+  { path: '/runtime-controls', title: '内测设置', icon: Setting },
   { path: '/posts', title: '帖子管理', icon: Document },
   { path: '/moderation-jobs', title: '人工审核', icon: View },
   { path: '/appeals', title: '申诉处理', icon: Message },
@@ -156,6 +159,7 @@ const menus: MenuItem[] = [
   { path: '/student-verifications', title: '学生证认证', icon: School },
   { path: '/users', title: '用户管理', icon: User },
   { path: '/reports', title: '举报处理', icon: WarningFilled },
+  { path: '/feedback', title: '反馈箱', icon: ChatLineSquare },
   { path: '/comments', title: '评论管理', icon: ChatDotRound },
   { path: '/parties', title: '组局管理', icon: Basketball },
   { path: '/banners', title: '轮播广告', icon: Picture },
@@ -166,6 +170,10 @@ const menus: MenuItem[] = [
   { path: '/activities', title: '站内活动', icon: Calendar },
 ]
 
+// 仅 owner 可见的菜单：内测开关（能改线上发布与审核开关）与反馈箱
+// （含用户上报截图、诊断日志与客户端 IP，属隐私数据）
+const ownerOnlyPaths = ['/runtime-controls', '/feedback']
+const visibleMenus = computed(() => menus.filter(item => !ownerOnlyPaths.includes(item.path) || auth.isOwner))
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => (route.meta.title as string) || '')
 

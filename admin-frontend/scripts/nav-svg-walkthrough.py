@@ -3,11 +3,11 @@
 SchoolWall 管理后台导航 SVG 图标专项验收脚本（独立脚本，不改动 ui-walkthrough.py）。
 
 针对已构建的 admin-frontend/dist，用单个 Headless Chromium 顺序验证 4 个场景：
-  1. 1280x800 桌面亮色  —— 17 个菜单 SVG 断言 + 主题颜色 + 激活项
+  1. 1280x800 桌面亮色  —— 19 个菜单 SVG 断言 + 主题颜色 + 激活项
   2. 1280x800 桌面暗色  —— 同上（暗色令牌）
-  3. 390x844 手机亮色   —— 抽屉内 17 个 SVG + 对齐 + 滚动 + 点击「用户管理」
+  3. 390x844 手机亮色   —— 抽屉内 19 个 SVG + 对齐 + 滚动 + 点击「用户管理」
                            验证路由 /users、面包屑更新、抽屉自动关闭、改密/退出入口
-  4. 390x844 手机暗色   —— 抽屉内 17 个 SVG + 暗色主题显示
+  4. 390x844 手机暗色   —— 抽屉内 19 个 SVG + 暗色主题显示
 
 每个 .menu-icon 必须包含真实 SVG 节点且尺寸非零、无横向溢出、
 颜色经 currentColor 继承菜单文字色。任一断言失败 -> 场景记 FAIL，脚本退出码非零。
@@ -44,6 +44,7 @@ if not os.path.isdir(DIST_DIR):
 # 与 AdminLayout.vue 中 menus 配置一一对应（顺序敏感）
 EXPECTED_MENUS = [
     ('/dashboard', '看板'),
+    ('/runtime-controls', '内测设置'),
     ('/posts', '帖子管理'),
     ('/moderation-jobs', '人工审核'),
     ('/appeals', '申诉处理'),
@@ -52,6 +53,7 @@ EXPECTED_MENUS = [
     ('/student-verifications', '学生证认证'),
     ('/users', '用户管理'),
     ('/reports', '举报处理'),
+    ('/feedback', '反馈箱'),
     ('/comments', '评论管理'),
     ('/parties', '组局管理'),
     ('/banners', '轮播广告'),
@@ -62,7 +64,7 @@ EXPECTED_MENUS = [
     ('/activities', '站内活动'),
 ]
 MENU_COUNT = len(EXPECTED_MENUS)
-assert MENU_COUNT == 17
+assert MENU_COUNT == 19
 
 # ---------------------------------------------------------------- 静态服务器
 httpd, base_url = create_server(DIST_DIR)
@@ -75,7 +77,7 @@ def handle_admin_api(route):
         route.fulfill(status=200, content_type='application/json', body=json.dumps({
             'code': 0, 'message': 'success',
             'data': {'id': 'admin-test-01', 'username': 'admin', 'display_name': '系统管理员',
-                     'role': 'super_admin', 'mfa_enabled': True}
+                     'role': 'owner', 'mfa_enabled': True}
         }))
     elif '/admin/stats/trends' in url:
         days = 7 if 'days=7' in url else (30 if 'days=30' in url else 14)
@@ -99,7 +101,7 @@ def check(condition, message):
         raise AssertionError(message)
 
 def assert_menu_svg(page, scope_selector, scenario_name):
-    """对指定作用域内的 17 个菜单做 SVG 真实 DOM 断言，返回明细列表。"""
+    """对指定作用域内的全部菜单做 SVG 真实 DOM 断言，返回明细列表。"""
     items = page.locator(f'{scope_selector} .el-menu-item')
     check(items.count() == MENU_COUNT,
           f"{scenario_name}: 菜单项数量应为 {MENU_COUNT}，实际为 {items.count()}")
@@ -237,7 +239,7 @@ try:
             assert_no_horizontal_overflow(page, name)
             shot = 'nav-svg-desktop-light.png'
             page.screenshot(path=f'{ARTIFACTS_DIR}/{shot}')
-            print(f"   [通过] 17 项 SVG 全部真实渲染，对齐偏差 {align_delta}px，激活项颜色一致")
+            print(f"   [通过] {MENU_COUNT} 项 SVG 全部真实渲染，对齐偏差 {align_delta}px，激活项颜色一致")
             record(name, '1280x800', 'light', 'PASS',
                    assertions={'menus': details, 'align_delta_px': align_delta,
                                'active_icon_color': active_colors['icon'],
@@ -275,7 +277,7 @@ try:
             assert_no_horizontal_overflow(page, name)
             shot = 'nav-svg-desktop-dark.png'
             page.screenshot(path=f'{ARTIFACTS_DIR}/{shot}')
-            print(f"   [通过] 暗色 17 项 SVG 渲染正常，侧栏背景 {aside_bg}，对齐偏差 {align_delta}px")
+            print(f"   [通过] 暗色 {MENU_COUNT} 项 SVG 渲染正常，侧栏背景 {aside_bg}，对齐偏差 {align_delta}px")
             record(name, '1280x800', 'dark', 'PASS',
                    assertions={'menus': details, 'align_delta_px': align_delta,
                                'dark_class': True, 'aside_bg': aside_bg, 'horizontal_overflow': False},
@@ -349,7 +351,7 @@ try:
             }''')
             check(drawer_hidden, f'{name}: 点击菜单后抽屉未关闭')
 
-            print(f"   [通过] 抽屉 17 项 SVG + 滚动 + 对齐({align_delta}px) 正常；"
+            print(f"   [通过] 抽屉 {MENU_COUNT} 项 SVG + 滚动 + 对齐({align_delta}px) 正常；"
                   f"点击「用户管理」跳转 {page.url}，面包屑「{breadcrumb.strip()}」，抽屉已关闭")
             record(name, '390x844', 'light', 'PASS',
                    assertions={'menus': details, 'align_delta_px': align_delta,
@@ -394,7 +396,7 @@ try:
 
             shot = 'nav-svg-mobile-dark.png'
             page.screenshot(path=f'{ARTIFACTS_DIR}/{shot}')
-            print(f"   [通过] 暗色抽屉 17 项 SVG 渲染正常，抽屉背景 {drawer_bg}，对齐偏差 {align_delta}px")
+            print(f"   [通过] 暗色抽屉 {MENU_COUNT} 项 SVG 渲染正常，抽屉背景 {drawer_bg}，对齐偏差 {align_delta}px")
             record(name, '390x844', 'dark', 'PASS',
                    assertions={'menus': details, 'align_delta_px': align_delta,
                                'dark_class': True, 'drawer_bg': drawer_bg},

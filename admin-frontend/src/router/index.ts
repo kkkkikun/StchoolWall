@@ -10,6 +10,7 @@ const routes = [
     redirect: '/dashboard',
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '看板' } },
+      { path: 'runtime-controls', name: 'runtime-controls', component: () => import('@/views/RuntimeControlsView.vue'), meta: { title: '内测设置', ownerOnly: true } },
       { path: 'posts', name: 'posts', component: () => import('@/views/PostsView.vue'), meta: { title: '帖子管理' } },
       { path: 'moderation-jobs', name: 'moderation-jobs', component: () => import('@/views/ModerationJobsView.vue'), meta: { title: '人工审核' } },
       { path: 'appeals', name: 'appeals', component: () => import('@/views/AppealsView.vue'), meta: { title: '申诉处理' } },
@@ -18,6 +19,7 @@ const routes = [
       { path: 'student-verifications', name: 'student-verifications', component: () => import('@/views/StudentVerificationsView.vue'), meta: { title: '学生证认证' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '用户管理' } },
       { path: 'reports', name: 'reports', component: () => import('@/views/ReportsView.vue'), meta: { title: '举报处理' } },
+      { path: 'feedback', name: 'feedback', component: () => import('@/views/FeedbackView.vue'), meta: { title: '反馈箱', ownerOnly: true } },
       { path: 'comments', name: 'comments', component: () => import('@/views/CommentsView.vue'), meta: { title: '评论管理' } },
       { path: 'parties', name: 'parties', component: () => import('@/views/PartiesView.vue'), meta: { title: '组局管理' } },
       { path: 'banners', name: 'banners', component: () => import('@/views/BannersView.vue'), meta: { title: '轮播广告' } },
@@ -39,6 +41,9 @@ const router = createRouter({
 router.beforeEach((to) => {
   if (to.path !== '/login' && !getToken()) {
     return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.ownerOnly && localStorage.getItem('sw_admin_role') !== 'owner') {
+    return { path: '/dashboard' }
   }
   document.title = `${to.meta.title || '管理后台'} · 鄂应墙`
 })
